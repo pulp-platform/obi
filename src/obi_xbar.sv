@@ -83,9 +83,9 @@ module obi_xbar #(
   end
 
   for (genvar i = 0; i < NumSlvPorts; i++) begin
-    for (genvar j = 0; j < NumMstPorts; i++) begin
-      mst_reqs[j][i] = slv_reqs[i][j];
-      slv_rsps[i][j] = mst_rsps[j][i];
+    for (genvar j = 0; j < NumMstPorts; j++) begin
+      assign mst_reqs[j][i] = slv_reqs[i][j];
+      assign slv_rsps[i][j] = mst_rsps[j][i];
     end
   end
 

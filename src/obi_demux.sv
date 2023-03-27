@@ -45,7 +45,7 @@ module obi_demux #(
   always_comb begin
     select_d = select_q;
     cnt_up = 1'b0;
-    for (genvar i = 0; i < NumMstPorts; i++) begin
+    for (int i = 0; i < NumMstPorts; i++) begin
       mst_ports_req_o[i].req = 1'b0;
       mst_ports_req_o[i].a   = '0;
     end

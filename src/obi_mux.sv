@@ -117,7 +117,7 @@ module obi_mux #(
     assign mst_port_obi_req_o.rready = slv_port_obi_req_i[response_id].rready;
   end
   always_comb begin
-    for (genvar i = 0; i < NumMstPorts; i++) begin
+    for (int i = 0; i < NumSlvPorts; i++) begin
       slv_ports_obi_rsp_o[i].r = '0;
       slv_ports_obi_rsp_o[i].rvalid = '0;
     end
