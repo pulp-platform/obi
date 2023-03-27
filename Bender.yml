@@ -19,4 +19,6 @@ sources:
   # Level 2
   - src/obi_demux.sv
   - src/obi_mux.sv
+  # Level 3
+  - src/obi_xbar.sv
 
