@@ -12,12 +12,16 @@
 
 package obi_pkg;
   
+  /// The OBI atomics type, to be expanded.
   typedef logic [5:0] atop_t;
 
+  /// The OBI memtype type, to be expanded.
   typedef logic [1:0] memtype_t;
 
+  /// The OBI prot type, to be expanded.
   typedef logic [2:0] prot_t;
 
+  /// The OBI bus config type.
   typedef struct packed {
     bit          UseRReady;
     bit          UseAtop;
@@ -36,6 +40,7 @@ package obi_pkg;
     bit          BeFull;
   } obi_cfg_t;
 
+  /// The default OBI bus config.
   localparam obi_cfg_t ObiDefaultConfig = '{
     UseRReady:  1'b0,
     UseAtop:    1'b0,

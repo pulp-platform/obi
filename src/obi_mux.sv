@@ -10,16 +10,27 @@
 
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
+/// An OBI multiplexer.
 module obi_mux #(
+  /// The configuration of the slave ports (input ports).
   parameter obi_pkg::obi_cfg_t SlvPortObiCfg      = obi_pkg::ObiDefaultConfig,
+  /// The configuration of the master port (output port).
   parameter obi_pkg::obi_cfg_t MstPortObiCfg      = SlvPortObiCfg,
+  /// The request struct for the slave ports (input ports).
   parameter type               slv_port_obi_req_t = logic,
+  /// The A channel struct for the slave ports (input ports).
   parameter type               slv_port_a_chan_t  = logic,
+  /// The response struct for the slave ports (input ports).
   parameter type               slv_port_obi_rsp_t = logic,
+  /// The R channel struct for the slave ports (input ports).
   parameter type               slv_port_r_chan_t  = logic,
+  /// The request struct for the master port (output port).
   parameter type               mst_port_obi_req_t = slv_port_obi_req_t,
+  /// The response struct for the master ports (output ports).
   parameter type               mst_port_obi_rsp_t = slv_port_obi_rsp_t,
+  /// The number of slave ports (input ports).
   parameter int unsigned       NumSlvPorts        = 32'd0,
+  /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans        = 32'd0
 ) (
   input  logic clk_i,
@@ -40,7 +51,7 @@ module obi_mux #(
 
   logic [NumSlvPorts-1:0] slv_ports_req, slv_ports_gnt;
   slv_port_a_chan_t [NumSlvPorts-1:0] slv_ports_a;
-  for (genvar i = 0; i < NumSlvPorts; i++) begin
+  for (genvar i = 0; i < NumSlvPorts; i++) begin : gen_slv_assign
     assign slv_ports_req[i] = slv_ports_obi_req_i[i].req;
     assign slv_ports_a[i] = slv_ports_obi_req_i[i].a;
     assign slv_ports_obi_rsp_o[i].gnt = slv_ports_gnt[i];
@@ -90,7 +101,7 @@ module obi_mux #(
     // end
 
     // assign mst_port_obi_req_o.a.optional = 
-  end else begin
+  end else begin : gen_no_id_assign
     assign mst_port_obi_req_o.a = mst_port_a_in_slv;
   end
 
@@ -114,12 +125,12 @@ module obi_mux #(
     .pop_i     ( fifo_pop                                         )
   );
 
-  if (MstPortObiCfg.UseRReady) begin
+  if (MstPortObiCfg.UseRReady) begin : gen_rready_connect
     assign mst_port_obi_req_o.rready = slv_port_obi_req_i[response_id].rready;
   end
   logic [NumSlvPorts-1:0] slv_rsp_rvalid;
   slv_port_r_chan_t [NumSlvPorts-1:0] slv_rsp_r;
-  always_comb begin
+  always_comb begin : proc_slv_rsp
     for (int i = 0; i < NumSlvPorts; i++) begin
       slv_rsp_r[i] = '0;
       slv_rsp_rvalid[i] = '0;
@@ -128,14 +139,14 @@ module obi_mux #(
     slv_rsp_rvalid[response_id] = mst_port_obi_rsp_i.rvalid;
   end
 
-  for (genvar i = 0; i < NumSlvPorts; i++) begin
+  for (genvar i = 0; i < NumSlvPorts; i++) begin : gen_slv_rsp_assign
     assign slv_ports_obi_rsp_o[i].r = slv_rsp_r[i];
     assign slv_ports_obi_rsp_o[i].rvalid = slv_rsp_rvalid[i];
   end
 
-  if (MstPortObiCfg.UseRReady) begin
+  if (MstPortObiCfg.UseRReady) begin : gen_fifo_pop
     assign fifo_pop = mst_port_obi_rsp_i.rvalid && mst_port_obi_req_o.rready;
-  end else begin
+  end else begin : gen_fifo_pop
     assign fifo_pop = mst_port_obi_rsp_i.rvalid;
   end
 

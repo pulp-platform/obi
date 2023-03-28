@@ -10,19 +10,33 @@
 
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
+/// An OBI crossbar interconnect.
 module obi_xbar #(
+  /// The OBI configuration for the slave ports (input ports).
   parameter obi_pkg::obi_cfg_t SlvPortObiCfg      = obi_pkg::ObiDefaultConfig,
+  /// The OBI configuration for the master ports (ouput ports).
   parameter obi_pkg::obi_cfg_t MstPortObiCfg      = SlvPortObiCfg,
+  /// The request struct for the slave ports (input ports).
   parameter type               slv_port_obi_req_t = logic,
+  /// The A channel struct for the slave ports (input ports).
   parameter type               slv_port_a_chan_t  = logic,
+  /// The response struct for the slave ports (input ports).
   parameter type               slv_port_obi_rsp_t = logic,
+  /// The R channel struct for the slave ports (input ports).
   parameter type               slv_port_r_chan_t  = logic,
+  /// The request struct for the master ports (output ports).
   parameter type               mst_port_obi_req_t = slv_port_obi_req_t,
+  /// The response struct for the master ports (output ports).
   parameter type               mst_port_obi_rsp_t = slv_port_obi_rsp_t,
+  /// The number of slave ports (input ports).
   parameter int unsigned       NumSlvPorts        = 32'd0,
+  /// The number of master ports (output ports).
   parameter int unsigned       NumMstPorts        = 32'd0,
+  /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans        = 32'd0,
+  /// The number of address rules.
   parameter int unsigned       NumAddrRules       = 32'd0,
+  /// The address map rule type.
   parameter type               addr_map_rule_t    = logic
 ) (
   input  logic clk_i,
@@ -50,7 +64,7 @@ module obi_xbar #(
   slv_port_obi_req_t [NumMstPorts-1:0][NumSlvPorts-1:0] mst_reqs;
   slv_port_obi_rsp_t [NumMstPorts-1:0][NumSlvPorts-1:0] mst_rsps;
 
-  for (genvar i = 0; i < NumSlvPorts; i++) begin
+  for (genvar i = 0; i < NumSlvPorts; i++) begin : gen_demux
     addr_decode #(
       .NoIndices ( NumMstPorts                         ),
       .NoRules   ( NumAddrRules                        ),
@@ -83,14 +97,14 @@ module obi_xbar #(
     );
   end
 
-  for (genvar i = 0; i < NumSlvPorts; i++) begin
-    for (genvar j = 0; j < NumMstPorts; j++) begin
+  for (genvar i = 0; i < NumSlvPorts; i++) begin : gen_interco_slv
+    for (genvar j = 0; j < NumMstPorts; j++) begin : gen_interco_mst
       assign mst_reqs[j][i] = slv_reqs[i][j];
       assign slv_rsps[i][j] = mst_rsps[j][i];
     end
   end
 
-  for (genvar i = 0; i < NumMstPorts; i++) begin
+  for (genvar i = 0; i < NumMstPorts; i++) begin : gen_mux
     obi_mux #(
       .SlvPortObiCfg      ( SlvPortObiCfg      ),
       .MstPortObiCfg      ( MstPortObiCfg      ),

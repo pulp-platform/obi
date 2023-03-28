@@ -11,11 +11,17 @@
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
 module obi_demux #(
+  /// The OBI configuration for all ports.
   parameter obi_pkg::obi_cfg_t ObiCfg      = obi_pkg::ObiDefaultConfig,
+  /// The request struct for all ports.
   parameter type               obi_req_t   = logic,
+  /// The response struct for all ports.
   parameter type               obi_rsp_t   = logic,
+  /// The number of master ports.
   parameter int unsigned       NumMstPorts = 32'd0,
+  /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans = 32'd0,
+  /// The type of the port select signal.
   parameter type               select_t    = logic [$clog2(NumMstPorts)-1:0]
 ) (
   input  logic                       clk_i,
@@ -42,7 +48,7 @@ module obi_demux #(
 
   select_t select_d, select_q;
 
-  always_comb begin
+  always_comb begin : proc_req
     select_d = select_q;
     cnt_up = 1'b0;
     for (int i = 0; i < NumMstPorts; i++) begin
@@ -67,12 +73,12 @@ module obi_demux #(
   assign slv_port_rsp_o.r      = mst_ports_rsp_i[select_q].r;
   assign slv_port_rsp_o.rvalid = mst_ports_rsp_i[select_q].rvalid;
 
-  if (ObiCfg.UseRReady) begin
+  if (ObiCfg.UseRReady) begin : gen_rready
     assign slv_port_rready = slv_port_req_i.rready;
-    for (genvar i = 0; i < NumMstPorts; i++) begin
+    for (genvar i = 0; i < NumMstPorts; i++) begin : gen_rready
       assign mst_ports_req_o[i].rready = slv_port_req_i.rready;
     end
-  end else begin
+  end else begin : gen_no_rready
     assign slv_port_rready = 1'b1;
   end
 
