@@ -16,6 +16,7 @@ module obi_mux #(
   parameter type               slv_port_obi_req_t = logic,
   parameter type               slv_port_a_chan_t  = logic,
   parameter type               slv_port_obi_rsp_t = logic,
+  parameter type               slv_port_r_chan_t  = logic,
   parameter type               mst_port_obi_req_t = slv_port_obi_req_t,
   parameter type               mst_port_obi_rsp_t = slv_port_obi_rsp_t,
   parameter int unsigned       NumSlvPorts        = 32'd0,
@@ -113,19 +114,26 @@ module obi_mux #(
     .pop_i     ( fifo_pop                                         )
   );
 
-  if (ObiCfg.UseRReady) begin
+  if (MstPortObiCfg.UseRReady) begin
     assign mst_port_obi_req_o.rready = slv_port_obi_req_i[response_id].rready;
   end
+  logic [NumSlvPorts-1:0] slv_rsp_rvalid;
+  slv_port_r_chan_t [NumSlvPorts-1:0] slv_rsp_r;
   always_comb begin
     for (int i = 0; i < NumSlvPorts; i++) begin
-      slv_ports_obi_rsp_o[i].r = '0;
-      slv_ports_obi_rsp_o[i].rvalid = '0;
+      slv_rsp_r[i] = '0;
+      slv_rsp_rvalid[i] = '0;
     end
-    slv_ports_obi_rsp_o[response_id].r = mst_port_obi_rsp_i.r;
-    slv_ports_obi_rsp_o[response_id].rvalid = mst_port_obi_rsp_i.rvalid;
+    slv_rsp_r[response_id] = mst_port_obi_rsp_i.r;
+    slv_rsp_rvalid[response_id] = mst_port_obi_rsp_i.rvalid;
   end
 
-  if (ObiCfg.UseRReady) begin
+  for (genvar i = 0; i < NumSlvPorts; i++) begin
+    assign slv_ports_obi_rsp_o[i].r = slv_rsp_r[i];
+    assign slv_ports_obi_rsp_o[i].rvalid = slv_rsp_rvalid[i];
+  end
+
+  if (MstPortObiCfg.UseRReady) begin
     assign fifo_pop = mst_port_obi_rsp_i.rvalid && mst_port_obi_req_o.rready;
   end else begin
     assign fifo_pop = mst_port_obi_rsp_i.rvalid;

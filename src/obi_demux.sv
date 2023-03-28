@@ -89,7 +89,7 @@ module obi_demux #(
     .en_i      ( cnt_up ^ cnt_down ),
     .load_i    ( 1'b0      ),
     .down_i    ( cnt_down ),
-    .delta_i   ( 1 ),
+    .delta_i   ( {{CounterWidth-1{1'b0}}, 1'b1} ),
     .d_i       ( '0        ),
     .q_o       ( in_flight ),
     .overflow_o( overflow  )

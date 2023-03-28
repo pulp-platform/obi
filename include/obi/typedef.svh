@@ -27,8 +27,8 @@
   typedef logic a_optional_t;
 
 `define OBI_TYPEDEF_ATOP_A_OPTIONAL(a_optional_t) \
-  typdef struct packed {
-    obi_pkg::atop_t atop;
+  typdef struct packed {                          \
+    obi_pkg::atop_t atop;                         \
   } a_optional_t;
 
 `define OBI_TYPEDEF_ALL_A_OPTIONAL(a_optional_t, AUSER_WIDTH, WUSER_WIDTH, ACHK_WIDTH) \
@@ -48,6 +48,9 @@
     logic [   ID_WIDTH-1:0] rid;                                            \
     r_optional_t            optional;                                       \
   } r_chan_t;
+
+`define OBI_TYPEDEF_MINIMAL_R_OPTIONAL(r_optional_t) \
+  typedef logic r_optional_t;
 
 `define OBI_TYPEDEF_ALL_R_OPTIONAL(r_optional_t, RUSER_WIDTH, RCHK_WIDTH) \
   typedef struct packed {                                                                        \

@@ -16,6 +16,7 @@ module obi_xbar #(
   parameter type               slv_port_obi_req_t = logic,
   parameter type               slv_port_a_chan_t  = logic,
   parameter type               slv_port_obi_rsp_t = logic,
+  parameter type               slv_port_r_chan_t  = logic,
   parameter type               mst_port_obi_req_t = slv_port_obi_req_t,
   parameter type               mst_port_obi_rsp_t = slv_port_obi_rsp_t,
   parameter int unsigned       NumSlvPorts        = 32'd0,
@@ -56,7 +57,7 @@ module obi_xbar #(
       .addr_t    ( logic [MstPortObiCfg.AddrWidth-1:0] ),
       .rule_t    ( addr_map_rule_t                     )
     ) i_addr_decode (
-      .addr_i          ( slv_ports_obi_req_i[i].addr ),
+      .addr_i          ( slv_ports_obi_req_i[i].a.addr ),
       .addr_map_i      ( addr_map_i                  ),
       .idx_o           ( slv_port_select[i]          ),
       .dec_valid_o     (),
@@ -96,6 +97,7 @@ module obi_xbar #(
       .slv_port_obi_req_t ( slv_port_obi_req_t ),
       .slv_port_a_chan_t  ( slv_port_a_chan_t  ),
       .slv_port_obi_rsp_t ( slv_port_obi_rsp_t ),
+      .slv_port_r_chan_t  ( slv_port_r_chan_t  ),
       .mst_port_obi_req_t ( mst_port_obi_req_t ),
       .mst_port_obi_rsp_t ( mst_port_obi_rsp_t ),
       .NumSlvPorts        ( NumSlvPorts        ),
