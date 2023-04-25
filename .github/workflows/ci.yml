@@ -1,0 +1,38 @@
+# Copyright 2023 ETH Zurich and University of Bologna.
+# Solderpad Hardware License, Version 0.51, see LICENSE for details.
+# SPDX-License-Identifier: SHL-0.51
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check-license:
+    name: Check license
+    runs-on: ubuntu-latest
+    steps:
+      - uses: pulp-platform/pulp-actions/lint-license@v2
+        with:
+          license: |
+            Copyright (\d{4}(-\d{4})?\s)?ETH Zurich and University of Bologna.
+            Solderpad Hardware License, Version 0.51, see LICENSE for details.
+            SPDX-License-Identifier: SHL-0.51
+          # Exclude generated headers (no license checker support for optional lines)
+
+  lint-verilog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: chipsalliance/verible-linter-action@main
+        with:
+          paths: |
+            ./src
+            ./include
+          extra_args: "--rules=-interface-name-style --lint_fatal --parse_fatal --waiver_files util/waiver.verible"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reviewdog_reporter: github-check
