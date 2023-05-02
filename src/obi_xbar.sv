@@ -122,3 +122,83 @@ module obi_xbar #(
   end
 
 endmodule
+
+`include "obi/typedef.svh"
+`include "obi/assign.svh"
+
+module obi_xbar_intf #(
+  /// The OBI configuration for the subordinate ports (input ports).
+  parameter obi_pkg::obi_cfg_t SbrPortObiCfg      = obi_pkg::ObiDefaultConfig,
+  /// The OBI configuration for the manager ports (ouput ports).
+  parameter obi_pkg::obi_cfg_t MgrPortObiCfg      = SbrPortObiCfg,
+  /// The number of subordinate ports (input ports).
+  parameter int unsigned       NumSbrPorts        = 32'd0,
+  /// The number of manager ports (output ports).
+  parameter int unsigned       NumMgrPorts        = 32'd0,
+  /// The maximum number of outstanding transactions.
+  parameter int unsigned       NumMaxTrans        = 32'd0,
+  /// The number of address rules.
+  parameter int unsigned       NumAddrRules       = 32'd0,
+  /// The address map rule type.
+  parameter type               addr_map_rule_t    = logic
+) (
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic testmode_i,
+
+  OBI_BUS.Subordinate sbr_ports [NumSbrPorts-1:0],
+
+  OBI_BUS.Manager mgr_ports [NumMgrPorts-1:0],
+
+  input  addr_map_rule_t [NumAddrRules-1:0]   addr_map_i,
+  input  logic [NumSbrPorts-1:0]              en_default_idx_i,
+  input  logic [NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] default_idx_i
+);
+
+  `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
+  `OBI_TYPEDEF_ALL(mgr_port_obi, MgrPortObiCfg)
+
+  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req;
+  sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp;
+
+  mgr_port_obi_req_t [NumMgrPorts-1:0] mgr_ports_req;
+  mgr_port_obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp;
+
+  for (genvar i = 0; i < NumSbrPorts; i++) begin
+    `OBI_ASSIGN_TO_REQ(sbr_ports_req[i], sbr_ports[i], SbrPortObiCfg)
+    `OBI_ASSIGN_FROM_RSP(sbr_ports[i], sbr_ports_rsp[i], SbrPortObiCfg)
+  end
+
+  for (genvar i = 0; i < NumMgrPorts; i++) begin
+    `OBI_ASSIGN_FROM_REQ(mgr_ports[i], mgr_ports_req[i], MgrPortObiCfg)
+    `OBI_ASSIGN_TO_RSP(mgr_ports_rsp[i], mgr_ports[i], MgrPortObiCfg)
+  end
+
+  obi_xbar #(
+    .SbrPortObiCfg         ( SbrPortObiCfg         ),
+    .MgrPortObiCfg         ( MgrPortObiCfg         ),
+    .sbr_port_obi_req_t    ( sbr_port_obi_req_t    ),
+    .sbr_port_a_chan_t ( sbr_port_obi_a_chan_t ),
+    .sbr_port_obi_rsp_t    ( sbr_port_obi_rsp_t    ),
+    .sbr_port_r_chan_t ( sbr_port_obi_r_chan_t ),
+    .mgr_port_obi_req_t    ( mgr_port_obi_req_t    ),
+    .mgr_port_obi_rsp_t    ( mgr_port_obi_rsp_t    ),
+    .NumSbrPorts           ( NumSbrPorts           ),
+    .NumMgrPorts           ( NumMgrPorts           ),
+    .NumMaxTrans           ( NumMaxTrans           ),
+    .NumAddrRules          ( NumAddrRules          ),
+    .addr_map_rule_t       ( addr_map_rule_t       )
+  ) i_obi_xbar (
+    .clk_i,
+    .rst_ni,
+    .testmode_i,
+    .sbr_ports_obi_req_i ( sbr_ports_req    ),
+    .sbr_ports_obi_rsp_o ( sbr_ports_rsp    ),
+    .mgr_ports_obi_req_o ( mgr_ports_req    ),
+    .mgr_ports_obi_rsp_i ( mgr_ports_rsp    ),
+    .addr_map_i          ( addr_map_i       ),
+    .en_default_idx_i    ( en_default_idx_i ),
+    .default_idx_i       ( default_idx_i    )
+  );
+
+endmodule
