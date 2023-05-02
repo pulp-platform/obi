@@ -11,22 +11,22 @@ module obi_demux #(
   parameter type               obi_req_t   = logic,
   /// The response struct for all ports.
   parameter type               obi_rsp_t   = logic,
-  /// The number of master ports.
-  parameter int unsigned       NumMstPorts = 32'd0,
+  /// The number of manager ports.
+  parameter int unsigned       NumMgrPorts = 32'd0,
   /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans = 32'd0,
   /// The type of the port select signal.
-  parameter type               select_t    = logic [$clog2(NumMstPorts)-1:0]
+  parameter type               select_t    = logic [$clog2(NumMgrPorts)-1:0]
 ) (
   input  logic                       clk_i,
   input  logic                       rst_ni,
 
-  input  select_t                    slv_port_select_i,
-  input  obi_req_t                   slv_port_req_i,
-  output obi_rsp_t                   slv_port_rsp_o,
+  input  select_t                    sbr_port_select_i,
+  input  obi_req_t                   sbr_port_req_i,
+  output obi_rsp_t                   sbr_port_rsp_o,
 
-  output obi_req_t [NumMstPorts-1:0] mst_ports_req_o,
-  input  obi_rsp_t [NumMstPorts-1:0] mst_ports_rsp_i
+  output obi_req_t [NumMgrPorts-1:0] mgr_ports_req_o,
+  input  obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp_i
 );
 
   if (ObiCfg.Integrity) begin
@@ -38,45 +38,45 @@ module obi_demux #(
 
   logic cnt_up, cnt_down, overflow;
   logic [CounterWidth-1:0] in_flight;
-  logic slv_port_rready;
+  logic sbr_port_rready;
 
   select_t select_d, select_q;
 
   always_comb begin : proc_req
     select_d = select_q;
     cnt_up = 1'b0;
-    for (int i = 0; i < NumMstPorts; i++) begin
-      mst_ports_req_o[i].req = 1'b0;
-      mst_ports_req_o[i].a   = '0;
+    for (int i = 0; i < NumMgrPorts; i++) begin
+      mgr_ports_req_o[i].req = 1'b0;
+      mgr_ports_req_o[i].a   = '0;
     end
 
     if (!overflow) begin
-      if (slv_port_select_i == select_q || in_flight == '0 || (in_flight == 1 && cnt_down)) begin
-        mst_ports_req_o[slv_port_select_i].req = slv_port_req_i.req;
-        mst_ports_req_o[slv_port_select_i].a = slv_port_req_i.a;
+      if (sbr_port_select_i == select_q || in_flight == '0 || (in_flight == 1 && cnt_down)) begin
+        mgr_ports_req_o[sbr_port_select_i].req = sbr_port_req_i.req;
+        mgr_ports_req_o[sbr_port_select_i].a = sbr_port_req_i.a;
       end
     end
 
-    if (mst_ports_req_o[slv_port_select_i].req && mst_ports_rsp_i[slv_port_select_i].gnt) begin
-      select_d = slv_port_select_i;
+    if (mgr_ports_req_o[sbr_port_select_i].req && mgr_ports_rsp_i[sbr_port_select_i].gnt) begin
+      select_d = sbr_port_select_i;
       cnt_up = 1'b1;
     end
   end
 
-  assign slv_port_rsp_o.gnt    = mst_ports_rsp_i[slv_port_select_i].gnt;
-  assign slv_port_rsp_o.r      = mst_ports_rsp_i[select_q].r;
-  assign slv_port_rsp_o.rvalid = mst_ports_rsp_i[select_q].rvalid;
+  assign sbr_port_rsp_o.gnt    = mgr_ports_rsp_i[sbr_port_select_i].gnt;
+  assign sbr_port_rsp_o.r      = mgr_ports_rsp_i[select_q].r;
+  assign sbr_port_rsp_o.rvalid = mgr_ports_rsp_i[select_q].rvalid;
 
   if (ObiCfg.UseRReady) begin : gen_rready
-    assign slv_port_rready = slv_port_req_i.rready;
-    for (genvar i = 0; i < NumMstPorts; i++) begin : gen_rready
-      assign mst_ports_req_o[i].rready = slv_port_req_i.rready;
+    assign sbr_port_rready = sbr_port_req_i.rready;
+    for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_rready
+      assign mgr_ports_req_o[i].rready = sbr_port_req_i.rready;
     end
   end else begin : gen_no_rready
-    assign slv_port_rready = 1'b1;
+    assign sbr_port_rready = 1'b1;
   end
 
-  assign cnt_down = mst_ports_rsp_i[select_q].rvalid && slv_port_rready;
+  assign cnt_down = mgr_ports_rsp_i[select_q].rvalid && sbr_port_rready;
 
   delta_counter #(
     .WIDTH           ( CounterWidth ),
