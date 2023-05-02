@@ -23,3 +23,6 @@ sources:
   - src/obi_mux.sv
   # Level 4
   - src/obi_xbar.sv
+  - target: test
+    files:
+      - src/test/obi_test.sv
