@@ -145,3 +145,67 @@ module obi_mux #(
   end
 
 endmodule
+
+`include "obi/typedef.svh"
+`include "obi/assign.svh"
+
+module obi_mux_intf #(
+  /// The configuration of the subordinate ports (input ports).
+  parameter obi_pkg::obi_cfg_t SbrPortObiCfg      = obi_pkg::ObiDefaultConfig,
+  /// The configuration of the manager port (output port).
+  parameter obi_pkg::obi_cfg_t MgrPortObiCfg      = SbrPortObiCfg,
+  /// The number of subordinate ports (input ports).
+  parameter int unsigned       NumSbrPorts        = 32'd0,
+  /// The maximum number of outstanding transactions.
+  parameter int unsigned       NumMaxTrans        = 32'd0
+) (
+  input logic         clk_i,
+  input logic         rst_ni,
+  input logic         testmode_i,
+
+  OBI_BUS.Subordinate sbr_ports [NumSbrPorts-1:0],
+
+  OBI_BUS.Manager     mgr_port
+);
+
+  `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
+  `OBI_TYPEDEF_ALL(mgr_port_obi, MgrPortObiCfg)
+
+  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req;
+  sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp;
+
+  mgr_port_obi_req_t mgr_port_req;
+  mgr_port_obi_rsp_t mgr_port_rsp;
+
+  for (genvar i = 0; i < NumSbrPorts; i++) begin
+    `OBI_ASSIGN_TO_REQ(sbr_ports_req[i], sbr_ports[i], SbrPortObiCfg)
+    `OBI_ASSIGN_FROM_RSP(sbr_ports[i], sbr_ports_rsp[i], SbrPortObiCfg)
+  end
+
+  `OBI_ASSIGN_FROM_REQ(mgr_port, mgr_port_req, MgrPortObiCfg)
+  `OBI_ASSIGN_TO_RSP(mgr_port_rsp, mgr_port, MgrPortObiCfg)
+
+  obi_mux #(
+    .SbrPortObiCfg      ( SbrPortObiCfg         ),
+    .MgrPortObiCfg      ( MgrPortObiCfg         ),
+    .sbr_port_obi_req_t ( sbr_port_obi_req_t    ),
+    .sbr_port_a_chan_t  ( sbr_port_obi_a_chan_t ),
+    .sbr_port_obi_rsp_t ( sbr_port_obi_rsp_t    ),
+    .sbr_port_r_chan_t  ( sbr_port_obi_r_chan_t ),
+    .mgr_port_obi_req_t ( mgr_port_obi_req_t    ),
+    .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t    ),
+    .NumSbrPorts        ( NumSbrPorts           ),
+    .NumMaxTrans        ( NumMaxTrans           )
+  ) i_obi_mux (
+    .clk_i,
+    .rst_ni,
+    .testmode_i,
+
+    .sbr_ports_obi_req_i ( sbr_ports_req ),
+    .sbr_ports_obi_rsp_o ( sbr_ports_rsp ),
+
+    .mgr_port_obi_req_o  ( mgr_port_req  ),
+    .mgr_port_obi_rsp_i  ( mgr_port_rsp  )
+  );
+
+endmodule

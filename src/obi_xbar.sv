@@ -175,19 +175,19 @@ module obi_xbar_intf #(
   end
 
   obi_xbar #(
-    .SbrPortObiCfg         ( SbrPortObiCfg         ),
-    .MgrPortObiCfg         ( MgrPortObiCfg         ),
-    .sbr_port_obi_req_t    ( sbr_port_obi_req_t    ),
-    .sbr_port_a_chan_t ( sbr_port_obi_a_chan_t ),
-    .sbr_port_obi_rsp_t    ( sbr_port_obi_rsp_t    ),
-    .sbr_port_r_chan_t ( sbr_port_obi_r_chan_t ),
-    .mgr_port_obi_req_t    ( mgr_port_obi_req_t    ),
-    .mgr_port_obi_rsp_t    ( mgr_port_obi_rsp_t    ),
-    .NumSbrPorts           ( NumSbrPorts           ),
-    .NumMgrPorts           ( NumMgrPorts           ),
-    .NumMaxTrans           ( NumMaxTrans           ),
-    .NumAddrRules          ( NumAddrRules          ),
-    .addr_map_rule_t       ( addr_map_rule_t       )
+    .SbrPortObiCfg      ( SbrPortObiCfg         ),
+    .MgrPortObiCfg      ( MgrPortObiCfg         ),
+    .sbr_port_obi_req_t ( sbr_port_obi_req_t    ),
+    .sbr_port_a_chan_t  ( sbr_port_obi_a_chan_t ),
+    .sbr_port_obi_rsp_t ( sbr_port_obi_rsp_t    ),
+    .sbr_port_r_chan_t  ( sbr_port_obi_r_chan_t ),
+    .mgr_port_obi_req_t ( mgr_port_obi_req_t    ),
+    .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t    ),
+    .NumSbrPorts        ( NumSbrPorts           ),
+    .NumMgrPorts        ( NumMgrPorts           ),
+    .NumMaxTrans        ( NumMaxTrans           ),
+    .NumAddrRules       ( NumAddrRules          ),
+    .addr_map_rule_t    ( addr_map_rule_t       )
   ) i_obi_xbar (
     .clk_i,
     .rst_ni,
