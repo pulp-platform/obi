@@ -31,7 +31,9 @@ module obi_xbar #(
   /// The number of address rules.
   parameter int unsigned       NumAddrRules       = 32'd0,
   /// The address map rule type.
-  parameter type               addr_map_rule_t    = logic
+  parameter type               addr_map_rule_t    = logic,
+  /// Use the extended ID field (aid & rid) to route the response
+  parameter bit                UseIdForRouting    = 1'b0
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -109,7 +111,8 @@ module obi_xbar #(
       .mgr_port_obi_req_t ( mgr_port_obi_req_t ),
       .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t ),
       .NumSbrPorts        ( NumSbrPorts        ),
-      .NumMaxTrans        ( NumMaxTrans        )
+      .NumMaxTrans        ( NumMaxTrans        ),
+      .UseIdForRouting    ( UseIdForRouting    )
     ) i_mux (
       .clk_i,
       .rst_ni,
@@ -140,15 +143,17 @@ module obi_xbar_intf #(
   /// The number of address rules.
   parameter int unsigned       NumAddrRules       = 32'd0,
   /// The address map rule type.
-  parameter type               addr_map_rule_t    = logic
+  parameter type               addr_map_rule_t    = logic,
+  /// Use the extended ID field (aid & rid) to route the response
+  parameter bit                UseIdForRouting    = 1'b0
 ) (
-  input  logic clk_i,
-  input  logic rst_ni,
-  input  logic testmode_i,
+  input logic         clk_i,
+  input logic         rst_ni,
+  input logic         testmode_i,
 
   OBI_BUS.Subordinate sbr_ports [NumSbrPorts-1:0],
 
-  OBI_BUS.Manager mgr_ports [NumMgrPorts-1:0],
+  OBI_BUS.Manager     mgr_ports [NumMgrPorts-1:0],
 
   input  addr_map_rule_t [NumAddrRules-1:0]   addr_map_i,
   input  logic [NumSbrPorts-1:0]              en_default_idx_i,
@@ -187,7 +192,8 @@ module obi_xbar_intf #(
     .NumMgrPorts        ( NumMgrPorts           ),
     .NumMaxTrans        ( NumMaxTrans           ),
     .NumAddrRules       ( NumAddrRules          ),
-    .addr_map_rule_t    ( addr_map_rule_t       )
+    .addr_map_rule_t    ( addr_map_rule_t       ),
+    .UseIdForRouting    ( UseIdForRouting       )
   ) i_obi_xbar (
     .clk_i,
     .rst_ni,

@@ -4,6 +4,8 @@
 
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
+`include "obi/assign.svh"
+
 /// An OBI multiplexer.
 module obi_mux #(
   /// The configuration of the subordinate ports (input ports).
@@ -25,7 +27,9 @@ module obi_mux #(
   /// The number of subordinate ports (input ports).
   parameter int unsigned       NumSbrPorts        = 32'd0,
   /// The maximum number of outstanding transactions.
-  parameter int unsigned       NumMaxTrans        = 32'd0
+  parameter int unsigned       NumMaxTrans        = 32'd0,
+  /// Use the extended ID field (aid & rid) to route the response
+  parameter bit                UseIdForRouting    = 1'b0
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -80,44 +84,46 @@ module obi_mux #(
 
   assign mgr_port_obi_req_o.req = mgr_port_req && ~fifo_full;
 
-  if (MgrPortObiCfg.IdWidth > 0 && (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth + RequiredExtraIdWidth)) begin
-    $fatal(1, "unimplemented");
-
-    // assign mgr_port_obi_req_o.a.addr = mgr_port_a_in_sbr.addr;
-    // assign mgr_port_obi_req_o.a.we = mgr_port_a_in_sbr.we;
-    // assign mgr_port_obi_req_o.a.be = mgr_port_a_in_sbr.be;
-    // assign mgr_port_obi_req_o.a.wdata = mgr_port_a_in_sbr.wdata;
-    // if (MgrPortObiCfg.AUserWidth) begin
-    //   assign mgr_port_obi_req_o.a.a_optional.auser = mgr_port_a_in_sbr.a_optional.auser;
-    // end
-    // if (MgrPortObiCfg.WUserWidth) begin
-    //   assign mgr_port_obi_req_o.a.a_optional.wuser = mgr_port_a_in_sbr.a_optional.wuser;
-    // end
-
-    // assign mgr_port_obi_req_o.a.a_optional = 
-  end else begin : gen_no_id_assign
-    assign mgr_port_obi_req_o.a = mgr_port_a_in_sbr;
+  always_comb begin
+    mgr_port_obi_req_o.a.aid = '0;
+    `OBI_SET_A_STRUCT(mgr_port_obi_req_o.a, mgr_port_a_in_sbr)
+    if (MgrPortObiCfg.IdWidth > 0 && (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth + RequiredExtraIdWidth)) begin
+      mgr_port_obi_req_o.a.aid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0] = {selected_id, mgr_port_a_in_sbr.aid};
+    end
   end
 
-  fifo_v3 #(
-    .FALL_THROUGH( 1'b0                 ),
-    .DATA_WIDTH  ( RequiredExtraIdWidth ),
-    .DEPTH       ( NumMaxTrans          )
-  ) i_fifo (
-    .clk_i,
-    .rst_ni,
-    .flush_i   ('0),
-    .testmode_i,
+  logic [SbrPortObiCfg.IdWidth-1:0] rsp_rid;
 
-    .full_o    ( fifo_full                                        ),
-    .empty_o   (),
-    .usage_o   (),
-    .data_i    ( selected_id                                      ),
-    .push_i    ( mgr_port_obi_req_o.req && mgr_port_obi_rsp_i.gnt ),
+  if (UseIdForRouting) begin
+    if (!(MgrPortObiCfg.IdWidth > 0 && (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth + RequiredExtraIdWidth)))
+      $fatal(1, "UseIdForRouting requires MgrPort IdWidth to increase with log2(NumSbrPorts)");
+    
+    assign {response_id, rsp_rid} = mgr_port_obi_rsp_i.r.rid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0];
+    assign fifo_full = 1'b0;
 
-    .data_o    ( response_id                                      ),
-    .pop_i     ( fifo_pop                                         )
-  );
+  end else begin : gen_no_id_assign
+
+    fifo_v3 #(
+      .FALL_THROUGH( 1'b0                 ),
+      .DATA_WIDTH  ( RequiredExtraIdWidth ),
+      .DEPTH       ( NumMaxTrans          )
+    ) i_fifo (
+      .clk_i,
+      .rst_ni,
+      .flush_i   ('0),
+      .testmode_i,
+
+      .full_o    ( fifo_full                                        ),
+      .empty_o   (),
+      .usage_o   (),
+      .data_i    ( selected_id                                      ),
+      .push_i    ( mgr_port_obi_req_o.req && mgr_port_obi_rsp_i.gnt ),
+
+      .data_o    ( response_id                                      ),
+      .pop_i     ( fifo_pop                                         )
+    );
+
+  end
 
   if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
     assign mgr_port_obi_req_o.rready = sbr_ports_obi_req_i[response_id].rready;
@@ -147,7 +153,6 @@ module obi_mux #(
 endmodule
 
 `include "obi/typedef.svh"
-`include "obi/assign.svh"
 
 module obi_mux_intf #(
   /// The configuration of the subordinate ports (input ports).
@@ -157,7 +162,9 @@ module obi_mux_intf #(
   /// The number of subordinate ports (input ports).
   parameter int unsigned       NumSbrPorts        = 32'd0,
   /// The maximum number of outstanding transactions.
-  parameter int unsigned       NumMaxTrans        = 32'd0
+  parameter int unsigned       NumMaxTrans        = 32'd0,
+  /// Use the extended ID field (aid & rid) to route the response
+  parameter bit                UseIdForRouting    = 1'b0
 ) (
   input logic         clk_i,
   input logic         rst_ni,
@@ -195,7 +202,8 @@ module obi_mux_intf #(
     .mgr_port_obi_req_t ( mgr_port_obi_req_t    ),
     .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t    ),
     .NumSbrPorts        ( NumSbrPorts           ),
-    .NumMaxTrans        ( NumMaxTrans           )
+    .NumMaxTrans        ( NumMaxTrans           ),
+    .UseIdForRouting    ( UseIdForRouting       )
   ) i_obi_mux (
     .clk_i,
     .rst_ni,

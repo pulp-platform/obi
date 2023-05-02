@@ -11,12 +11,13 @@ module tb_obi_xbar;
 
   localparam int unsigned NumManagers = 32'd6;
   localparam int unsigned NumSubordinates = 32'd8;
+  localparam bit          UseIdForRouting = 1'b0;
 
   localparam int unsigned NumMaxTrans = 32'd8;
   localparam int unsigned AddrWidth = 32;
   localparam int unsigned DataWidth = 32;
   localparam int unsigned MgrIdWidth = 5;
-  localparam int unsigned SbrIdWidth = MgrIdWidth;//+$clog2(NumManagers);
+  localparam int unsigned SbrIdWidth = MgrIdWidth+$clog2(NumManagers);
   localparam int unsigned AUserWidth = 4;
   localparam int unsigned WUserWidth = 2;
   localparam int unsigned RUserWidth = 3;
@@ -192,7 +193,8 @@ module tb_obi_xbar;
     .NumMgrPorts     ( NumSubordinates ),
     .NumMaxTrans     ( NumMaxTrans     ),
     .NumAddrRules    ( NumRules        ),
-    .addr_map_rule_t ( rule_t          )
+    .addr_map_rule_t ( rule_t          ),
+    .UseIdForRouting ( UseIdForRouting )
   ) i_dut (
     .clk_i            ( clk     ),
     .rst_ni           ( rst_n   ),
