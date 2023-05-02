@@ -120,7 +120,7 @@ module obi_mux #(
   );
 
   if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
-    assign mgr_port_obi_req_o.rready = sbr_port_obi_req_i[response_id].rready;
+    assign mgr_port_obi_req_o.rready = sbr_ports_obi_req_i[response_id].rready;
   end
   logic [NumSbrPorts-1:0] sbr_rsp_rvalid;
   sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
