@@ -17,8 +17,9 @@ sources:
   # Level 1
   - src/obi_pkg.sv
   # Level 2
+  - src/obi_intf.sv
+  # Level 3
   - src/obi_demux.sv
   - src/obi_mux.sv
-  # Level 3
+  # Level 4
   - src/obi_xbar.sv
-
