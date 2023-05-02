@@ -9,6 +9,7 @@ package:
 
 dependencies:
   common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.26.0 }
+  common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.3 }
 
 export_include_dirs:
   - include
@@ -26,3 +27,4 @@ sources:
   - target: test
     files:
       - src/test/obi_test.sv
+      - src/test/tb_obi_xbar.sv
