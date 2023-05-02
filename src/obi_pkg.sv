@@ -53,4 +53,19 @@ package obi_pkg;
     BeFull:     1'b0
   };
 
+  typedef enum atop_t {
+    AMOLR   = 6'h22,
+    AMOSC   = 6'h23,
+    AMOSWAP = 6'h21,
+    AMOADD  = 6'h20,
+    AMOXOR  = 6'h24,
+    AMOAND  = 6'h2C,
+    AMOOR   = 6'h28,
+    AMOMIN  = 6'h30,
+    AMOMAX  = 6'h34,
+    AMOMINU = 6'h38,
+    AMOMAXU = 6'h3C,
+    AMONONE = 6'h0
+  } obi_atop_e;
+
 endpackage
