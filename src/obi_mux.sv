@@ -56,10 +56,10 @@ module obi_mux #(
   logic mgr_port_req, fifo_full, fifo_pop;
 
   rr_arb_tree #(
-    .NumIn     ( NumSbrPorts ),
+    .NumIn     ( NumSbrPorts       ),
     .DataType  ( sbr_port_a_chan_t ),
-    .AxiVldRdy ( 1'b1 ),
-    .LockIn    ( 1'b1 )
+    .AxiVldRdy ( 1'b1              ),
+    .LockIn    ( 1'b1              )
   ) i_rr_arb (
     .clk_i,
     .rst_ni,
@@ -67,15 +67,15 @@ module obi_mux #(
     .flush_i ( 1'b0 ),
     .rr_i    ( '0 ),
 
-    .req_i   ( sbr_ports_req ),
-    .gnt_o   ( sbr_ports_gnt ),
-    .data_i  ( sbr_ports_a   ),
+    .req_i   ( sbr_ports_req                    ),
+    .gnt_o   ( sbr_ports_gnt                    ),
+    .data_i  ( sbr_ports_a                      ),
 
-    .req_o   ( mgr_port_req ),
+    .req_o   ( mgr_port_req                     ),
     .gnt_i   ( mgr_port_obi_rsp_i.gnt && ~fifo_full ),
-    .data_o  ( mgr_port_a_in_sbr ),
+    .data_o  ( mgr_port_a_in_sbr                ),
 
-    .idx_o   ( selected_id )
+    .idx_o   ( selected_id                      )
   );
 
   assign mgr_port_obi_req_o.req = mgr_port_req && ~fifo_full;
@@ -129,7 +129,7 @@ module obi_mux #(
       sbr_rsp_r[i] = '0;
       sbr_rsp_rvalid[i] = '0;
     end
-    sbr_rsp_r[response_id] = mgr_port_obi_rsp_i.r;
+    `OBI_SET_R_STRUCT(sbr_rsp_r[response_id], mgr_port_obi_rsp_i.r);
     sbr_rsp_rvalid[response_id] = mgr_port_obi_rsp_i.rvalid;
   end
 
