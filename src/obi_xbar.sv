@@ -33,7 +33,9 @@ module obi_xbar #(
   /// The address map rule type.
   parameter type               addr_map_rule_t    = logic,
   /// Use the extended ID field (aid & rid) to route the response
-  parameter bit                UseIdForRouting    = 1'b0
+  parameter bit                UseIdForRouting    = 1'b0,
+  /// Connectivity matrix to disable certain paths.
+  parameter bit [NumSbrPorts-1:0][NumMgrPorts-1:0] Connectivity = '1
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -95,8 +97,35 @@ module obi_xbar #(
 
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_interco_sbr
     for (genvar j = 0; j < NumMgrPorts; j++) begin : gen_interco_mgr
-      assign mgr_reqs[j][i] = sbr_reqs[i][j];
-      assign sbr_rsps[i][j] = mgr_rsps[j][i];
+      if (Connectivity[i][j]) begin : gen_connected
+        assign mgr_reqs[j][i] = sbr_reqs[i][j];
+        assign sbr_rsps[i][j] = mgr_rsps[j][i];
+      end else begin : gen_err_sbr
+        assign mgr_reqs[j][i].req = 1'b0;
+        if (MgrPortObiCfg.UseRReady) begin : gen_rready
+          assign mgr_reqs[j][i].rready = 1'b0;
+        end
+        assign mgr_reqs[j][i].a   = '0;
+        if (MgrPortObiCfg.Integrity) begin : gen_integrity
+          assign mgr_reqs[j][i].reqpar = 1'b1;
+          if (MgrPortObiCfg.UseRReady) begin : gen_int_rready
+            assign mgr_reqs[j][i].rreadypar = 1'b1;
+          end
+        end
+        obi_err_sbr #(
+          .ObiCfg      ( SbrPortObiCfg      ),
+          .obi_req_t   ( sbr_port_obi_req_t ),
+          .obi_rsp_t   ( sbr_port_obi_rsp_t ),
+          .NumMaxTrans ( NumMaxTrans        ),
+          .RspData     ( 32'hBADCAB1E       )
+        ) i_err_sbr (
+          .clk_i,
+          .rst_ni,
+          .testmode_i,
+          .obi_req_i (sbr_reqs[i][j]),
+          .obi_rsp_o (sbr_rsps[i][j])
+        );
+      end
     end
   end
 
@@ -145,7 +174,9 @@ module obi_xbar_intf #(
   /// The address map rule type.
   parameter type               addr_map_rule_t    = logic,
   /// Use the extended ID field (aid & rid) to route the response
-  parameter bit                UseIdForRouting    = 1'b0
+  parameter bit                UseIdForRouting    = 1'b0,
+  /// Connectivity matrix to disable certain paths.
+  parameter bit [NumSbrPorts-1:0][NumMgrPorts-1:0] Connectivity = '1
 ) (
   input logic         clk_i,
   input logic         rst_ni,
@@ -193,7 +224,8 @@ module obi_xbar_intf #(
     .NumMaxTrans        ( NumMaxTrans           ),
     .NumAddrRules       ( NumAddrRules          ),
     .addr_map_rule_t    ( addr_map_rule_t       ),
-    .UseIdForRouting    ( UseIdForRouting       )
+    .UseIdForRouting    ( UseIdForRouting       ),
+    .Connectivity       ( Connectivity          )
   ) i_obi_xbar (
     .clk_i,
     .rst_ni,
