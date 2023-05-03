@@ -23,6 +23,7 @@
 `define __OBI_TO_R(__opt_as, __lhs, __lhs_sep, __rhs, __rhs_sep)                       \
   __opt_as __lhs``__lhs_sep``rdata      = __rhs``__rhs_sep``rdata;                     \
   __opt_as __lhs``__lhs_sep``rid        = __rhs``__rhs_sep``rid;                       \
+  __opt_as __lhs``__lhs_sep``err        = __rhs``__rhs_sep``err;                       \
   __opt_as __lhs``__lhs_sep``r_optional = __rhs``__rhs_sep``r_optional;
 `define __OBI_TO_REQ(__opt_as, __lhs, __lhs_sep, __rhs, __rhs_sep, __lhscfg, __rhscfg) \
   `__OBI_TO_A(__opt_as, __lhs, __lhs_sep, __rhs, __rhs_sep)                            \

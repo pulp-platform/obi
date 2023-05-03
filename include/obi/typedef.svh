@@ -40,6 +40,7 @@
   typedef struct packed {                                                   \
     logic [RDATA_WIDTH-1:0] rdata;                                          \
     logic [   ID_WIDTH-1:0] rid;                                            \
+    logic                   err;                                            \
     r_optional_t            r_optional;                                     \
   } r_chan_t;
 
@@ -48,7 +49,6 @@
 
 `define OBI_TYPEDEF_ALL_R_OPTIONAL(r_optional_t, RUSER_WIDTH, RCHK_WIDTH) \
   typedef struct packed {                                                 \
-    logic                   err;                                          \
     logic [RUSER_WIDTH-1:0] ruser;                                        \
     logic                   exokay;                                       \
     logic [ RCHK_WIDTH-1:0] rchk;                                         \

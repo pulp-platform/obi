@@ -26,6 +26,7 @@ interface OBI_BUS #(
   logic                           rreadypar;
   logic [  OBI_CFG.DataWidth-1:0] rdata;
   logic [    OBI_CFG.IdWidth-1:0] rid;
+  logic                           err;
   obi_r_optional_t                r_optional;
 
   modport Manager (
@@ -46,6 +47,7 @@ interface OBI_BUS #(
     output rreadypar,
     input  rdata,
     input  rid,
+    input  err,
     input  r_optional
   );
 
@@ -67,6 +69,7 @@ interface OBI_BUS #(
     input  rreadypar,
     output rdata,
     output rid,
+    output err,
     output r_optional
   );
 
@@ -88,6 +91,7 @@ interface OBI_BUS #(
     input rreadypar,
     input rdata,
     input rid,
+    input err,
     input r_optional
   );
 
@@ -119,6 +123,7 @@ interface OBI_BUS_DV #(
   logic                           rreadypar;
   logic [  OBI_CFG.DataWidth-1:0] rdata;
   logic [    OBI_CFG.IdWidth-1:0] rid;
+  logic                           err;
   obi_r_optional_t                r_optional;
 
   modport Manager (
@@ -139,6 +144,7 @@ interface OBI_BUS_DV #(
     output rreadypar,
     input  rdata,
     input  rid,
+    input  err,
     input  r_optional
   );
 
@@ -160,6 +166,7 @@ interface OBI_BUS_DV #(
     input  rreadypar,
     output rdata,
     output rid,
+    output err,
     output r_optional
   );
 
@@ -181,6 +188,7 @@ interface OBI_BUS_DV #(
     input rreadypar,
     input rdata,
     input rid,
+    input err,
     input r_optional
   );
 
@@ -205,11 +213,12 @@ interface OBI_BUS_DV #(
   // R channel
   if (OBI_CFG.UseRReady) begin
     assert property (@(posedge clk_i) disable iff (!rst_ni) rvalid |-> ##[1:$] rready);
+    assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(rdata)));
+    assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(rid)));
+    assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(err)));
+    assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(r_optional)));
+    assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> rvalid));
   end
-  assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(rdata)));
-  assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(rid)));
-  assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(r_optional)));
-  assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> rvalid));
   if (OBI_CFG.Integrity) begin
     assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && ~rvalidpar));
     if (OBI_CFG.UseRReady) begin
