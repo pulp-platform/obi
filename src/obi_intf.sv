@@ -196,6 +196,7 @@ interface OBI_BUS_DV #(
 `ifndef VERILATOR
 
   // A channel
+  // OBI spec R3.1
   assert property (@(posedge clk_i) disable iff (!rst_ni) req |-> ##[1:$] gnt);
   assert property (@(posedge clk_i) disable iff (!rst_ni) (req && !gnt |=> $stable(addr)));
   assert property (@(posedge clk_i) disable iff (!rst_ni) (req && !gnt |=> $stable(we)));
@@ -212,6 +213,7 @@ interface OBI_BUS_DV #(
 
   // R channel
   if (OBI_CFG.UseRReady) begin : gen_rready_checks
+    // OBI spec R4.1
     assert property (@(posedge clk_i) disable iff (!rst_ni) rvalid |-> ##[1:$] rready);
     assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(rdata)));
     assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(rid)));
@@ -225,6 +227,12 @@ interface OBI_BUS_DV #(
     if (OBI_CFG.UseRReady) begin : gen_rready_integrity_check
       assert property (@(posedge clk_i) disable iff (!rst_ni) (rready && ~rreadypar));
     end
+  end
+
+  if (!OBI_CFG.BeFull) begin : gen_be_checks
+    // OBI spec R7
+    assert property (@(posedge clk_i) disable iff (!rst_ni) (req && gnt && we |-> be != '0));
+    // TODO R7: assert be contiguous
   end
 
 `endif

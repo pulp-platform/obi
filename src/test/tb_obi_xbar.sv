@@ -42,12 +42,13 @@ module tb_obi_xbar;
     AddrWidth:   AddrWidth,
     DataWidth:   DataWidth,
     IdWidth:    MgrIdWidth,
+    MidWidth:            0,
     AChkWidth:           0,
     RChkWidth:           0,
     Integrity:        1'b0,
     BeFull:           1'b1
   };
-  `OBI_TYPEDEF_ALL_A_OPTIONAL(mgr_a_optional_t, AUserWidth, WUserWidth, 0)
+  `OBI_TYPEDEF_ALL_A_OPTIONAL(mgr_a_optional_t, AUserWidth, WUserWidth, 0, 0)
   `OBI_TYPEDEF_ALL_R_OPTIONAL(mgr_r_optional_t, RUserWidth, 0)
   typedef obi_test::obi_rand_manager #(
     .ObiCfg           ( MgrConfig ),
@@ -71,12 +72,13 @@ module tb_obi_xbar;
     AddrWidth:   AddrWidth,
     DataWidth:   DataWidth,
     IdWidth:    SbrIdWidth,
+    MidWidth:            0,
     AChkWidth:           0,
     RChkWidth:           0,
     Integrity:        1'b0,
     BeFull:           1'b1
   };
-  `OBI_TYPEDEF_ALL_A_OPTIONAL(sbr_a_optional_t, AUserWidth, WUserWidth, 0)
+  `OBI_TYPEDEF_ALL_A_OPTIONAL(sbr_a_optional_t, AUserWidth, WUserWidth, 0, 0)
   `OBI_TYPEDEF_ALL_R_OPTIONAL(sbr_r_optional_t, RUserWidth, 0)
 
   typedef obi_test::obi_rand_subordinate #(
@@ -136,6 +138,7 @@ module tb_obi_xbar;
                                wuser: '0,
                                atop: '0,
                                memtype: obi_pkg::memtype_t'('0),
+                               mid: '0,
                                prot: obi_pkg::prot_t'('0),
                                dbg: '0,
                                achk: '0}, r_rid, r_optional);
@@ -143,6 +146,7 @@ module tb_obi_xbar;
                                                 wuser: '0,
                                                 atop: '0,
                                                 memtype: obi_pkg::memtype_t'('0),
+                                                mid: '0,
                                                 prot: obi_pkg::prot_t'('0),
                                                 dbg: '0,
                                                 achk: '0}, r_rdata, r_rid, r_optional);

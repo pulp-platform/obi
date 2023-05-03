@@ -28,6 +28,7 @@ package obi_pkg;
     int unsigned AddrWidth;
     int unsigned DataWidth;
     int unsigned IdWidth;
+    int unsigned MidWidth;
     int unsigned AChkWidth;
     int unsigned RChkWidth;
     bit          Integrity;
@@ -47,10 +48,11 @@ package obi_pkg;
     AddrWidth:    32,
     DataWidth:    32,
     IdWidth:       0,
+    MidWidth:      0,
     AChkWidth:     0,
     RChkWidth:     0,
     Integrity:  1'b0,
-    BeFull:     1'b0
+    BeFull:     1'b1
   };
 
   typedef enum atop_t {

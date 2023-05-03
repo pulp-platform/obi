@@ -25,15 +25,16 @@
     obi_pkg::atop_t atop;                         \
   } a_optional_t;
 
-`define OBI_TYPEDEF_ALL_A_OPTIONAL(a_optional_t, AUSER_WIDTH, WUSER_WIDTH, ACHK_WIDTH) \
-  typedef struct packed {                                                              \
-    logic [ AUSER_WIDTH-1:0] auser;                                                    \
-    logic [ WUSER_WIDTH-1:0] wuser;                                                    \
-    obi_pkg::atop_t          atop;                                                     \
-    obi_pkg::memtype_t       memtype;                                                  \
-    obi_pkg::prot_t          prot;                                                     \
-    logic                    dbg;                                                      \
-    logic [  ACHK_WIDTH-1:0] achk;                                                     \
+`define OBI_TYPEDEF_ALL_A_OPTIONAL(a_optional_t, AUSER_WIDTH, WUSER_WIDTH, MID_WIDTH, ACHK_WIDTH) \
+  typedef struct packed {                                                                         \
+    logic [ AUSER_WIDTH-1:0] auser;                                                               \
+    logic [ WUSER_WIDTH-1:0] wuser;                                                               \
+    obi_pkg::atop_t          atop;                                                                \
+    obi_pkg::memtype_t       memtype;                                                             \
+    logic [   MID_WIDTH-1:0] mid;                                                                 \
+    obi_pkg::prot_t          prot;                                                                \
+    logic                    dbg;                                                                 \
+    logic [  ACHK_WIDTH-1:0] achk;                                                                \
   } a_optional_t;
 
 `define OBI_TYPEDEF_R_CHAN_T(r_chan_t, RDATA_WIDTH, ID_WIDTH, r_optional_t) \
@@ -92,12 +93,12 @@
     logic    rvalidpar;                              \
   } rsp_t;
 
-`define OBI_TYPEDEF_ALL(obi_t, cfg)                                                                        \
-  `OBI_TYPEDEF_ALL_A_OPTIONAL(obi_t``_a_optional_t, cfg.AUserWidth, cfg.WUserWidth, cfg.AChkWidth)         \
-  `OBI_TYPEDEF_A_CHAN_T(obi_t``_a_chan_t, cfg.AddrWidth, cfg.DataWidth, cfg.IdWidth, obi_t``_a_optional_t) \
-  `OBI_TYPEDEF_INTEGRITY_REQ_T(obi_t``_req_t, obi_t``_a_chan_t)                                            \
-  `OBI_TYPEDEF_ALL_R_OPTIONAL(obi_t``_r_optional_t, cfg.RUserWidth, cfg.RChkWidth)                         \
-  `OBI_TYPEDEF_R_CHAN_T(obi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, obi_t``_r_optional_t)                \
+`define OBI_TYPEDEF_ALL(obi_t, cfg)                                                                              \
+  `OBI_TYPEDEF_ALL_A_OPTIONAL(obi_t``_a_optional_t, cfg.AUserWidth, cfg.WUserWidth, cfg.MidWidth, cfg.AChkWidth) \
+  `OBI_TYPEDEF_A_CHAN_T(obi_t``_a_chan_t, cfg.AddrWidth, cfg.DataWidth, cfg.IdWidth, obi_t``_a_optional_t)       \
+  `OBI_TYPEDEF_INTEGRITY_REQ_T(obi_t``_req_t, obi_t``_a_chan_t)                                                  \
+  `OBI_TYPEDEF_ALL_R_OPTIONAL(obi_t``_r_optional_t, cfg.RUserWidth, cfg.RChkWidth)                               \
+  `OBI_TYPEDEF_R_CHAN_T(obi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, obi_t``_r_optional_t)                      \
   `OBI_TYPEDEF_INTEGRITY_RSP_T(obi_t``_rsp_t, obi_t``_r_chan_t)
 
 `endif // OBI_TYPEDEF_SVH
