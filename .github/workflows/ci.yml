@@ -36,3 +36,19 @@ jobs:
           extra_args: "--rules=-interface-name-style --lint_fatal --parse_fatal --waiver_files util/waiver.verible"
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reviewdog_reporter: github-check
+
+  internal:
+    name: Internal CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror and check
+        uses: pulp-platform/pulp-actions/gitlab-ci@v2
+        # Skip on forks or pull requests from forks due to missing secrets.
+        if: >
+          github.repository == 'pulp-platform/obi' &&
+          (github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
+        with:
+          domain: iis-git.ee.ethz.ch
+          repo: github-mirror/obi
+          token: ${{ secrets.GITLAB_TOKEN }}

@@ -1,0 +1,22 @@
+# Copyright 2023 ETH Zurich and University of Bologna.
+# Solderpad Hardware License, Version 0.51, see LICENSE for details.
+# SPDX-License-Identifier: SHL-0.51
+
+stages:
+  - build
+  - sim
+
+variables:
+  VSIM: "questa-2022.3 vsim"
+
+build:
+  stage: build
+  script:
+    - make build
+
+sim:
+  stage: sim
+  dependencies:
+    - build
+  script:
+    - make all
