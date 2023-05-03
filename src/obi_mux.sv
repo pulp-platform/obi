@@ -35,11 +35,11 @@ module obi_mux #(
   input  logic rst_ni,
   input  logic testmode_i,
 
-  input  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_obi_req_i,
-  output sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_obi_rsp_o,
+  input  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req_i,
+  output sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp_o,
 
-  output mgr_port_obi_req_t                   mgr_port_obi_req_o,
-  input  mgr_port_obi_rsp_t                   mgr_port_obi_rsp_i
+  output mgr_port_obi_req_t                   mgr_port_req_o,
+  input  mgr_port_obi_rsp_t                   mgr_port_rsp_i
 );
   if (NumSbrPorts <= 1) begin
     $fatal(1, "unimplemented");
@@ -50,9 +50,9 @@ module obi_mux #(
   logic [NumSbrPorts-1:0] sbr_ports_req, sbr_ports_gnt;
   sbr_port_a_chan_t [NumSbrPorts-1:0] sbr_ports_a;
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_assign
-    assign sbr_ports_req[i] = sbr_ports_obi_req_i[i].req;
-    assign sbr_ports_a[i] = sbr_ports_obi_req_i[i].a;
-    assign sbr_ports_obi_rsp_o[i].gnt = sbr_ports_gnt[i];
+    assign sbr_ports_req[i] = sbr_ports_req_i[i].req;
+    assign sbr_ports_a[i] = sbr_ports_req_i[i].a;
+    assign sbr_ports_rsp_o[i].gnt = sbr_ports_gnt[i];
   end
 
   sbr_port_a_chan_t mgr_port_a_in_sbr;
@@ -76,19 +76,19 @@ module obi_mux #(
     .data_i  ( sbr_ports_a                      ),
 
     .req_o   ( mgr_port_req                     ),
-    .gnt_i   ( mgr_port_obi_rsp_i.gnt && ~fifo_full ),
+    .gnt_i   ( mgr_port_rsp_i.gnt && ~fifo_full ),
     .data_o  ( mgr_port_a_in_sbr                ),
 
     .idx_o   ( selected_id                      )
   );
 
-  assign mgr_port_obi_req_o.req = mgr_port_req && ~fifo_full;
+  assign mgr_port_req_o.req = mgr_port_req && ~fifo_full;
 
   always_comb begin
-    mgr_port_obi_req_o.a.aid = '0;
-    `OBI_SET_A_STRUCT(mgr_port_obi_req_o.a, mgr_port_a_in_sbr)
+    mgr_port_req_o.a.aid = '0;
+    `OBI_SET_A_STRUCT(mgr_port_req_o.a, mgr_port_a_in_sbr)
     if (MgrPortObiCfg.IdWidth > 0 && (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth + RequiredExtraIdWidth)) begin
-      mgr_port_obi_req_o.a.aid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0] = {selected_id, mgr_port_a_in_sbr.aid};
+      mgr_port_req_o.a.aid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0] = {selected_id, mgr_port_a_in_sbr.aid};
     end
   end
 
@@ -98,7 +98,7 @@ module obi_mux #(
     if (!(MgrPortObiCfg.IdWidth > 0 && (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth + RequiredExtraIdWidth)))
       $fatal(1, "UseIdForRouting requires MgrPort IdWidth to increase with log2(NumSbrPorts)");
     
-    assign {response_id, rsp_rid} = mgr_port_obi_rsp_i.r.rid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0];
+    assign {response_id, rsp_rid} = mgr_port_rsp_i.r.rid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0];
     assign fifo_full = 1'b0;
 
   end else begin : gen_no_id_assign
@@ -117,7 +117,7 @@ module obi_mux #(
       .empty_o   (),
       .usage_o   (),
       .data_i    ( selected_id                                      ),
-      .push_i    ( mgr_port_obi_req_o.req && mgr_port_obi_rsp_i.gnt ),
+      .push_i    ( mgr_port_req_o.req && mgr_port_rsp_i.gnt ),
 
       .data_o    ( response_id                                      ),
       .pop_i     ( fifo_pop                                         )
@@ -126,7 +126,7 @@ module obi_mux #(
   end
 
   if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
-    assign mgr_port_obi_req_o.rready = sbr_ports_obi_req_i[response_id].rready;
+    assign mgr_port_req_o.rready = sbr_ports_req_i[response_id].rready;
   end
   logic [NumSbrPorts-1:0] sbr_rsp_rvalid;
   sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
@@ -135,19 +135,19 @@ module obi_mux #(
       sbr_rsp_r[i] = '0;
       sbr_rsp_rvalid[i] = '0;
     end
-    `OBI_SET_R_STRUCT(sbr_rsp_r[response_id], mgr_port_obi_rsp_i.r);
-    sbr_rsp_rvalid[response_id] = mgr_port_obi_rsp_i.rvalid;
+    `OBI_SET_R_STRUCT(sbr_rsp_r[response_id], mgr_port_rsp_i.r);
+    sbr_rsp_rvalid[response_id] = mgr_port_rsp_i.rvalid;
   end
 
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_rsp_assign
-    assign sbr_ports_obi_rsp_o[i].r = sbr_rsp_r[i];
-    assign sbr_ports_obi_rsp_o[i].rvalid = sbr_rsp_rvalid[i];
+    assign sbr_ports_rsp_o[i].r = sbr_rsp_r[i];
+    assign sbr_ports_rsp_o[i].rvalid = sbr_rsp_rvalid[i];
   end
 
   if (MgrPortObiCfg.UseRReady) begin : gen_fifo_pop
-    assign fifo_pop = mgr_port_obi_rsp_i.rvalid && mgr_port_obi_req_o.rready;
+    assign fifo_pop = mgr_port_rsp_i.rvalid && mgr_port_req_o.rready;
   end else begin : gen_fifo_pop
-    assign fifo_pop = mgr_port_obi_rsp_i.rvalid;
+    assign fifo_pop = mgr_port_rsp_i.rvalid;
   end
 
 endmodule
@@ -209,11 +209,11 @@ module obi_mux_intf #(
     .rst_ni,
     .testmode_i,
 
-    .sbr_ports_obi_req_i ( sbr_ports_req ),
-    .sbr_ports_obi_rsp_o ( sbr_ports_rsp ),
+    .sbr_ports_req_i ( sbr_ports_req ),
+    .sbr_ports_rsp_o ( sbr_ports_rsp ),
 
-    .mgr_port_obi_req_o  ( mgr_port_req  ),
-    .mgr_port_obi_rsp_i  ( mgr_port_rsp  )
+    .mgr_port_req_o  ( mgr_port_req  ),
+    .mgr_port_rsp_i  ( mgr_port_rsp  )
   );
 
 endmodule

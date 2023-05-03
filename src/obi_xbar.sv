@@ -39,11 +39,11 @@ module obi_xbar #(
   input  logic rst_ni,
   input  logic testmode_i,
 
-  input  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_obi_req_i,
-  output sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_obi_rsp_o,
+  input  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req_i,
+  output sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp_o,
 
-  output mgr_port_obi_req_t [NumMgrPorts-1:0] mgr_ports_obi_req_o,
-  input  mgr_port_obi_rsp_t [NumMgrPorts-1:0] mgr_ports_obi_rsp_i,
+  output mgr_port_obi_req_t [NumMgrPorts-1:0] mgr_ports_req_o,
+  input  mgr_port_obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp_i,
 
   input  addr_map_rule_t [NumAddrRules-1:0]   addr_map_i,
   input  logic [NumSbrPorts-1:0]              en_default_idx_i,
@@ -67,13 +67,13 @@ module obi_xbar #(
       .addr_t    ( logic [MgrPortObiCfg.AddrWidth-1:0] ),
       .rule_t    ( addr_map_rule_t                     )
     ) i_addr_decode (
-      .addr_i          ( sbr_ports_obi_req_i[i].a.addr ),
-      .addr_map_i      ( addr_map_i                  ),
-      .idx_o           ( sbr_port_select[i]          ),
+      .addr_i          ( sbr_ports_req_i[i].a.addr ),
+      .addr_map_i      ( addr_map_i                ),
+      .idx_o           ( sbr_port_select[i]        ),
       .dec_valid_o     (),
       .dec_error_o     (),
-      .en_default_idx_i( en_default_idx_i[i]         ),
-      .default_idx_i   ( default_idx_i[i]            )
+      .en_default_idx_i( en_default_idx_i[i]       ),
+      .default_idx_i   ( default_idx_i[i]          )
     );
 
     obi_demux #(
@@ -85,11 +85,11 @@ module obi_xbar #(
     ) i_demux (
       .clk_i,
       .rst_ni,
-      .sbr_port_select_i ( sbr_port_select[i]     ),
-      .sbr_port_req_i    ( sbr_ports_obi_req_i[i] ),
-      .sbr_port_rsp_o    ( sbr_ports_obi_rsp_o[i] ),
-      .mgr_ports_req_o   ( sbr_reqs[i]            ),
-      .mgr_ports_rsp_i   ( sbr_rsps[i]            )
+      .sbr_port_select_i ( sbr_port_select[i] ),
+      .sbr_port_req_i    ( sbr_ports_req_i[i] ),
+      .sbr_port_rsp_o    ( sbr_ports_rsp_o[i] ),
+      .mgr_ports_req_o   ( sbr_reqs[i]        ),
+      .mgr_ports_rsp_i   ( sbr_rsps[i]        )
     );
   end
 
@@ -117,10 +117,10 @@ module obi_xbar #(
       .clk_i,
       .rst_ni,
       .testmode_i,
-      .sbr_ports_obi_req_i ( mgr_reqs[i]            ),
-      .sbr_ports_obi_rsp_o ( mgr_rsps[i]            ),
-      .mgr_port_obi_req_o  ( mgr_ports_obi_req_o[i] ),
-      .mgr_port_obi_rsp_i  ( mgr_ports_obi_rsp_i[i] )
+      .sbr_ports_req_i ( mgr_reqs[i]        ),
+      .sbr_ports_rsp_o ( mgr_rsps[i]        ),
+      .mgr_port_req_o  ( mgr_ports_req_o[i] ),
+      .mgr_port_rsp_i  ( mgr_ports_rsp_i[i] )
     );
   end
 
@@ -198,13 +198,13 @@ module obi_xbar_intf #(
     .clk_i,
     .rst_ni,
     .testmode_i,
-    .sbr_ports_obi_req_i ( sbr_ports_req    ),
-    .sbr_ports_obi_rsp_o ( sbr_ports_rsp    ),
-    .mgr_ports_obi_req_o ( mgr_ports_req    ),
-    .mgr_ports_obi_rsp_i ( mgr_ports_rsp    ),
-    .addr_map_i          ( addr_map_i       ),
-    .en_default_idx_i    ( en_default_idx_i ),
-    .default_idx_i       ( default_idx_i    )
+    .sbr_ports_req_i  ( sbr_ports_req    ),
+    .sbr_ports_rsp_o  ( sbr_ports_rsp    ),
+    .mgr_ports_req_o  ( mgr_ports_req    ),
+    .mgr_ports_rsp_i  ( mgr_ports_rsp    ),
+    .addr_map_i       ( addr_map_i       ),
+    .en_default_idx_i ( en_default_idx_i ),
+    .default_idx_i    ( default_idx_i    )
   );
 
 endmodule
