@@ -29,12 +29,12 @@ module obi_demux #(
   input  obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp_i
 );
 
-  if (ObiCfg.Integrity) begin
+  if (ObiCfg.Integrity) begin : gen_integrity_err
     $fatal(1, "unimplemented");
   end
 
   // stall requests to ensure in-order behavior (could be handled differently with rready)
-  localparam CounterWidth = cf_math_pkg::idx_width(NumMaxTrans);
+  localparam int unsigned CounterWidth = cf_math_pkg::idx_width(NumMaxTrans);
 
   logic cnt_up, cnt_down, overflow;
   logic [CounterWidth-1:0] in_flight;
@@ -85,14 +85,14 @@ module obi_demux #(
     .clk_i,
     .rst_ni,
 
-    .clear_i   ( 1'b0      ),
-    .en_i      ( cnt_up ^ cnt_down ),
-    .load_i    ( 1'b0      ),
-    .down_i    ( cnt_down ),
+    .clear_i   ( 1'b0                           ),
+    .en_i      ( cnt_up ^ cnt_down              ),
+    .load_i    ( 1'b0                           ),
+    .down_i    ( cnt_down                       ),
     .delta_i   ( {{CounterWidth-1{1'b0}}, 1'b1} ),
-    .d_i       ( '0        ),
-    .q_o       ( in_flight ),
-    .overflow_o( overflow  )
+    .d_i       ( '0                             ),
+    .q_o       ( in_flight                      ),
+    .overflow_o( overflow                       )
   );
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_select
@@ -124,7 +124,7 @@ module obi_demux_intf #(
   input select_t      sbr_port_select_i,
   OBI_BUS.Subordinate sbr_port,
 
-  OBI_BUS.Manager     mgr_ports [NumMgrPorts-1:0]
+  OBI_BUS.Manager     mgr_ports [NumMgrPorts]
 );
 
   `OBI_TYPEDEF_ALL(obi, ObiCfg)
@@ -138,7 +138,7 @@ module obi_demux_intf #(
   `OBI_ASSIGN_TO_REQ(sbr_port_req, sbr_port, ObiCfg)
   `OBI_ASSIGN_FROM_RSP(sbr_port, sbr_port_rsp, ObiCfg)
 
-  for (genvar i = 0; i < NumMgrPorts; i++) begin
+  for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_mgr_ports_assign
     `OBI_ASSIGN_FROM_REQ(mgr_ports[i], mgr_ports_req[i], ObiCfg)
     `OBI_ASSIGN_TO_RSP(mgr_ports_rsp[i], mgr_ports[i], ObiCfg)
   end

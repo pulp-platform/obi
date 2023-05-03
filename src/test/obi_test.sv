@@ -206,7 +206,7 @@ package obi_test;
       drv.reset_manager();
     endfunction
 
-    task automatic rand_wait(input int unsigned min, max);
+    task automatic rand_wait(input int unsigned min, input int unsigned max);
       int unsigned rand_success, cycles;
       rand_success = std::randomize(cycles) with {
         cycles >= min;
@@ -334,7 +334,7 @@ package obi_test;
       drv.reset_subordinate();
     endfunction
 
-    task automatic rand_wait(input int unsigned min, max);
+    task automatic rand_wait(input int unsigned min, input int unsigned max);
       int unsigned rand_success, cycles;
       rand_success = std::randomize(cycles) with {
         cycles >= min;

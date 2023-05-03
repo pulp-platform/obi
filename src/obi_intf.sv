@@ -204,24 +204,25 @@ interface OBI_BUS_DV #(
   assert property (@(posedge clk_i) disable iff (!rst_ni) (req && !gnt |=> $stable(aid)));
   assert property (@(posedge clk_i) disable iff (!rst_ni) (req && !gnt |=> $stable(a_optional)));
   assert property (@(posedge clk_i) disable iff (!rst_ni) (req && !gnt |=> req));
-  if (OBI_CFG.Integrity) begin
+  if (OBI_CFG.Integrity) begin : gen_integrity_req_check
     assert property (@(posedge clk_i) disable iff (!rst_ni) (req && ~reqpar));
     assert property (@(posedge clk_i) disable iff (!rst_ni) (gnt && ~gntpar));
     // TODO: achk?
   end
 
   // R channel
-  if (OBI_CFG.UseRReady) begin
+  if (OBI_CFG.UseRReady) begin : gen_rready_checks
     assert property (@(posedge clk_i) disable iff (!rst_ni) rvalid |-> ##[1:$] rready);
     assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(rdata)));
     assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(rid)));
     assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(err)));
-    assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> $stable(r_optional)));
+    assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=>
+                     $stable(r_optional)));
     assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && !rready |=> rvalid));
   end
-  if (OBI_CFG.Integrity) begin
+  if (OBI_CFG.Integrity) begin : gen_integrity_rsp_check
     assert property (@(posedge clk_i) disable iff (!rst_ni) (rvalid && ~rvalidpar));
-    if (OBI_CFG.UseRReady) begin
+    if (OBI_CFG.UseRReady) begin : gen_rready_integrity_check
       assert property (@(posedge clk_i) disable iff (!rst_ni) (rready && ~rreadypar));
     end
   end

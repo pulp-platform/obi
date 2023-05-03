@@ -5,7 +5,7 @@
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
 package obi_pkg;
-  
+
   /// The OBI atomics type, to be expanded.
   typedef logic [5:0] atop_t;
 

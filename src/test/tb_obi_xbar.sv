@@ -87,7 +87,7 @@ module tb_obi_xbar;
     .TT ( TestTime )
   ) rand_subordinate_t;
 
-  localparam NumRules = 8;
+  localparam int unsigned NumRules = 8;
   typedef struct packed {
     int unsigned idx;
     logic [AddrWidth-1:0] start_addr;
@@ -112,7 +112,7 @@ module tb_obi_xbar;
     .OBI_CFG          ( MgrConfig ),
     .obi_a_optional_t ( mgr_a_optional_t ),
     .obi_r_optional_t ( mgr_r_optional_t )
-  ) mgr_bus_dv [NumManagers-1:0] (
+  ) mgr_bus_dv [NumManagers] (
     .clk_i  ( clk   ),
     .rst_ni ( rst_n )
   );
@@ -120,9 +120,9 @@ module tb_obi_xbar;
     .OBI_CFG          ( MgrConfig ),
     .obi_a_optional_t ( mgr_a_optional_t ),
     .obi_r_optional_t ( mgr_r_optional_t )
-  ) mgr_bus [NumManagers-1:0] ();
+  ) mgr_bus [NumManagers] ();
 
-  for (genvar i = 0; i < NumManagers; i++) begin
+  for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_drivers
     initial begin
       automatic rand_manager_t obi_rand_manager = new ( mgr_bus_dv[i], $sformatf("MGR_%0d",i));
       automatic logic [  MgrConfig.DataWidth-1:0] r_rdata    = '0;
@@ -131,13 +131,14 @@ module tb_obi_xbar;
       end_of_sim[i] <= 1'b0;
       obi_rand_manager.reset();
       @(posedge rst_n);
-      obi_rand_manager.write(32'h0000_1100, 4'hF, 32'hDEAD_BEEF, 2, '{auser: '0,
-                                                                      wuser: '0,
-                                                                      atop: '0,
-                                                                      memtype: obi_pkg::memtype_t'('0),
-                                                                      prot: obi_pkg::prot_t'('0),
-                                                                      dbg: '0,
-                                                                      achk: '0}, r_rid, r_optional);
+      obi_rand_manager.write(32'h0000_1100, 4'hF, 32'hDEAD_BEEF, 2,
+                             '{auser: '0,
+                               wuser: '0,
+                               atop: '0,
+                               memtype: obi_pkg::memtype_t'('0),
+                               prot: obi_pkg::prot_t'('0),
+                               dbg: '0,
+                               achk: '0}, r_rid, r_optional);
       obi_rand_manager.read(32'h0000_e100, 2, '{auser: '0,
                                                 wuser: '0,
                                                 atop: '0,
@@ -156,7 +157,7 @@ module tb_obi_xbar;
     .OBI_CFG          ( SbrConfig ),
     .obi_a_optional_t ( sbr_a_optional_t ),
     .obi_r_optional_t ( sbr_r_optional_t )
-  ) sbr_bus_dv [NumSubordinates-1:0] (
+  ) sbr_bus_dv [NumSubordinates] (
     .clk_i  ( clk   ),
     .rst_ni ( rst_n )
   );
@@ -164,11 +165,12 @@ module tb_obi_xbar;
     .OBI_CFG          ( SbrConfig ),
     .obi_a_optional_t ( sbr_a_optional_t ),
     .obi_r_optional_t ( sbr_r_optional_t )
-  ) sbr_bus [NumSubordinates-1:0] ();
+  ) sbr_bus [NumSubordinates] ();
 
-  for (genvar i = 0; i < NumSubordinates; i++) begin
+  for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_drivers
     initial begin
-      automatic rand_subordinate_t obi_rand_subordinate = new ( sbr_bus_dv[i], $sformatf("SBR_%0d",i));
+      automatic rand_subordinate_t obi_rand_subordinate =
+        new ( sbr_bus_dv[i], $sformatf("SBR_%0d",i));
       obi_rand_subordinate.reset();
       @(posedge rst_n);
       obi_rand_subordinate.run();

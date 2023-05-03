@@ -151,9 +151,9 @@ module obi_xbar_intf #(
   input logic         rst_ni,
   input logic         testmode_i,
 
-  OBI_BUS.Subordinate sbr_ports [NumSbrPorts-1:0],
+  OBI_BUS.Subordinate sbr_ports [NumSbrPorts],
 
-  OBI_BUS.Manager     mgr_ports [NumMgrPorts-1:0],
+  OBI_BUS.Manager     mgr_ports [NumMgrPorts],
 
   input  addr_map_rule_t [NumAddrRules-1:0]   addr_map_i,
   input  logic [NumSbrPorts-1:0]              en_default_idx_i,
@@ -169,12 +169,12 @@ module obi_xbar_intf #(
   mgr_port_obi_req_t [NumMgrPorts-1:0] mgr_ports_req;
   mgr_port_obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp;
 
-  for (genvar i = 0; i < NumSbrPorts; i++) begin
+  for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_ports_assign
     `OBI_ASSIGN_TO_REQ(sbr_ports_req[i], sbr_ports[i], SbrPortObiCfg)
     `OBI_ASSIGN_FROM_RSP(sbr_ports[i], sbr_ports_rsp[i], SbrPortObiCfg)
   end
 
-  for (genvar i = 0; i < NumMgrPorts; i++) begin
+  for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_mgr_ports_assign
     `OBI_ASSIGN_FROM_REQ(mgr_ports[i], mgr_ports_req[i], MgrPortObiCfg)
     `OBI_ASSIGN_TO_RSP(mgr_ports_rsp[i], mgr_ports[i], MgrPortObiCfg)
   end
