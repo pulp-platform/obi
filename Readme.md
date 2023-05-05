@@ -18,6 +18,7 @@ Most IPs will also support a SystemVerilog `interface` variant, also based on `O
 - `obi_demux.sv`: A demultiplexer IP for the OBI protocol.
 - `obi_xbar.sv`: A crossbar interconnect IP for the OBI protocol.
 - `obi_err_sbr.sv`: A error subordinate, responding with the error bit set.
+- `obi_sram_shim.sv`: An adapter for a standard sram.
 
 ## License
 Solderpad Hardware License, Version 0.51
