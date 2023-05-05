@@ -31,22 +31,25 @@ module tb_obi_xbar;
   localparam time TestTime =  8ns;
 
   localparam obi_pkg::obi_cfg_t MgrConfig = '{
-    UseRReady:        1'b1,
-    UseAtop:          1'b1,
-    UseMemtype:       1'b1,
-    UseProt:          1'b1,
-    CombGnt:          1'b0,
-    AUserWidth: AUserWidth,
-    WUserWidth: WUserWidth,
-    RUserWidth: RUserWidth,
-    AddrWidth:   AddrWidth,
-    DataWidth:   DataWidth,
-    IdWidth:    MgrIdWidth,
-    MidWidth:            0,
-    AChkWidth:           0,
-    RChkWidth:           0,
-    Integrity:        1'b0,
-    BeFull:           1'b1
+    UseRReady:      1'b1,
+    CombGnt:        1'b0,
+    AddrWidth: AddrWidth,
+    DataWidth: DataWidth,
+    IdWidth:  MgrIdWidth,
+    Integrity:      1'b0,
+    BeFull:         1'b1,
+    OptionalCfg: '{
+      UseAtop:          1'b1,
+      UseMemtype:       1'b1,
+      UseProt:          1'b1,
+      UseDbg:           1'b1,
+      AUserWidth: AUserWidth,
+      WUserWidth: WUserWidth,
+      RUserWidth: RUserWidth,
+      MidWidth:            0,
+      AChkWidth:           0,
+      RChkWidth:           0
+    }
   };
   `OBI_TYPEDEF_ALL_A_OPTIONAL(mgr_a_optional_t, AUserWidth, WUserWidth, 0, 0)
   `OBI_TYPEDEF_ALL_R_OPTIONAL(mgr_r_optional_t, RUserWidth, 0)
@@ -61,22 +64,25 @@ module tb_obi_xbar;
   ) rand_manager_t;
 
   localparam obi_pkg::obi_cfg_t SbrConfig = '{
-    UseRReady:        1'b1,
-    UseAtop:          1'b1,
-    UseMemtype:       1'b1,
-    UseProt:          1'b1,
-    CombGnt:          1'b0,
-    AUserWidth: AUserWidth,
-    WUserWidth: WUserWidth,
-    RUserWidth: RUserWidth,
-    AddrWidth:   AddrWidth,
-    DataWidth:   DataWidth,
-    IdWidth:    SbrIdWidth,
-    MidWidth:            0,
-    AChkWidth:           0,
-    RChkWidth:           0,
-    Integrity:        1'b0,
-    BeFull:           1'b1
+    UseRReady:      1'b1,
+    CombGnt:        1'b0,
+    AddrWidth: AddrWidth,
+    DataWidth: DataWidth,
+    IdWidth:  SbrIdWidth,
+    Integrity:      1'b0,
+    BeFull:         1'b1,
+    OptionalCfg: '{
+      UseAtop:          1'b1,
+      UseMemtype:       1'b1,
+      UseProt:          1'b1,
+      UseDbg:           1'b1,
+      AUserWidth: AUserWidth,
+      WUserWidth: WUserWidth,
+      RUserWidth: RUserWidth,
+      MidWidth:            0,
+      AChkWidth:           0,
+      RChkWidth:           0
+    }
   };
   `OBI_TYPEDEF_ALL_A_OPTIONAL(sbr_a_optional_t, AUserWidth, WUserWidth, 0, 0)
   `OBI_TYPEDEF_ALL_R_OPTIONAL(sbr_r_optional_t, RUserWidth, 0)
