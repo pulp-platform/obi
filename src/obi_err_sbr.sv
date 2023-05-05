@@ -53,7 +53,7 @@ module obi_err_sbr #(
     .testmode_i,
     .flush_i   ( '0                             ),
     .full_o    ( fifo_full                      ),
-    .empty_o   (),
+    .empty_o   ( fifo_empty                     ),
     .usage_o   (),
     .data_i    ( obi_req_i.a.aid                ),
     .push_i    ( obi_req_i.req && obi_rsp_o.gnt ),
