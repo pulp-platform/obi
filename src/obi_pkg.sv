@@ -15,6 +15,10 @@ package obi_pkg;
   /// The OBI prot type, to be expanded.
   typedef logic [2:0] prot_t;
 
+  localparam atop_t    DefaultAtop    = 6'b000000;
+  localparam memtype_t DefaultMemtype = 2'b00;
+  localparam prot_t    DefaultProt    = 3'b111;
+
   /// The config type for OBI bus optional fields.
   typedef struct packed {
     bit          UseAtop;

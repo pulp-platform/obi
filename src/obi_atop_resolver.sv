@@ -22,6 +22,9 @@ module obi_atop_resolver import obi_pkg::*; #(
   parameter type               mgr_port_obi_req_t = sbr_port_obi_req_t,
   /// The response struct for the manager ports (output ports).
   parameter type               mgr_port_obi_rsp_t = sbr_port_obi_rsp_t,
+  ///
+  parameter type               mgr_port_obi_a_optional_t = logic,
+  parameter type               mgr_port_obi_r_optional_t = logic,
   /// Enable LR & SC AMOS
   parameter bit                LrScEnable         = 1,
   /// Cut path between request and response at the cost of increased AMO latency
@@ -39,6 +42,7 @@ module obi_atop_resolver import obi_pkg::*; #(
 
   if (!SbrPortObiCfg.OptionalCfg.UseAtop) $error("Atomics require atop to be enabled");
   if (MgrPortObiCfg.OptionalCfg.UseAtop) $error("Filter requires atop to be disabled on manager port");
+  if (SbrPortObiCfg.Integrity || MgrPortObiCfg.Integrity) $error("Integrity not supported");
 
   logic meta_valid, meta_ready;
   logic rdata_valid, rdata_ready;
@@ -87,9 +91,42 @@ module obi_atop_resolver import obi_pkg::*; #(
   assign rdata_ready = !rdata_usage && !rdata_full;
   assign rdata_valid = !rdata_empty;
 
+  logic sc_successful_d, sc_successful_q;
+  logic sc_q;
+
+  typedef struct packed {
+    logic [SbrPortObiCfg.DataWidth-1:0] data;
+    logic                               err;
+    logic                               exokay;
+    mgr_port_obi_r_optional_t           optional;
+  } out_buffer_t;
+  out_buffer_t out_buf_fifo_in, out_buf_fifo_out;
+
+  assign out_buf_fifo_in = '{
+    data:   out_rdata,
+    err:    mgr_port_rsp_i.r.err,
+    exokay: sc_successful_q,
+    optional: mgr_port_rsp_i.r.r_optional
+  };
+
+  assign sbr_port_rsp_o.r.rdata = out_buf_fifo_out.data;
+  assign sbr_port_rsp_o.r.err   = out_buf_fifo_out.err;
+  assign sbr_port_rsp_o.r.r_optional.exokay = out_buf_fifo_out.exokay;
+  if (SbrPortObiCfg.OptionalCfg.RUserWidth) begin
+    if (MgrPortObiCfg.OptionalCfg.RUserWidth) begin
+      always_comb begin
+        sbr_port_rsp_o.r.r_optional.ruser = '0;
+        sbr_port_rsp_o.r.r_optional.ruser = out_buf_fifo_in.optional.ruser;
+      end
+    end else begin
+      assign sbr_port_rsp_o.r.r_optional.ruser = '0;
+    end
+  end
+
   fifo_v3 #(
     .FALL_THROUGH (1'b1     ),
-    .DATA_WIDTH   (SbrPortObiCfg.DataWidth),
+    // .DATA_WIDTH   (SbrPortObiCfg.DataWidth),
+    .dtype       (out_buffer_t),
     .DEPTH        (2        )
   ) i_rdata_fifo (
     .clk_i,
@@ -99,33 +136,31 @@ module obi_atop_resolver import obi_pkg::*; #(
     .full_o     (rdata_full              ),// queue is full
     .empty_o    (rdata_empty             ),// queue is empty
     .usage_o    (rdata_usage             ),// fill pointer
-    .data_i     (out_rdata               ),// data to push into the queue
-    .push_i     (~last_amo_wb && mgr_port_rsp_i.rvalid),// data is valid and can be pushed to the queue
-    .data_o     (sbr_port_rsp_o.r.rdata  ),// output data
-    .pop_i      (pop_resp && !rdata_empty)
+    .data_i     (out_buf_fifo_in         ),// data to push into the queue
+    .push_i     (~last_amo_wb & mgr_port_rsp_i.rvalid),// data is valid and can be pushed to the queue
+    .data_o     (out_buf_fifo_out        ),// output data
+    .pop_i      (pop_resp & ~rdata_empty)
   );
 
   // localparam int unsigned CoreIdWidth  = idx_width(NumCores);
   // localparam int unsigned IniAddrWidth = idx_width(NumCoresPerTile + NumGroups);
 
-  logic sc_successful_d, sc_successful_q;
-  logic sc_q;
 
   // In case of a SC we must forward SC result from the cycle earlier.
   assign out_rdata = (sc_q && LrScEnable) ? $unsigned(!sc_successful_q) : mgr_port_rsp_i.r.rdata;
 
   // Ready to output data if both meta and read data
   // are available (the read data will always be last)
-  assign sbr_port_rsp_o.rvalid = meta_valid && rdata_valid;
+  assign sbr_port_rsp_o.rvalid = meta_valid & rdata_valid;
   // Only pop the data from the registers once both registers are ready
   if (SbrPortObiCfg.UseRReady) begin
-    assign pop_resp   = sbr_port_rsp_o.rvalid && sbr_port_req_i.rready;
+    assign pop_resp   = sbr_port_rsp_o.rvalid & sbr_port_req_i.rready;
   end else begin
     assign pop_resp   = sbr_port_rsp_o.rvalid;
   end
 
   // Generate out_gnt one cycle after sending a request to the bank, except an AMO's write-back
-  `FFL(last_amo_wb, !amo_wb, mgr_port_req_o.req, 1'b0, clk_i, rst_ni);
+  `FFL(last_amo_wb, amo_wb, mgr_port_req_o.req, 1'b0, clk_i, rst_ni);
 
   // ----------------
   // LR/SC
@@ -152,7 +187,7 @@ module obi_atop_resolver import obi_pkg::*; #(
 
     `FF(sc_successful_q, sc_successful_d, 1'b0, clk_i, rst_ni);
     `FF(reservation_q, reservation_d, 1'b0, clk_i, rst_ni);
-    `FF(sc_q, sbr_port_req_i.req && sbr_port_rsp_o.gnt && (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC), 1'b0, clk_i, rst_ni);
+    `FF(sc_q, sbr_port_req_i.req & sbr_port_rsp_o.gnt & (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC), 1'b0, clk_i, rst_ni);
 
     always_comb begin
     //   // {group_id, tile_id, core_id}
@@ -216,15 +251,79 @@ module obi_atop_resolver import obi_pkg::*; #(
   // ----------------
   // Atomics
   // ----------------
+  
+  mgr_port_obi_a_optional_t a_optional;
+  if (MgrPortObiCfg.OptionalCfg.AUserWidth) begin
+    if (SbrPortObiCfg.OptionalCfg.AUserWidth) begin
+      always_comb begin
+        a_optional.auser = '0;
+        a_optional.auser = sbr_port_req_i.a.a_optional.auser;
+      end
+    end else begin
+      assign a_optional.auser = '0;
+    end
+  end
+  if (MgrPortObiCfg.OptionalCfg.WUserWidth) begin
+    if (SbrPortObiCfg.OptionalCfg.WUserWidth) begin
+      always_comb begin
+        a_optional.wuser = '0;
+        a_optional.wuser = sbr_port_req_i.a.a_optional.wuser;
+      end
+    end else begin
+      assign a_optional.wuser = '0;
+    end
+  end
+  if (MgrPortObiCfg.OptionalCfg.UseProt) begin
+    if (SbrPortObiCfg.OptionalCfg.UseProt) begin
+      assign a_optional.prot = sbr_port_req_i.a.a_optional.prot;
+    end else begin
+      assign a_optional.prot = obi_pkg::DefaultProt;
+    end
+  end
+  if (MgrPortObiCfg.OptionalCfg.UseMemtype) begin
+    if (SbrPortObiCfg.OptionalCfg.UseMemtype) begin
+      assign a_optional.memtype = sbr_port_req_i.a.a_optional.memtype;
+    end else begin
+      assign a_optional.memtype = obi_pkg::DefaultMemtype;
+    end
+  end
+  if (MgrPortObiCfg.OptionalCfg.MidWidth) begin
+    if (SbrPortObiCfg.OptionalCfg.MidWidth) begin
+      always_comb begin
+        a_optional.mid = '0;
+        a_optional.mid = sbr_port_req_i.a.a_optional.mid;
+      end
+    end else begin
+      assign a_optional.mid = '0;
+    end
+  end
+  if (MgrPortObiCfg.OptionalCfg.UseDbg) begin
+    if (SbrPortObiCfg.OptionalCfg.UseDbg) begin
+      assign a_optional.dbg = sbr_port_req_i.a.a_optional.dbg;
+    end else begin
+      assign a_optional.dbg = '0;
+    end
+  end
+
+  if (!MgrPortObiCfg.OptionalCfg.AUserWidth &&
+      !MgrPortObiCfg.OptionalCfg.WUserWidth &&
+      !MgrPortObiCfg.OptionalCfg.UseProt &&
+      !MgrPortObiCfg.OptionalCfg.UseMemtype &&
+      !MgrPortObiCfg.OptionalCfg.MidWidth &&
+      !MgrPortObiCfg.OptionalCfg.UseDbg) begin
+    assign a_optional = '0;
+  end
 
   always_comb begin
     // feed-through
-    sbr_port_rsp_o.gnt     = rdata_ready & mgr_port_rsp_i.gnt;
-    mgr_port_req_o.req     = sbr_port_req_i.req & rdata_ready;//sbr_port_rsp_o.gnt;
-    mgr_port_req_o.a.addr  = sbr_port_req_i.a.addr;
-    mgr_port_req_o.a.we    = sbr_port_req_i.a.we | (sc_successful_d & (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC));
-    mgr_port_req_o.a.wdata = sbr_port_req_i.a.wdata;
-    mgr_port_req_o.a.be    = sbr_port_req_i.a.be;
+    sbr_port_rsp_o.gnt          = rdata_ready & mgr_port_rsp_i.gnt;
+    mgr_port_req_o.req          = sbr_port_req_i.req & rdata_ready;//sbr_port_rsp_o.gnt;
+    mgr_port_req_o.a.addr       = sbr_port_req_i.a.addr;
+    mgr_port_req_o.a.we         = sbr_port_req_i.a.we | (sc_successful_d & (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC));
+    mgr_port_req_o.a.wdata      = sbr_port_req_i.a.wdata;
+    mgr_port_req_o.a.be         = sbr_port_req_i.a.be;
+    mgr_port_req_o.a.aid        = sbr_port_req_i.a.aid;
+    mgr_port_req_o.a.a_optional = a_optional;
 
     state_d     = state_q;
     load_amo    = 1'b0;
