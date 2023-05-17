@@ -220,7 +220,7 @@ module obi_atop_resolver import obi_pkg::*; #(
   always_comb begin
     // feed-through
     sbr_port_rsp_o.gnt     = rdata_ready & mgr_port_rsp_i.gnt;
-    mgr_port_req_o.req     = sbr_port_req_i.req & sbr_port_rsp_o.gnt;
+    mgr_port_req_o.req     = sbr_port_req_i.req & rdata_ready;//sbr_port_rsp_o.gnt;
     mgr_port_req_o.a.addr  = sbr_port_req_i.a.addr;
     mgr_port_req_o.a.we    = sbr_port_req_i.a.we | (sc_successful_d & (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC));
     mgr_port_req_o.a.wdata = sbr_port_req_i.a.wdata;
