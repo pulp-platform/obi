@@ -41,7 +41,8 @@ module obi_atop_resolver import obi_pkg::*; #(
 );
 
   if (!SbrPortObiCfg.OptionalCfg.UseAtop) $error("Atomics require atop to be enabled");
-  if (MgrPortObiCfg.OptionalCfg.UseAtop) $error("Filter requires atop to be disabled on manager port");
+  if (MgrPortObiCfg.OptionalCfg.UseAtop)
+    $error("Filter requires atop to be disabled on manager port");
   if (SbrPortObiCfg.Integrity || MgrPortObiCfg.Integrity) $error("Integrity not supported");
 
   logic meta_valid, meta_ready;
@@ -53,9 +54,11 @@ module obi_atop_resolver import obi_pkg::*; #(
   logic pop_resp;
   logic last_amo_wb;
 
-  enum logic [1:0] {
+  typedef enum logic [1:0] {
       Idle, DoAMO, WriteBackAMO
-  } state_q, state_d;
+  } amo_state_e;
+
+  amo_state_e state_q, state_d;
 
   logic                 load_amo;
   obi_atop_e            amo_op_q;
@@ -112,13 +115,13 @@ module obi_atop_resolver import obi_pkg::*; #(
   assign sbr_port_rsp_o.r.rdata = out_buf_fifo_out.data;
   assign sbr_port_rsp_o.r.err   = out_buf_fifo_out.err;
   assign sbr_port_rsp_o.r.r_optional.exokay = out_buf_fifo_out.exokay;
-  if (SbrPortObiCfg.OptionalCfg.RUserWidth) begin
-    if (MgrPortObiCfg.OptionalCfg.RUserWidth) begin
+  if (SbrPortObiCfg.OptionalCfg.RUserWidth) begin : gen_ruser
+    if (MgrPortObiCfg.OptionalCfg.RUserWidth) begin : gen_ruser_assign
       always_comb begin
         sbr_port_rsp_o.r.r_optional.ruser = '0;
         sbr_port_rsp_o.r.r_optional.ruser = out_buf_fifo_in.optional.ruser;
       end
-    end else begin
+    end else begin : gen_no_ruser
       assign sbr_port_rsp_o.r.r_optional.ruser = '0;
     end
   end
@@ -137,7 +140,8 @@ module obi_atop_resolver import obi_pkg::*; #(
     .empty_o    (rdata_empty             ),// queue is empty
     .usage_o    (rdata_usage             ),// fill pointer
     .data_i     (out_buf_fifo_in         ),// data to push into the queue
-    .push_i     (~last_amo_wb & mgr_port_rsp_i.rvalid),// data is valid and can be pushed to the queue
+    .push_i     (~last_amo_wb & mgr_port_rsp_i.rvalid),
+                                           // data is valid and can be pushed to the queue
     .data_o     (out_buf_fifo_out        ),// output data
     .pop_i      (pop_resp & ~rdata_empty)
   );
@@ -153,9 +157,9 @@ module obi_atop_resolver import obi_pkg::*; #(
   // are available (the read data will always be last)
   assign sbr_port_rsp_o.rvalid = meta_valid & rdata_valid;
   // Only pop the data from the registers once both registers are ready
-  if (SbrPortObiCfg.UseRReady) begin
+  if (SbrPortObiCfg.UseRReady) begin : gen_pop_rready
     assign pop_resp   = sbr_port_rsp_o.rvalid & sbr_port_req_i.rready;
-  end else begin
+  end else begin : gen_pop_norready
     assign pop_resp   = sbr_port_rsp_o.rvalid;
   end
 
@@ -187,7 +191,9 @@ module obi_atop_resolver import obi_pkg::*; #(
 
     `FF(sc_successful_q, sc_successful_d, 1'b0, clk_i, rst_ni);
     `FF(reservation_q, reservation_d, 1'b0, clk_i, rst_ni);
-    `FF(sc_q, sbr_port_req_i.req & sbr_port_rsp_o.gnt & (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC), 1'b0, clk_i, rst_ni);
+    `FF(sc_q, sbr_port_req_i.req &
+              sbr_port_rsp_o.gnt &
+              (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC), 1'b0, clk_i, rst_ni);
 
     always_comb begin
     //   // {group_id, tile_id, core_id}
@@ -230,7 +236,8 @@ module obi_atop_resolver import obi_pkg::*; #(
         // check whether another core has made a write attempt
         if ((unique_core_id != reservation_q.core) &&
             (sbr_port_req_i.a.addr == reservation_q.addr) &&
-            (!((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOLR, AMOSC}) || !sbr_port_req_i.a.a_optional.atop[5]) || sbr_port_req_i.a.we)) begin
+            (!((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOLR, AMOSC}) ||
+               !sbr_port_req_i.a.a_optional.atop[5]) || sbr_port_req_i.a.we)) begin
           reservation_d.valid = 1'b0;
         end
 
@@ -242,7 +249,7 @@ module obi_atop_resolver import obi_pkg::*; #(
         end
       end
     end // always_comb
-  end else begin : disable_lrcs
+  end else begin : gen_disable_lrcs
     assign sc_q = 1'b0;
     assign sc_successful_d = 1'b0;
     assign sc_successful_q = 1'b0;
@@ -251,56 +258,56 @@ module obi_atop_resolver import obi_pkg::*; #(
   // ----------------
   // Atomics
   // ----------------
-  
+
   mgr_port_obi_a_optional_t a_optional;
-  if (MgrPortObiCfg.OptionalCfg.AUserWidth) begin
-    if (SbrPortObiCfg.OptionalCfg.AUserWidth) begin
+  if (MgrPortObiCfg.OptionalCfg.AUserWidth) begin : gen_auser
+    if (SbrPortObiCfg.OptionalCfg.AUserWidth) begin : gen_auser_assign
       always_comb begin
         a_optional.auser = '0;
         a_optional.auser = sbr_port_req_i.a.a_optional.auser;
       end
-    end else begin
+    end else begin : gen_no_auser
       assign a_optional.auser = '0;
     end
   end
-  if (MgrPortObiCfg.OptionalCfg.WUserWidth) begin
-    if (SbrPortObiCfg.OptionalCfg.WUserWidth) begin
+  if (MgrPortObiCfg.OptionalCfg.WUserWidth) begin : gen_wuser
+    if (SbrPortObiCfg.OptionalCfg.WUserWidth) begin : gen_wuser_assign
       always_comb begin
         a_optional.wuser = '0;
         a_optional.wuser = sbr_port_req_i.a.a_optional.wuser;
       end
-    end else begin
+    end else begin : gen_no_wuser
       assign a_optional.wuser = '0;
     end
   end
-  if (MgrPortObiCfg.OptionalCfg.UseProt) begin
-    if (SbrPortObiCfg.OptionalCfg.UseProt) begin
+  if (MgrPortObiCfg.OptionalCfg.UseProt) begin : gen_prot
+    if (SbrPortObiCfg.OptionalCfg.UseProt) begin : gen_prot_assign
       assign a_optional.prot = sbr_port_req_i.a.a_optional.prot;
-    end else begin
+    end else begin : gen_no_prot
       assign a_optional.prot = obi_pkg::DefaultProt;
     end
   end
-  if (MgrPortObiCfg.OptionalCfg.UseMemtype) begin
-    if (SbrPortObiCfg.OptionalCfg.UseMemtype) begin
+  if (MgrPortObiCfg.OptionalCfg.UseMemtype) begin : gen_memtype
+    if (SbrPortObiCfg.OptionalCfg.UseMemtype) begin : gen_memtype_assign
       assign a_optional.memtype = sbr_port_req_i.a.a_optional.memtype;
-    end else begin
+    end else begin : gen_no_memtype
       assign a_optional.memtype = obi_pkg::DefaultMemtype;
     end
   end
-  if (MgrPortObiCfg.OptionalCfg.MidWidth) begin
-    if (SbrPortObiCfg.OptionalCfg.MidWidth) begin
+  if (MgrPortObiCfg.OptionalCfg.MidWidth) begin : gen_mid
+    if (SbrPortObiCfg.OptionalCfg.MidWidth) begin : gen_mid_assign
       always_comb begin
         a_optional.mid = '0;
         a_optional.mid = sbr_port_req_i.a.a_optional.mid;
       end
-    end else begin
+    end else begin : gen_no_mid
       assign a_optional.mid = '0;
     end
   end
-  if (MgrPortObiCfg.OptionalCfg.UseDbg) begin
-    if (SbrPortObiCfg.OptionalCfg.UseDbg) begin
+  if (MgrPortObiCfg.OptionalCfg.UseDbg) begin : gen_dbg
+    if (SbrPortObiCfg.OptionalCfg.UseDbg) begin : gen_dbg_assign
       assign a_optional.dbg = sbr_port_req_i.a.a_optional.dbg;
-    end else begin
+    end else begin : gen_no_dbg
       assign a_optional.dbg = '0;
     end
   end
@@ -310,7 +317,7 @@ module obi_atop_resolver import obi_pkg::*; #(
       !MgrPortObiCfg.OptionalCfg.UseProt &&
       !MgrPortObiCfg.OptionalCfg.UseMemtype &&
       !MgrPortObiCfg.OptionalCfg.MidWidth &&
-      !MgrPortObiCfg.OptionalCfg.UseDbg) begin
+      !MgrPortObiCfg.OptionalCfg.UseDbg) begin : gen_no_optional
     assign a_optional = '0;
   end
 
@@ -319,7 +326,9 @@ module obi_atop_resolver import obi_pkg::*; #(
     sbr_port_rsp_o.gnt          = rdata_ready & mgr_port_rsp_i.gnt;
     mgr_port_req_o.req          = sbr_port_req_i.req & rdata_ready;//sbr_port_rsp_o.gnt;
     mgr_port_req_o.a.addr       = sbr_port_req_i.a.addr;
-    mgr_port_req_o.a.we         = sbr_port_req_i.a.we | (sc_successful_d & (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC));
+    mgr_port_req_o.a.we         = sbr_port_req_i.a.we |
+                                  (sc_successful_d &
+                                   (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC));
     mgr_port_req_o.a.wdata      = sbr_port_req_i.a.wdata;
     mgr_port_req_o.a.be         = sbr_port_req_i.a.be;
     mgr_port_req_o.a.aid        = sbr_port_req_i.a.aid;
@@ -331,7 +340,10 @@ module obi_atop_resolver import obi_pkg::*; #(
 
     unique case (state_q)
       Idle: begin
-        if (sbr_port_req_i.req & sbr_port_rsp_o.gnt & !((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOLR, AMOSC}) || !sbr_port_req_i.a.a_optional.atop[5])) begin
+        if (sbr_port_req_i.req &
+            sbr_port_rsp_o.gnt &
+            !((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOLR, AMOSC}) ||
+              !sbr_port_req_i.a.a_optional.atop[5])) begin
           load_amo = 1'b1;
           state_d = DoAMO;
         end
@@ -432,8 +444,9 @@ module obi_atop_resolver import obi_pkg::*; #(
 
   // pragma translate_off
   // Check for unsupported parameters
-  if (SbrPortObiCfg.DataWidth != 32 || MgrPortObiCfg.DataWidth != 32) begin
-    $error($sformatf("Module currently only supports DataWidth = 32. DataWidth is currently set to: %0d", DataWidth));
+  if (SbrPortObiCfg.DataWidth != 32 || MgrPortObiCfg.DataWidth != 32) begin : gen_datawidth_err
+    $error($sformatf({"Module currently only supports DataWidth = 32. ",
+      "DataWidth is currently set to: %0d"}, DataWidth));
   end
 
   `ifndef VERILATOR
