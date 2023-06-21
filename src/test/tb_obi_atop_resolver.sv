@@ -194,12 +194,12 @@ module tb_obi_atop_resolver;
   // `OBI_ASSIGN(sbr_bus_dv, sbr_bus, SbrConfig, SbrConfig)
 
   OBI_ATOP_MONITOR_BUS #(
-    .DataWidth(DataWidth),
-    .AddrWidth(AddrWidth),
-    .IdWidth  (SbrIdWidth),
-    .UserWidth(AUserWidth)
+    .DataWidth ( DataWidth  ),
+    .AddrWidth ( AddrWidth  ),
+    .IdWidth   ( SbrIdWidth ),
+    .UserWidth ( AUserWidth )
   ) mem_monitor_dv (
-    .clk_i (clk)
+    .clk_i ( clk )
   );
 
 
@@ -212,58 +212,58 @@ module tb_obi_atop_resolver;
   );
 
   obi_mux_intf #(
-    .SbrPortObiCfg  (MgrConfig),
-    .MgrPortObiCfg  (MgrMuxedConfig),
-    .NumSbrPorts    (NumManagers),
-    .NumMaxTrans    (2),
-    .UseIdForRouting(1'b0)
+    .SbrPortObiCfg   ( MgrConfig      ),
+    .MgrPortObiCfg   ( MgrMuxedConfig ),
+    .NumSbrPorts     ( NumManagers    ),
+    .NumMaxTrans     ( 2              ),
+    .UseIdForRouting ( 1'b0           )
   ) i_obi_mux (
-    .clk_i     (clk),
-    .rst_ni    (rst_n),
-    .testmode_i(1'b0),
-    .sbr_ports (mgr_bus),
-    .mgr_port  (mgr_bus_muxed)
+    .clk_i      ( clk           ),
+    .rst_ni     ( rst_n         ),
+    .testmode_i ( 1'b0          ),
+    .sbr_ports  ( mgr_bus       ),
+    .mgr_port   ( mgr_bus_muxed )
   );
 
   obi_atop_resolver_intf #(
-    .SbrPortObiCfg (MgrMuxedConfig),
-    .MgrPortObiCfg (SbrConfig),
-    .LrScEnable    (1),
-    .RegisterAmo   (1'b0)
+    .SbrPortObiCfg ( MgrMuxedConfig ),
+    .MgrPortObiCfg ( SbrConfig      ),
+    .LrScEnable    ( 1              ),
+    .RegisterAmo   ( 1'b0           )
   ) i_atop_resolver (
-    .clk_i    (clk),
-    .rst_ni   (rst_n),
-    .sbr_port (mgr_bus_muxed),
-    .mgr_port (sbr_bus)
+    .clk_i    ( clk           ),
+    .rst_ni   ( rst_n         ),
+    .sbr_port ( mgr_bus_muxed ),
+    .mgr_port ( sbr_bus       )
   );
 
   obi_sim_mem_intf #(
-    .ObiCfg           (SbrConfig),
-    .ClearErrOnAccess (1'b0),
-    .WarnUninitialized(1'b0),
-    .ApplDelay        (ApplTime),
-    .AcqDelay         (TestTime)
+    .ObiCfg            ( SbrConfig ),
+    .ClearErrOnAccess  ( 1'b0      ),
+    .WarnUninitialized ( 1'b0      ),
+    .ApplDelay         ( ApplTime  ),
+    .AcqDelay          ( TestTime  )
   ) i_sim_mem (
-    .clk_i  (clk),
-    .rst_ni (rst_n),
-    .obi_sbr(sbr_bus),
-    .mon_valid_o(mem_monitor_dv.valid),
-    .mon_we_o   (mem_monitor_dv.we),
-    .mon_addr_o (mem_monitor_dv.addr),
-    .mon_wdata_o(mem_monitor_dv.data),
-    .mon_be_o   (mem_monitor_dv.be),
-    .mon_id_o   (mem_monitor_dv.id)
+    .clk_i       ( clk                  ),
+    .rst_ni      ( rst_n                ),
+    .obi_sbr     ( sbr_bus              ),
+    .mon_valid_o ( mem_monitor_dv.valid ),
+    .mon_we_o    ( mem_monitor_dv.we    ),
+    .mon_addr_o  ( mem_monitor_dv.addr  ),
+    .mon_wdata_o ( mem_monitor_dv.data  ),
+    .mon_be_o    ( mem_monitor_dv.be    ),
+    .mon_id_o    ( mem_monitor_dv.id    )
   );
 
   atop_golden_mem_pkg::atop_golden_mem #(
-    .ObiAddrWidth (AddrWidth),
-    .ObiDataWidth (DataWidth),
-    .ObiIdWidthM  (MgrIdWidth),
-    .ObiIdWidthS  (SbrIdWidth),
-    .ObiUserWidth (AUserWidth),
-    .NumMgrWidth  ($clog2(NumManagers)),
-    .ApplDelay    (ApplTime),
-    .AcqDelay     (TestTime)
+    .ObiAddrWidth ( AddrWidth           ),
+    .ObiDataWidth ( DataWidth           ),
+    .ObiIdWidthM  ( MgrIdWidth          ),
+    .ObiIdWidthS  ( SbrIdWidth          ),
+    .ObiUserWidth ( AUserWidth          ),
+    .NumMgrWidth  ( $clog2(NumManagers) ),
+    .ApplDelay    ( ApplTime            ),
+    .AcqDelay     ( TestTime            )
   ) golden_memory = new(mem_monitor_dv);
   assign mem_monitor_dv.user = '0;
 
@@ -306,7 +306,7 @@ module tb_obi_atop_resolver;
     automatic logic [AddrWidth-1:0] address;
     automatic logic [DataWidth-1:0] data_init;
     automatic logic [DataWidth-1:0] data_amo;
-    automatic atop_t atop;
+    automatic atop_t                atop;
 
     $display("Test all possible amos with a single thread...\n");
 
@@ -336,17 +336,17 @@ module tb_obi_atop_resolver;
 
   // Test if the adapter protects the atomic region correctly
   task automatic test_same_address();
-    parameter int unsigned NumIterations = 64;
-    parameter logic [AddrWidth-1:0] Address = 'h01004000;
+    parameter int unsigned          NumIterations = 64;
+    parameter logic [AddrWidth-1:0] Address       = 'h01004000;
 
-    automatic logic [AddrWidth-1:0] address = Address;
-    automatic logic [DataWidth-1:0] rdata_init;
+    automatic logic [ AddrWidth-1:0] address         = Address;
+    automatic logic [ DataWidth-1:0] rdata_init;
     automatic logic [MgrIdWidth-1:0] rid_init;
-    automatic logic err_init;
-    automatic mgr_r_optional_t r_optional_init;
-    automatic logic [DataWidth-1:0] exp_data_init;
-    automatic logic exp_err_init;
-    automatic logic exp_exokay_init;
+    automatic logic                  err_init;
+    automatic mgr_r_optional_t       r_optional_init;
+    automatic logic [ DataWidth-1:0] exp_data_init;
+    automatic logic                  exp_err_init;
+    automatic logic                  exp_exokay_init;
 
     $display("Test random accesses to the same memory location...\n");
 
@@ -357,20 +357,21 @@ module tb_obi_atop_resolver;
     join
 
     for (int i = 0; i < NumManagers; i++) begin
-      automatic int m = i;
+      automatic int                    m          = i;
       automatic logic [MgrIdWidth-1:0] id;
       automatic logic [SbrIdWidth-1:0] s_id;
-      automatic logic [DataWidth-1:0] wdata;
-      automatic mgr_a_optional_t a_optional;
-      automatic logic [DataWidth-1:0] rdata;
-      automatic logic [DataWidth-1:0] exp_data;
+      automatic logic [ DataWidth-1:0] wdata;
+      automatic mgr_a_optional_t       a_optional;
+      automatic logic [ DataWidth-1:0] rdata;
+      automatic logic [ DataWidth-1:0] exp_data;
       automatic logic [MgrIdWidth-1:0] rid;
       automatic logic [MgrIdWidth-1:0] exp_rid;
-      automatic logic err;
-      automatic logic exp_err;
-      automatic mgr_r_optional_t r_optional;
-      automatic logic exp_exokay;
-      automatic atop_t atop;
+      automatic logic                  err;
+      automatic logic                  exp_err;
+      automatic mgr_r_optional_t       r_optional;
+      automatic logic                  exp_exokay;
+      automatic atop_t                 atop;
+
       fork
         for (int j = 0; j < NumIterations; j++) begin
           void'(randomize(id));
@@ -408,14 +409,14 @@ module tb_obi_atop_resolver;
 
   // Test multiple atomic accesses to the same address
   task automatic test_atomic_counter();
-    parameter int unsigned NumIterations = 64;
-    parameter logic [AddrWidth-1:0] Address = 'h01002000;
+    parameter int unsigned          NumIterations = 64;
+    parameter logic [AddrWidth-1:0] Address       = 'h01002000;
 
-    automatic logic [AddrWidth-1:0] address = Address;
-    automatic logic [DataWidth-1:0] rdata;
+    automatic logic [ AddrWidth-1:0] address    = Address;
+    automatic logic [ DataWidth-1:0] rdata;
     automatic logic [MgrIdWidth-1:0] rid;
-    automatic logic err;
-    automatic mgr_r_optional_t r_optional;
+    automatic logic                  err;
+    automatic mgr_r_optional_t       r_optional;
 
     $display("Test atomic counter...\n");
 
@@ -460,17 +461,17 @@ module tb_obi_atop_resolver;
   );
 
     automatic logic [MgrIdWidth-1:0] trans_id = id;
-    automatic logic [DataWidth-1:0] rdata;
-    automatic logic [DataWidth-1:0] exp_data;
-    automatic logic [DataWidth-1:0] act_data;
-    automatic logic err;
-    automatic logic exokay;
-    automatic logic exp_err;
-    automatic logic exp_exokay;
+    automatic logic [ DataWidth-1:0] rdata;
+    automatic logic [ DataWidth-1:0] exp_data;
+    automatic logic [ DataWidth-1:0] act_data;
+    automatic logic                  err;
+    automatic logic                  exokay;
+    automatic logic                  exp_err;
+    automatic logic                  exp_exokay;
     automatic logic [MgrIdWidth-1:0] rid;
+    automatic mgr_a_optional_t       a_optional = '0;
+    automatic mgr_r_optional_t       r_optional;
       
-    automatic mgr_a_optional_t a_optional = '0;
-    automatic mgr_r_optional_t r_optional;
     a_optional.atop = '0;
     exokay = r_optional.exokay;
 
