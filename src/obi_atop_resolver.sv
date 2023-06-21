@@ -65,6 +65,7 @@ module obi_atop_resolver import obi_pkg::*; #(
   logic                 amo_wb;
   logic [SbrPortObiCfg.DataWidth/8-1:0]   be_expand;
   logic [SbrPortObiCfg.AddrWidth-1:0] addr_q;
+  logic [SbrPortObiCfg.IdWidth-1:0] aid_q;
 
   logic [31:0] amo_operand_a;
   logic [31:0] amo_operand_a_q;
@@ -346,6 +347,9 @@ module obi_atop_resolver import obi_pkg::*; #(
               !sbr_port_req_i.a.a_optional.atop[5])) begin
           load_amo = 1'b1;
           state_d = DoAMO;
+          if (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOSWAP, AMOADD, AMOXOR, AMOAND, AMOOR, AMOMIN, AMOMAX, AMOMINU, AMOMAXU}) begin
+            mgr_port_req_o.a.we = 1'b0;
+          end
         end
       end
       // Claim the memory interface
@@ -359,6 +363,7 @@ module obi_atop_resolver import obi_pkg::*; #(
         mgr_port_req_o.req    = 1'b1;
         mgr_port_req_o.a.we   = 1'b1;
         mgr_port_req_o.a.addr = addr_q;
+        mgr_port_req_o.a.aid  = aid_q;
         mgr_port_req_o.a.be   = {SbrPortObiCfg.DataWidth/8{1'b1}};
         // serve from register if we cut the path
         if (RegisterAmo) begin
@@ -383,11 +388,13 @@ module obi_atop_resolver import obi_pkg::*; #(
       amo_op_q        <= obi_atop_e'('0);
       addr_q          <= '0;
       amo_operand_b_q <= '0;
+      aid_q           <= '0;
     end else begin
       state_q         <= state_d;
       if (load_amo) begin
         amo_op_q        <= obi_atop_e'(sbr_port_req_i.a.a_optional.atop);
         addr_q          <= sbr_port_req_i.a.addr;
+        aid_q           <= sbr_port_req_i.a.aid;
         amo_operand_b_q <= sbr_port_req_i.a.wdata;
       end else begin
         amo_op_q        <= AMONONE;
@@ -455,5 +462,63 @@ module obi_atop_resolver import obi_pkg::*; #(
       else $fatal (1, "Trying to push new data although the i_rdata_register is not ready.");
   `endif
   // pragma translate_on
+
+endmodule
+
+`include "obi/typedef.svh"
+`include "obi/assign.svh"
+
+module obi_atop_resolver_intf import obi_pkg::*; #(
+  /// The configuration of the subordinate ports (input ports).
+  parameter obi_pkg::obi_cfg_t SbrPortObiCfg      = obi_pkg::ObiDefaultConfig,
+  /// The configuration of the manager port (output port).
+  parameter obi_pkg::obi_cfg_t MgrPortObiCfg      = SbrPortObiCfg,
+  /// Enable LR & SC AMOS
+  parameter bit                LrScEnable         = 1,
+  /// Cut path between request and response at the cost of increased AMO latency
+  parameter bit                RegisterAmo        = 1'b0
+) (
+  input  logic        clk_i,
+  input  logic        rst_ni,
+
+  OBI_BUS.Subordinate sbr_port,
+
+  OBI_BUS.Manager     mgr_port
+);
+
+  `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
+  `OBI_TYPEDEF_ALL(mgr_port_obi, MgrPortObiCfg)
+
+  sbr_port_obi_req_t sbr_port_req;
+  sbr_port_obi_rsp_t sbr_port_rsp;
+
+  mgr_port_obi_req_t mgr_port_req;
+  mgr_port_obi_rsp_t mgr_port_rsp;
+
+  `OBI_ASSIGN_TO_REQ(sbr_port_req, sbr_port, SbrPortObiCfg)
+  `OBI_ASSIGN_FROM_RSP(sbr_port, sbr_port_rsp, SbrPortObiCfg)
+
+  `OBI_ASSIGN_FROM_REQ(mgr_port, mgr_port_req, MgrPortObiCfg)
+  `OBI_ASSIGN_TO_RSP(mgr_port_rsp, mgr_port, MgrPortObiCfg)
+
+  obi_atop_resolver #(
+    .SbrPortObiCfg            ( SbrPortObiCfg ),
+    .MgrPortObiCfg            ( MgrPortObiCfg ),
+    .sbr_port_obi_req_t       ( sbr_port_obi_req_t ),
+    .sbr_port_obi_rsp_t       ( sbr_port_obi_rsp_t ),
+    .mgr_port_obi_req_t       ( mgr_port_obi_req_t ),
+    .mgr_port_obi_rsp_t       ( mgr_port_obi_rsp_t ),
+    .mgr_port_obi_a_optional_t( mgr_port_obi_a_optional_t),
+    .mgr_port_obi_r_optional_t( mgr_port_obi_r_optional_t),
+    .LrScEnable               ( LrScEnable    ),
+    .RegisterAmo              ( RegisterAmo   )
+  ) i_obi_atop_resolver (
+    .clk_i,
+    .rst_ni,
+    .sbr_port_req_i(sbr_port_req),
+    .sbr_port_rsp_o(sbr_port_rsp),
+    .mgr_port_req_o(mgr_port_req),
+    .mgr_port_rsp_i(mgr_port_rsp)
+  );
 
 endmodule

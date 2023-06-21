@@ -138,6 +138,7 @@ package obi_test;
     task recv_r (
       output logic [ObiCfg.DataWidth-1:0] rdata,
       output logic [  ObiCfg.IdWidth-1:0] rid,
+      output logic                        err,
       output obi_r_optional_t             r_optional
     );
       obi.rready     <= #TA 1'b1;
@@ -146,6 +147,7 @@ package obi_test;
       while (obi.rvalid != 1'b1) begin cycle_end(); cycle_start(); end
       rdata      = obi.rdata;
       rid        = obi.rid;
+      err        = obi.err;
       r_optional = obi.r_optional;
       cycle_end();
       if (ObiCfg.UseRReady) begin
@@ -240,12 +242,13 @@ package obi_test;
       automatic addr_t a_addr;
       automatic logic [ObiCfg.DataWidth-1:0] r_rdata;
       automatic logic [ObiCfg.IdWidth-1:0] r_rid;
+      automatic logic r_err;
       automatic obi_r_optional_t r_optional;
       repeat (n_rsps) begin
         wait (a_queue.size() > 0);
         a_addr = this.a_queue.pop_front();
         rand_wait(RMinWaitCycles, RMaxWaitCycles);
-        drv.recv_r(r_rdata, r_rid, r_optional);
+        drv.recv_r(r_rdata, r_rid, r_err, r_optional);
       end
     endtask
 
@@ -263,12 +266,13 @@ package obi_test;
       input logic [ObiCfg.DataWidth-1:0] wdata,
       input logic [ObiCfg.IdWidth-1:0] aid,
       input obi_a_optional_t a_optional,
+      output logic [ObiCfg.DataWidth-1:0] r_rdata,
       output logic [ObiCfg.IdWidth-1:0] r_rid,
+      output logic r_err,
       output obi_r_optional_t r_optional
     );
-      logic [ObiCfg.DataWidth-1:0] r_rdata;
       this.drv.send_a(addr, 1'b1, be, wdata, aid, a_optional);
-      this.drv.recv_r(r_rdata, r_rid, r_optional);
+      this.drv.recv_r(r_rdata, r_rid, r_err, r_optional);
     endtask
 
     task automatic read(
@@ -277,10 +281,11 @@ package obi_test;
       input obi_a_optional_t a_optional,
       output logic [ObiCfg.DataWidth-1:0] r_rdata,
       output logic [ObiCfg.IdWidth-1:0] r_rid,
+      output logic r_err,
       output obi_r_optional_t r_optional
     );
       this.drv.send_a(addr, 1'b0, '1, '0, aid, a_optional);
-      this.drv.recv_r(r_rdata, r_rid, r_optional);
+      this.drv.recv_r(r_rdata, r_rid, r_err, r_optional);
     endtask
 
   endclass

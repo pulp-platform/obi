@@ -14,10 +14,17 @@ module obi_sim_mem import obi_pkg::*; #(
   parameter time ApplDelay = 0ps,
   parameter time AcqDelay = 0ps
 ) (
-  input logic clk_i,
-  input logic rst_ni,
-  input obi_req_t obi_req_i,
-  output obi_rsp_t obi_rsp_o
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  obi_req_t obi_req_i,
+  output obi_rsp_t obi_rsp_o,
+
+  output logic                          mon_valid_o,
+  output logic                          mon_we_o,
+  output logic [  ObiCfg.AddrWidth-1:0] mon_addr_o,
+  output logic [  ObiCfg.DataWidth-1:0] mon_wdata_o,
+  output logic [ObiCfg.DataWidth/8-1:0] mon_be_o,
+  output logic [    ObiCfg.IdWidth-1:0] mon_id_o
 );
   if (ObiCfg.OptionalCfg.UseAtop) $error("Please use an ATOP resolver before sim mem.");
   if (ObiCfg.Integrity) $error("Integrity not supported");
@@ -37,6 +44,19 @@ module obi_sim_mem import obi_pkg::*; #(
     assign rsp_ready = 1'b1;
   end
 
+  logic mon_valid;
+  logic mon_we;
+  logic [ObiCfg.AddrWidth-1:0] mon_addr;
+  logic [ObiCfg.DataWidth-1:0] mon_wdata;
+  logic [ObiCfg.DataWidth/8-1:0] mon_be;
+  logic [ObiCfg.IdWidth-1:0] mon_id;
+
+  assign mon_we    = obi_req_i.a.we;
+  assign mon_addr  = obi_req_i.a.addr;
+  assign mon_wdata = obi_req_i.a.wdata;
+  assign mon_be    = obi_req_i.a.be;
+  assign mon_id    = obi_req_i.a.aid;
+
   initial begin
     fork
       // Request Handling
@@ -46,10 +66,12 @@ module obi_sim_mem import obi_pkg::*; #(
         #(ApplDelay);
         // Indicate ready
         obi_rsp_o.gnt = 1'b1;
+        mon_valid = 1'b0;
         // End of cycle
         #(AcqDelay-ApplDelay);
         // If requesting
         if (obi_req_i.req) begin
+          mon_valid = 1'b1;
           if (obi_req_i.a.we) begin
             automatic obi_r_chan_t write_rsp;
             // write memory
@@ -101,6 +123,25 @@ module obi_sim_mem import obi_pkg::*; #(
       end
     join
   end
+
+  initial begin
+    mon_valid_o = '0;
+    mon_we_o = '0;
+    mon_addr_o = '0;
+    mon_wdata_o = '0;
+    mon_be_o = '0;
+    mon_id_o = '0;
+    wait (rst_ni);
+    forever begin
+      @(posedge clk_i);
+      mon_valid_o <= #(ApplDelay) mon_valid;
+      mon_we_o <= #(ApplDelay) mon_we;
+      mon_addr_o <= #(ApplDelay) mon_addr;
+      mon_wdata_o <= #(ApplDelay) mon_wdata;
+      mon_be_o <= #(ApplDelay) mon_be;
+      mon_id_o <= #(ApplDelay) mon_id;
+    end
+  end
 endmodule
 
 `include "obi/typedef.svh"
@@ -115,7 +156,14 @@ module obi_sim_mem_intf import obi_pkg::*; #(
 ) (
   input logic clk_i,
   input logic rst_ni,
-  OBI_BUS.Subordinate obi_sbr
+  OBI_BUS.Subordinate obi_sbr,
+
+  output logic                          mon_valid_o,
+  output logic                          mon_we_o,
+  output logic [  ObiCfg.AddrWidth-1:0] mon_addr_o,
+  output logic [  ObiCfg.DataWidth-1:0] mon_wdata_o,
+  output logic [ObiCfg.DataWidth/8-1:0] mon_be_o,
+  output logic [    ObiCfg.IdWidth-1:0] mon_id_o
 );
 
   `OBI_TYPEDEF_ALL(obi, ObiCfg)
@@ -139,7 +187,14 @@ module obi_sim_mem_intf import obi_pkg::*; #(
     .clk_i,
     .rst_ni,
     .obi_req_i(obi_req),
-    .obi_rsp_o(obi_rsp)
+    .obi_rsp_o(obi_rsp),
+
+    .mon_valid_o,
+    .mon_we_o,
+    .mon_addr_o,
+    .mon_wdata_o,
+    .mon_be_o,
+    .mon_id_o
   );
 
 endmodule

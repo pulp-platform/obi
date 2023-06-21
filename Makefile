@@ -5,7 +5,7 @@
 BENDER ?= bender
 VSIM ?= vsim
 
-AVAILABLE_TESTBENCHES = tb_obi_xbar
+AVAILABLE_TESTBENCHES = tb_obi_xbar tb_obi_atop_resolver
 
 scripts/compile.tcl:
 	mkdir -p scripts
@@ -17,7 +17,11 @@ build: scripts/compile.tcl
 
 .PHONY: $(AVAILABLE_TESTBENCHES)
 $(AVAILABLE_TESTBENCHES): build
+ifdef gui
+	$(VSIM) $@ -voptargs="+acc"
+else
 	$(VSIM) -c $@ -do "run -all"
+endif
 
 .PHONY: all
 all: $(AVAILABLE_TESTBENCHES)
