@@ -11,7 +11,7 @@
 module tb_obi_atop_resolver;
   import obi_pkg::*;
 
-  localparam int unsigned NumManagers = 32'd2;
+  localparam int unsigned NumManagers = 32'd10;
   localparam int unsigned NumMaxTrans = 32'd8;
   localparam int unsigned AddrWidth = 32;
   localparam int unsigned DataWidth = 32;
@@ -275,13 +275,12 @@ module tb_obi_atop_resolver;
     wait (rst_n);
     @(posedge clk);
 
-
     // Run tests!
     test_all_amos();
-    // test_same_address();
+    test_same_address();
     // test_amo_write_consistency();
     // // test_interleaving();
-    // test_atomic_counter();
+    test_atomic_counter();
     // random_amo();
 
     // overtake_r();
@@ -329,12 +328,121 @@ module tb_obi_atop_resolver;
 
       write_amo_read_cycle(0, address, data_init, data_amo, 0, 0, atop);
 
-
-
     end
+
+    // TODO LR/SC
 
   endtask
 
+  // Test if the adapter protects the atomic region correctly
+  task automatic test_same_address();
+    parameter int unsigned NumIterations = 64;
+    parameter logic [AddrWidth-1:0] Address = 'h01004000;
+
+    automatic logic [AddrWidth-1:0] address = Address;
+    automatic logic [DataWidth-1:0] rdata_init;
+    automatic logic [MgrIdWidth-1:0] rid_init;
+    automatic logic err_init;
+    automatic mgr_r_optional_t r_optional_init;
+    automatic logic [DataWidth-1:0] exp_data_init;
+    automatic logic exp_err_init;
+    automatic logic exp_exokay_init;
+
+    $display("Test random accesses to the same memory location...\n");
+
+    // Initialize memory with 0
+    fork
+      obi_rand_managers[0].write(address, '1, '0, '0, '0, rdata_init, rid_init, err_init, r_optional_init);
+      golden_memory.write(address, '0, '1, '0, 0, '0, exp_data_init, exp_err_init, exp_exokay_init);
+    join
+
+    for (int i = 0; i < NumManagers; i++) begin
+      automatic int m = i;
+      automatic logic [MgrIdWidth-1:0] id;
+      automatic logic [SbrIdWidth-1:0] s_id;
+      automatic logic [DataWidth-1:0] wdata;
+      automatic mgr_a_optional_t a_optional;
+      automatic logic [DataWidth-1:0] rdata;
+      automatic logic [DataWidth-1:0] exp_data;
+      automatic logic [MgrIdWidth-1:0] rid;
+      automatic logic [MgrIdWidth-1:0] exp_rid;
+      automatic logic err;
+      automatic logic exp_err;
+      automatic mgr_r_optional_t r_optional;
+      automatic logic exp_exokay;
+      automatic atop_t atop;
+      fork
+        for (int j = 0; j < NumIterations; j++) begin
+          void'(randomize(id));
+          void'(randomize(wdata));
+          do begin
+            void'(randomize(atop));
+          end while (!(obi_atop_e'(atop) inside {AMOSWAP, AMOADD, AMOXOR, AMOAND, AMOOR, AMOMIN, AMOMAX, AMOMINU, AMOMAXU, AMONONE}));
+          a_optional.atop = atop;
+          fork
+            obi_rand_managers[m].write(address, '1, wdata, id, a_optional, rdata, rid, err, r_optional);
+            golden_memory.write(address, wdata, '1, id, m, atop, exp_data, exp_err, exp_exokay);
+          join
+          assert (err == exp_err && r_optional.exokay == exp_exokay) else begin
+            $warning("Response codes did not match! got: 0x%b, exp: 0x%b", {err, r_optional.exokay}, {exp_err, exp_exokay});
+            num_errors += 1;
+          end
+          if (atop != AMONONE) begin
+            assert (rdata == exp_data) else begin
+              $warning("ATOP data did not match! got: 0x%x, exp: 0x%x with op 0x%x", rdata, exp_data, atop);
+              num_errors += 1;
+            end
+          end
+        end
+      join_none
+    end
+
+    wait fork;
+
+    #1000ns;
+
+    // TODO LRSC
+
+  endtask
+
+
+  // Test multiple atomic accesses to the same address
+  task automatic test_atomic_counter();
+    parameter int unsigned NumIterations = 64;
+    parameter logic [AddrWidth-1:0] Address = 'h01002000;
+
+    automatic logic [AddrWidth-1:0] address = Address;
+    automatic logic [DataWidth-1:0] rdata;
+    automatic logic [MgrIdWidth-1:0] rid;
+    automatic logic err;
+    automatic mgr_r_optional_t r_optional;
+
+    $display("Test atomic counter...\n");
+
+    // Initialize to 0
+    obi_rand_managers[0].write(address, '1, '0, '0, '0, rdata, rid, err, r_optional);
+
+    for (int i = 0; i < NumManagers; i++) begin
+      automatic int m = i;
+      fork
+        for (int j = 0; j < NumIterations; j++) begin
+          obi_rand_managers[m].write(address, '1, 1, '0, '{atop: AMOADD, default: '0}, rdata, rid, err, r_optional);
+        end
+      join_none
+    end
+
+    wait fork;
+
+    obi_rand_managers[0].read(address, '0, '0, rdata, rid, err, r_optional);
+
+    if (rdata == NumIterations*NumManagers) begin
+      $display("Adder result correct: %d", rdata);
+    end else begin
+      $display("Adder result wrong: %d (Expected: %d)", rdata, NumIterations*NumManagers);
+      num_errors += 1;
+    end
+
+  endtask
 
 
   /*====================================================================
