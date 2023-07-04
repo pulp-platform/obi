@@ -11,7 +11,7 @@
 module tb_obi_atop_resolver;
   import obi_pkg::*;
 
-  localparam int unsigned MaxTimeout = 1000;
+  localparam int unsigned MaxTimeout = 10000;
 
   localparam int unsigned NumManagers = 32'd10;
   localparam int unsigned NumMaxTrans = 32'd8;
@@ -242,7 +242,7 @@ module tb_obi_atop_resolver;
     // Run tests!
     test_all_amos();
     test_same_address();
-    // test_amo_write_consistency();
+    test_amo_write_consistency();
     // // test_interleaving();
     test_atomic_counter();
     // random_amo();
@@ -406,6 +406,51 @@ module tb_obi_atop_resolver;
 
   endtask
 
+  // Test if the adapter protects the atomic region correctly
+  task automatic test_amo_write_consistency();
+    parameter int unsigned          NumIterations = 64;
+    parameter logic [AddrWidth-1:0] Address       = 'h01004000;
+
+    automatic logic [ AddrWidth-1:0] address         = Address;
+    automatic logic [ DataWidth-1:0] rdata_init;
+    automatic logic [MgrIdWidth-1:0] rid_init;
+    automatic logic                  err_init;
+    automatic mgr_r_optional_t       r_optional_init;
+
+    $display("%t - Test write consistency...\n", $realtime);
+
+    // Initialize to 0
+    write_amo_read_cycle(0, address, '0, '0, '0, 0, '0);
+    // obi_rand_managers[0].write(address, '1, '0, '0, '0, rdata_init, rid_init, err_init, r_optional_init);
+
+    for (int i = 0; i < NumManagers; i++) begin
+      automatic int m = i;
+      // automatic logic [ AddrWidth-1:0] address;
+      automatic logic [MgrIdWidth-1:0] id;
+      automatic logic [ DataWidth-1:0] data;
+      automatic logic [ DataWidth-1:0] data_amo;
+      automatic atop_t                 atop;
+
+      fork
+        for (int j = 0; j < NumIterations; j++) begin
+          do begin
+            assert (randomize(atop));
+          end while (!(obi_atop_e'(atop) inside {AMOSWAP, AMOADD, AMOXOR, AMOAND, AMOOR, AMOMIN,
+                                                 AMOMAX, AMOMINU, AMOMAXU, AMONONE}));
+          // assert (randomize(address));
+          assert (randomize(data));
+          assert (randomize(data_amo));
+          assert (randomize(id));
+
+          write_amo_read_cycle(m, address, data, data_amo, id, 0, atop);
+        end
+      join_none
+    end
+
+    wait fork;
+
+
+  endtask
 
   // Test multiple atomic accesses to the same address
   task automatic test_atomic_counter();
