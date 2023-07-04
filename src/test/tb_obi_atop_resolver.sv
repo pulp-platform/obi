@@ -302,7 +302,7 @@ module tb_obi_atop_resolver;
     automatic logic [DataWidth-1:0] data_amo;
     automatic atop_t                atop;
 
-    $display("Test all possible amos with a single thread...\n");
+    $display("%t - Test all possible amos with a single thread...\n", $realtime);
 
     for (int j = 0; j < 9; j++) begin
       // Go through standard AMOs
@@ -342,7 +342,7 @@ module tb_obi_atop_resolver;
     automatic logic                  exp_err_init;
     automatic logic                  exp_exokay_init;
 
-    $display("Test random accesses to the same memory location...\n");
+    $display("%t - Test random accesses to the same memory location...\n", $realtime);
 
     // Initialize memory with 0
     fork
@@ -383,14 +383,14 @@ module tb_obi_atop_resolver;
             golden_memory.write(address, wdata, '1, id, m, atop, exp_data, exp_err, exp_exokay);
           join
           assert (err == exp_err && r_optional.exokay == exp_exokay) else begin
-            $warning("Response codes did not match! got: 0x%b, exp: 0x%b",
+            $warning("%t - Response codes did not match! got: 0x%b, exp: 0x%b", $realtime,
                      {err, r_optional.exokay}, {exp_err, exp_exokay});
             num_errors += 1;
           end
           if (atop != AMONONE) begin
             assert (rdata == exp_data) else begin
-              $warning("ATOP data did not match! got: 0x%x, exp: 0x%x with op 0x%x", rdata,
-                       exp_data, atop);
+              $warning("%t - ATOP data did not match! got: 0x%x, exp: 0x%x with op 0x%x",
+                       $realtime, rdata, exp_data, atop);
               num_errors += 1;
             end
           end
@@ -418,7 +418,7 @@ module tb_obi_atop_resolver;
     automatic logic                  err;
     automatic mgr_r_optional_t       r_optional;
 
-    $display("Test atomic counter...\n");
+    $display("%t - Test atomic counter...\n", $realtime);
 
     // Initialize to 0
     obi_rand_managers[0].write(address, '1, '0, '0, '0, rdata, rid, err, r_optional);
@@ -438,9 +438,10 @@ module tb_obi_atop_resolver;
     obi_rand_managers[0].read(address, '0, '0, rdata, rid, err, r_optional);
 
     if (rdata == NumIterations*NumManagers) begin
-      $display("Adder result correct: %d", rdata);
+      $display("%t - Adder result correct: %d", $realtime, rdata);
     end else begin
-      $display("Adder result wrong: %d (Expected: %d)", rdata, NumIterations*NumManagers);
+      $display("%t - Adder result wrong: %d (Expected: %d)", $realtime, rdata,
+               NumIterations*NumManagers);
       num_errors += 1;
     end
 
@@ -499,14 +500,16 @@ module tb_obi_atop_resolver;
     join
     exokay = r_optional.exokay;
     assert (err == exp_err && exokay == exp_exokay) else begin
-      $warning("Response codes did not match! got: 0x%b, exp: 0x%b", {err, exokay},
+      $warning("%t - Response codes did not match! got: 0x%b, exp: 0x%b", $realtime, {err, exokay},
                {exp_err, exp_exokay});
       num_errors += 1;
     end
-    assert (rdata == exp_data) else begin
-      $warning("ATOP data did not match! got: 0x%x, exp: 0x%x at addr: 0x%x with op 0x%x", rdata,
-               exp_data, address, atop);
-      num_errors += 1;
+    if (atop != '0) begin
+      assert (rdata == exp_data) else begin
+        $warning("%t - ATOP data did not match! got: 0x%x, exp: 0x%x at addr: 0x%x with op 0x%x",
+                 $realtime, rdata, exp_data, address, atop);
+        num_errors += 1;
+      end
     end
     if (!id) begin
       assert (randomize(trans_id));
@@ -518,8 +521,8 @@ module tb_obi_atop_resolver;
       golden_memory.read(address, trans_id, driver, '0, exp_data, exp_err, exp_exokay);
     join
     assert(act_data == exp_data) else begin
-      $warning("Stored data did not match! got: 0x%x, exp: 0x%x at addr: 0x%x with op 0x%x",
-               act_data, exp_data, address, atop);
+      $warning("%t - Stored data did not match! got: 0x%x, exp: 0x%x at addr: 0x%x with op 0x%x",
+               $realtime, act_data, exp_data, address, atop);
       num_errors += 1;
     end
 

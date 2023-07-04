@@ -91,8 +91,8 @@ module obi_sim_mem import obi_pkg::*; #(
             automatic obi_r_chan_t read_rsp = 'x;
             if (!mem.exists(obi_req_i.a.addr)) begin
               if (WarnUninitialized) begin
-                $warning("Access to non-initialized address at 0x%016x by ID 0x%x.",
-                         obi_req_i.a.addr, obi_req_i.a.aid);
+                $warning("%t - Access to non-initialized address at 0x%016x by ID 0x%x.",
+                         $realtime, obi_req_i.a.addr, obi_req_i.a.aid);
               end
             end else begin
               for (int i = 0; i < ObiCfg.DataWidth/8; i++) begin
