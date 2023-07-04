@@ -11,6 +11,8 @@
 module tb_obi_atop_resolver;
   import obi_pkg::*;
 
+  localparam int unsigned MaxTimeout = 1000;
+
   localparam int unsigned NumManagers = 32'd10;
   localparam int unsigned NumMaxTrans = 32'd8;
   localparam int unsigned AddrWidth = 32;
@@ -254,10 +256,40 @@ module tb_obi_atop_resolver;
   ====================================================================*/
 
   initial begin
-    // TODO timeout monitoring
+    automatic int unsigned timeout = 0;
+    automatic logic [1:0] handshake = 2'b00;
+
+    @(posedge clk);
+    wait (rst_n);
+
+    fork
+      while (timeout < MaxTimeout) begin
+        handshake = {sbr_bus.req, sbr_bus.gnt};
+        @(posedge clk);
+        if (handshake != {sbr_bus.req, sbr_bus.gnt}) begin
+          timeout = 0;
+        end else begin
+          timeout += 1;
+        end
+      end
+      wait (&end_of_sim);
+    join_any
+
+    if (&end_of_sim && num_errors == 0) begin
+        $display("\nSUCCESS\n");
+    end else if (&end_of_sim) begin
+        $display("\nFINISHED\n");
+        if (num_errors > 0) begin
+            $fatal(1, "Encountered %d errors.", num_errors);
+        end else begin
+            $display("All tests passed.");
+        end
+    end else begin
+        $fatal(1, "TIMEOUT");
+    end
+
+    $stop;
   end
-
-
 
   /*====================================================================
   =                         Hand crafted tests                         =
@@ -492,13 +524,5 @@ module tb_obi_atop_resolver;
     end
 
   endtask
-
-  initial begin
-    wait(&end_of_sim);
-    repeat (1000) @(posedge clk);
-    $display("Simulation stopped as all Masters transferred their data. Number of Errors = %u",
-             num_errors);
-    $stop();
-  end
 
 endmodule
