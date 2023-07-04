@@ -139,59 +139,22 @@ module tb_obi_atop_resolver;
 
   rand_manager_t obi_rand_managers[NumManagers];
 
-  // TODO: Managers write/read? --> copy from axi_riscv_atomics
   for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_drivers
     initial begin
       obi_rand_managers[i] = new ( mgr_bus_dv[i], $sformatf("MGR_%0d",i));
-      // automatic logic [  MgrConfig.DataWidth-1:0] r_rdata    = '0;
-      // automatic logic [    MgrConfig.IdWidth-1:0] r_rid      = '0;
-      // automatic mgr_r_optional_t                  r_optional = '0;
       end_of_sim[i] <= 1'b0;
       obi_rand_managers[i].reset();
-
-
-
-    //   @(posedge rst_n);
-    //   obi_rand_manager.write(32'h0000_1100, 4'hF, 32'hDEAD_BEEF, 2,
-    //                          '{auser: '0,
-    //                            wuser: '0,
-    //                            atop: '0,
-    //                            memtype: obi_pkg::memtype_t'('0),
-    //                            mid: '0,
-    //                            prot: obi_pkg::prot_t'('0),
-    //                            dbg: '0,
-    //                            achk: '0}, r_rid, r_optional);
-    //   obi_rand_manager.read(32'h0000_e100, 2, '{auser: '0,
-    //                                             wuser: '0,
-    //                                             atop: '0,
-    //                                             memtype: obi_pkg::memtype_t'('0),
-    //                                             mid: '0,
-    //                                             prot: obi_pkg::prot_t'('0),
-    //                                             dbg: '0,
-    //                                             achk: '0}, r_rdata, r_rid, r_optional);
-    //   obi_rand_manager.run(NumRequests);
 
     end
 
     `OBI_ASSIGN(mgr_bus[i], mgr_bus_dv[i], MgrConfig, MgrConfig)
   end
 
-
-  // OBI_BUS_DV #(
-  //   .OBI_CFG          ( SbrConfig ),
-  //   .obi_a_optional_t ( sbr_a_optional_t ),
-  //   .obi_r_optional_t ( sbr_r_optional_t )
-  // ) sbr_bus_dv (
-  //   .clk_i  ( clk   ),
-  //   .rst_ni ( rst_n )
-  // );
   OBI_BUS #(
     .OBI_CFG          ( SbrConfig ),
     .obi_a_optional_t ( sbr_a_optional_t ),
     .obi_r_optional_t ( sbr_r_optional_t )
   ) sbr_bus ();
-
-  // `OBI_ASSIGN(sbr_bus_dv, sbr_bus, SbrConfig, SbrConfig)
 
   OBI_ATOP_MONITOR_BUS #(
     .DataWidth ( DataWidth  ),
@@ -201,7 +164,6 @@ module tb_obi_atop_resolver;
   ) mem_monitor_dv (
     .clk_i ( clk )
   );
-
 
   clk_rst_gen #(
     .ClkPeriod    ( CyclTime ),
@@ -322,9 +284,9 @@ module tb_obi_atop_resolver;
       if (j == 7) atop = AMOMINU;
       if (j == 8) atop = AMOMAXU;
 
-      void'(randomize(address));
-      void'(randomize(data_init));
-      void'(randomize(data_amo));
+      assert (randomize(address));
+      assert (randomize(data_init));
+      assert (randomize(data_amo));
 
       write_amo_read_cycle(0, address, data_init, data_amo, 0, 0, atop);
 
@@ -352,8 +314,10 @@ module tb_obi_atop_resolver;
 
     // Initialize memory with 0
     fork
-      obi_rand_managers[0].write(address, '1, '0, '0, '0, rdata_init, rid_init, err_init, r_optional_init);
-      golden_memory.write(address, '0, '1, '0, 0, '0, exp_data_init, exp_err_init, exp_exokay_init);
+      obi_rand_managers[0].write(address, '1, '0, '0, '0, rdata_init, rid_init, err_init,
+                                 r_optional_init);
+      golden_memory.write(address, '0, '1, '0, 0, '0, exp_data_init, exp_err_init,
+                          exp_exokay_init);
     join
 
     for (int i = 0; i < NumManagers; i++) begin
@@ -374,23 +338,27 @@ module tb_obi_atop_resolver;
 
       fork
         for (int j = 0; j < NumIterations; j++) begin
-          void'(randomize(id));
-          void'(randomize(wdata));
+          assert (randomize(id));
+          assert (randomize(wdata));
           do begin
-            void'(randomize(atop));
-          end while (!(obi_atop_e'(atop) inside {AMOSWAP, AMOADD, AMOXOR, AMOAND, AMOOR, AMOMIN, AMOMAX, AMOMINU, AMOMAXU, AMONONE}));
+            assert (randomize(atop));
+          end while (!(obi_atop_e'(atop) inside {AMOSWAP, AMOADD, AMOXOR, AMOAND, AMOOR, AMOMIN,
+                                                 AMOMAX, AMOMINU, AMOMAXU, AMONONE}));
           a_optional.atop = atop;
           fork
-            obi_rand_managers[m].write(address, '1, wdata, id, a_optional, rdata, rid, err, r_optional);
+            obi_rand_managers[m].write(address, '1, wdata, id, a_optional, rdata, rid, err,
+                                       r_optional);
             golden_memory.write(address, wdata, '1, id, m, atop, exp_data, exp_err, exp_exokay);
           join
           assert (err == exp_err && r_optional.exokay == exp_exokay) else begin
-            $warning("Response codes did not match! got: 0x%b, exp: 0x%b", {err, r_optional.exokay}, {exp_err, exp_exokay});
+            $warning("Response codes did not match! got: 0x%b, exp: 0x%b",
+                     {err, r_optional.exokay}, {exp_err, exp_exokay});
             num_errors += 1;
           end
           if (atop != AMONONE) begin
             assert (rdata == exp_data) else begin
-              $warning("ATOP data did not match! got: 0x%x, exp: 0x%x with op 0x%x", rdata, exp_data, atop);
+              $warning("ATOP data did not match! got: 0x%x, exp: 0x%x with op 0x%x", rdata,
+                       exp_data, atop);
               num_errors += 1;
             end
           end
@@ -427,7 +395,8 @@ module tb_obi_atop_resolver;
       automatic int m = i;
       fork
         for (int j = 0; j < NumIterations; j++) begin
-          obi_rand_managers[m].write(address, '1, 1, '0, '{atop: AMOADD, default: '0}, rdata, rid, err, r_optional);
+          obi_rand_managers[m].write(address, '1, 1, '0, '{atop: AMOADD, default: '0}, rdata, rid,
+                                     err, r_optional);
         end
       join_none
     end
@@ -471,38 +440,44 @@ module tb_obi_atop_resolver;
     automatic logic [MgrIdWidth-1:0] rid;
     automatic mgr_a_optional_t       a_optional = '0;
     automatic mgr_r_optional_t       r_optional;
-      
+
     a_optional.atop = '0;
     exokay = r_optional.exokay;
 
     if (!id) begin
-      void'(randomize(trans_id));
+      assert (randomize(trans_id));
     end
     // Preload data
     fork
-      obi_rand_managers[driver].write(address, '1, data_init, trans_id, a_optional, rdata, rid, err, r_optional);
-      golden_memory.write(address, data_init, '1, trans_id, driver, '0, exp_data, exp_err, exp_exokay);
+      obi_rand_managers[driver].write(address, '1, data_init, trans_id, a_optional, rdata, rid,
+                                      err, r_optional);
+      golden_memory.write(address, data_init, '1, trans_id, driver, '0, exp_data, exp_err,
+                          exp_exokay);
     join
     if (!id) begin
-      void'(randomize(trans_id));
+      assert (randomize(trans_id));
     end
     // Execute AMO
     a_optional.atop = atop;
     fork
-      obi_rand_managers[driver].write(address, '1, data_amo, trans_id, a_optional, rdata, rid, err, r_optional);
-      golden_memory.write(address, data_amo, '1, trans_id, driver, atop, exp_data, exp_err, exp_exokay);
+      obi_rand_managers[driver].write(address, '1, data_amo, trans_id, a_optional, rdata, rid, err,
+                                      r_optional);
+      golden_memory.write(address, data_amo, '1, trans_id, driver, atop, exp_data, exp_err,
+                          exp_exokay);
     join
     exokay = r_optional.exokay;
     assert (err == exp_err && exokay == exp_exokay) else begin
-      $warning("Response codes did not match! got: 0x%b, exp: 0x%b", {err, exokay}, {exp_err, exp_exokay});
+      $warning("Response codes did not match! got: 0x%b, exp: 0x%b", {err, exokay},
+               {exp_err, exp_exokay});
       num_errors += 1;
     end
     assert (rdata == exp_data) else begin
-      $warning("ATOP data did not match! got: 0x%x, exp: 0x%x at addr: 0x%x with op 0x%x", rdata, exp_data, address, atop);
+      $warning("ATOP data did not match! got: 0x%x, exp: 0x%x at addr: 0x%x with op 0x%x", rdata,
+               exp_data, address, atop);
       num_errors += 1;
     end
     if (!id) begin
-      void'(randomize(trans_id));
+      assert (randomize(trans_id));
     end
     // Check stored data
     a_optional.atop = '0;
@@ -511,24 +486,19 @@ module tb_obi_atop_resolver;
       golden_memory.read(address, trans_id, driver, '0, exp_data, exp_err, exp_exokay);
     join
     assert(act_data == exp_data) else begin
-      $warning("Stored data did not match! got: 0x%x, exp: 0x%x at addr: 0x%x with op 0x%x", act_data, exp_data, address, atop);
+      $warning("Stored data did not match! got: 0x%x, exp: 0x%x at addr: 0x%x with op 0x%x",
+               act_data, exp_data, address, atop);
       num_errors += 1;
     end
 
   endtask
 
-
-
-
-
-
   initial begin
     wait(&end_of_sim);
     repeat (1000) @(posedge clk);
-    $display("Simulation stopped as all Masters transferred their data. Number of Errors = %u", num_errors);
+    $display("Simulation stopped as all Masters transferred their data. Number of Errors = %u",
+             num_errors);
     $stop();
   end
 
 endmodule
-
-

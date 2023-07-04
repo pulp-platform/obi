@@ -115,7 +115,7 @@ module obi_atop_resolver import obi_pkg::*; #(
 
   assign sbr_port_rsp_o.r.rdata = out_buf_fifo_out.data;
   assign sbr_port_rsp_o.r.err   = out_buf_fifo_out.err;
-  assign sbr_port_rsp_o.r.r_optional.exokay = out_buf_fifo_out.exokay;
+  assign sbr_port_rsp_o.r.r_optional.exokay = out_buf_fifo_out.exokay; // TODO indicate allowed LR!
   if (SbrPortObiCfg.OptionalCfg.RUserWidth) begin : gen_ruser
     if (MgrPortObiCfg.OptionalCfg.RUserWidth) begin : gen_ruser_assign
       always_comb begin
@@ -146,10 +146,6 @@ module obi_atop_resolver import obi_pkg::*; #(
     .data_o     (out_buf_fifo_out        ),// output data
     .pop_i      (pop_resp & ~rdata_empty)
   );
-
-  // localparam int unsigned CoreIdWidth  = idx_width(NumCores);
-  // localparam int unsigned IniAddrWidth = idx_width(NumCoresPerTile + NumGroups);
-
 
   // In case of a SC we must forward SC result from the cycle earlier.
   assign out_rdata = (sc_q && LrScEnable) ? $unsigned(!sc_successful_q) : mgr_port_rsp_i.r.rdata;
@@ -197,20 +193,6 @@ module obi_atop_resolver import obi_pkg::*; #(
               (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC), 1'b0, clk_i, rst_ni);
 
     always_comb begin
-    //   // {group_id, tile_id, core_id}
-    //   // MSB of ini_addr determines if request is coming from local or remote tile
-    //   if (in_meta_i.ini_addr[IniAddrWidth-1] == 0) begin
-    //     // Request is coming from the local tile
-    //     // take group id of TCDM adapter
-    //     unique_core_id = {'0, in_meta_i.tile_id, in_meta_i.ini_addr[IniAddrWidth-2:0]};
-    //   end else begin
-    //     // Request is coming from a remote tile
-    //     // take group id from ini_addr
-    //     // Ignore first bit of IniAddr to obtain the group address
-    //     unique_core_id = {in_meta_i.ini_addr[IniAddrWidth-2:0],
-    //                       in_meta_i.tile_id, in_meta_i.core_id};
-    //   end
-
       unique_core_id = sbr_port_req_i.a.aid;
 
       reservation_d = reservation_q;
@@ -347,7 +329,9 @@ module obi_atop_resolver import obi_pkg::*; #(
               !sbr_port_req_i.a.a_optional.atop[5])) begin
           load_amo = 1'b1;
           state_d = DoAMO;
-          if (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOSWAP, AMOADD, AMOXOR, AMOAND, AMOOR, AMOMIN, AMOMAX, AMOMINU, AMOMAXU}) begin
+          if (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOSWAP, AMOADD, AMOXOR,
+                                                                    AMOAND, AMOOR, AMOMIN, AMOMAX,
+                                                                    AMOMINU, AMOMAXU}) begin
             mgr_port_req_o.a.we = 1'b0;
           end
         end

@@ -64,10 +64,11 @@ package atop_golden_mem_pkg;
       ) monitor
     );
       this.monitor = monitor;
-      void'(randomize(memory));
+      assert (randomize(memory));
     endfunction
 
-    function automatic logic [ObiIdWidthS-1:0] subordinate_id(logic [ObiIdWidthM-1:0] mgr_id, logic [NumMgrWidth-1:0] mgr_channel);
+    function automatic logic [ObiIdWidthS-1:0] subordinate_id(logic [ObiIdWidthM-1:0] mgr_id,
+                                                              logic [NumMgrWidth-1:0] mgr_channel);
       subordinate_id = '0;
       if (ObiIdWidthS > ObiIdWidthM) begin
         subordinate_id |= (mgr_channel) << ObiIdWidthM;
@@ -75,7 +76,8 @@ package atop_golden_mem_pkg;
       subordinate_id[ObiIdWidthM-1:0] = mgr_id;
     endfunction
 
-    task set_memory(logic [ObiAddrWidth-1:0] addr, logic [ObiDataWidth-1:0] data, logic [ObiDataWidth/8-1:0] be);
+    task set_memory(logic [ObiAddrWidth-1:0] addr, logic [ObiDataWidth-1:0] data,
+                    logic [ObiDataWidth/8-1:0] be);
       #(ApplDelay);
       // $display("set 0x%x at 0x%x",data, addr);
       for (int i = 0; i < ObiDataWidth/8; i++) begin
@@ -90,8 +92,8 @@ package atop_golden_mem_pkg;
       for (int i = 0; i < ObiDataWidth/8; i++) begin
         get_memory[i*8+:8] = memory[addr+i];
       end
-       // $display("got 0x%x at 0x%x",get_memory, addr);
-   endfunction
+      // $display("got 0x%x at 0x%x",get_memory, addr);
+    endfunction
 
 
 

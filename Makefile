@@ -20,7 +20,7 @@ $(AVAILABLE_TESTBENCHES): build
 ifdef gui
 	$(VSIM) $@ -voptargs="+acc"
 else
-	$(VSIM) -c $@ -do "run -all"
+	$(VSIM) -c $@ -do "run -all; quit -f"
 endif
 
 .PHONY: all

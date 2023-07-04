@@ -38,9 +38,9 @@ module obi_sim_mem import obi_pkg::*; #(
   logic [7:0] mem[addr_t];
   logic rsp_ready;
 
-  if (ObiCfg.UseRReady) begin
+  if (ObiCfg.UseRReady) begin : gen_rready
     assign rsp_ready = obi_req_i.rready;
-  end else begin
+  end else begin : gen_no_rready
     assign rsp_ready = 1'b1;
   end
 
@@ -91,7 +91,8 @@ module obi_sim_mem import obi_pkg::*; #(
             automatic obi_r_chan_t read_rsp = 'x;
             if (!mem.exists(obi_req_i.a.addr)) begin
               if (WarnUninitialized) begin
-                $warning("Access to non-initialized address at 0x%016x by ID 0x%x.", obi_req_i.a.addr, obi_req_i.a.aid);
+                $warning("Access to non-initialized address at 0x%016x by ID 0x%x.",
+                         obi_req_i.a.addr, obi_req_i.a.aid);
               end
             end else begin
               for (int i = 0; i < ObiCfg.DataWidth/8; i++) begin
