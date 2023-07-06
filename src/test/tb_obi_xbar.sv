@@ -135,6 +135,7 @@ module tb_obi_xbar;
       automatic rand_manager_t obi_rand_manager = new ( mgr_bus_dv[i], $sformatf("MGR_%0d",i));
       automatic logic [  MgrConfig.DataWidth-1:0] r_rdata    = '0;
       automatic logic [    MgrConfig.IdWidth-1:0] r_rid      = '0;
+      automatic logic                             r_err      = '0;
       automatic mgr_r_optional_t                  r_optional = '0;
       end_of_sim[i] <= 1'b0;
       obi_rand_manager.reset();
@@ -147,7 +148,7 @@ module tb_obi_xbar;
                                mid: '0,
                                prot: obi_pkg::prot_t'('0),
                                dbg: '0,
-                               achk: '0}, r_rid, r_optional);
+                               achk: '0}, r_rdata, r_rid, r_err, r_optional);
       obi_rand_manager.read(32'h0000_e100, 2, '{auser: '0,
                                                 wuser: '0,
                                                 atop: '0,
@@ -155,7 +156,7 @@ module tb_obi_xbar;
                                                 mid: '0,
                                                 prot: obi_pkg::prot_t'('0),
                                                 dbg: '0,
-                                                achk: '0}, r_rdata, r_rid, r_optional);
+                                                achk: '0}, r_rdata, r_rid, r_err, r_optional);
       obi_rand_manager.run(NumRequests);
       end_of_sim[i] <= 1'b1;
     end

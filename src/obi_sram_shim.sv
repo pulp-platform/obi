@@ -28,9 +28,11 @@ module obi_sram_shim #(
   input  logic [  ObiCfg.DataWidth-1:0] rdata_i
 );
 
-  if (ObiCfg.OptionalCfg.UseAtop) $fatal(1, "Please use an ATOP filter before sram shim.");
-  if (ObiCfg.UseRReady) $error("RReady not yet supported, WIP");
+  if (ObiCfg.OptionalCfg.UseAtop) $error("Please use an ATOP resolver before sram shim.");
+  if (ObiCfg.UseRReady) $error("Please use an RReady Fifo before sram shim.");
   if (ObiCfg.Integrity) $error("Integrity not yet supported, WIP");
+  if (ObiCfg.OptionalCfg.UseProt) $warning("Prot not checked!");
+  if (ObiCfg.OptionalCfg.UseMemtype) $warning("Memtype not checked!");
 
   logic rvalid_d, rvalid_q;
   logic [ObiCfg.IdWidth-1:0] id_d, id_q;
@@ -46,6 +48,7 @@ module obi_sram_shim #(
   assign obi_rsp_o.r.rdata = rdata_i;
   assign obi_rsp_o.r.rid   = id_q;
   assign obi_rsp_o.r.err   = 1'b0;
+  assign obi_rsp_o.r.r_optional = '0;
 
   assign rvalid_d = obi_req_i.req & obi_rsp_o.gnt;
   assign id_d     = obi_req_i.a.aid;

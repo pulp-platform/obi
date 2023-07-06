@@ -8,23 +8,23 @@ package obi_test;
   import obi_pkg::*;
 
   class obi_driver #(
-    parameter obi_cfg_t ObiCfg = ObiDefaultConfig,
-    parameter type obi_a_optional_t = logic,
-    parameter type obi_r_optional_t = logic,
-    parameter time TA = 0ns,
-    parameter time TT = 0ns
+    parameter obi_cfg_t ObiCfg           = ObiDefaultConfig,
+    parameter type      obi_a_optional_t = logic,
+    parameter type      obi_r_optional_t = logic,
+    parameter time      TA               = 0ns,
+    parameter time      TT               = 0ns
   );
     virtual OBI_BUS_DV #(
-      .OBI_CFG (ObiCfg),
-      .obi_a_optional_t (obi_a_optional_t),
-      .obi_r_optional_t (obi_r_optional_t)
+      .OBI_CFG          ( ObiCfg           ),
+      .obi_a_optional_t ( obi_a_optional_t ),
+      .obi_r_optional_t ( obi_r_optional_t )
     ) obi;
 
     function new(
       virtual OBI_BUS_DV #(
-        .OBI_CFG (ObiCfg),
-        .obi_a_optional_t (obi_a_optional_t),
-        .obi_r_optional_t (obi_r_optional_t)
+        .OBI_CFG          ( ObiCfg           ),
+        .obi_a_optional_t ( obi_a_optional_t ),
+        .obi_r_optional_t ( obi_r_optional_t )
       ) obi
     );
       this.obi = obi;
@@ -120,37 +120,39 @@ package obi_test;
       output logic [    ObiCfg.IdWidth-1:0] aid,
       output obi_a_optional_t               a_optional
     );
-      obi.gnt        <= #TA 1'b1;
-      obi.gntpar     <= #TA 1'b0;
+      obi.gnt    <= #TA 1'b1;
+      obi.gntpar <= #TA 1'b0;
       cycle_start();
       while (obi.req != 1'b1) begin cycle_end(); cycle_start(); end
-      addr     = obi.addr;
-      we       = obi.we;
-      be       = obi.be;
-      wdata    = obi.wdata;
-      aid      = obi.aid;
+      addr       = obi.addr;
+      we         = obi.we;
+      be         = obi.be;
+      wdata      = obi.wdata;
+      aid        = obi.aid;
       a_optional = obi.a_optional;
       cycle_end();
-      obi.gnt        <= #TA 1'b0;
-      obi.gntpar     <= #TA 1'b1;
+      obi.gnt    <= #TA 1'b0;
+      obi.gntpar <= #TA 1'b1;
     endtask
 
     task recv_r (
       output logic [ObiCfg.DataWidth-1:0] rdata,
       output logic [  ObiCfg.IdWidth-1:0] rid,
+      output logic                        err,
       output obi_r_optional_t             r_optional
     );
-      obi.rready     <= #TA 1'b1;
-      obi.rreadypar  <= #TA 1'b0;
+      obi.rready    <= #TA 1'b1;
+      obi.rreadypar <= #TA 1'b0;
       cycle_start();
       while (obi.rvalid != 1'b1) begin cycle_end(); cycle_start(); end
       rdata      = obi.rdata;
       rid        = obi.rid;
+      err        = obi.err;
       r_optional = obi.r_optional;
       cycle_end();
       if (ObiCfg.UseRReady) begin
-        obi.rready     <= #TA 1'b0;
-        obi.rreadypar  <= #TA 1'b1;
+        obi.rready    <= #TA 1'b0;
+        obi.rreadypar <= #TA 1'b1;
       end
     endtask
 
@@ -158,45 +160,45 @@ package obi_test;
 
   class obi_rand_manager #(
     // Obi Parameters
-    parameter obi_cfg_t ObiCfg = ObiDefaultConfig,
-    parameter type obi_a_optional_t = logic,
-    parameter type obi_r_optional_t = logic,
+    parameter obi_cfg_t    ObiCfg           = ObiDefaultConfig,
+    parameter type         obi_a_optional_t = logic,
+    parameter type         obi_r_optional_t = logic,
     // Stimuli Parameters
-    parameter time TA = 2ns,
-    parameter time TT = 8ns,
+    parameter time         TA               = 2ns,
+    parameter time         TT               = 8ns,
     // Manager Parameters
-    parameter int unsigned MinAddr = 32'h0000_0000,
-    parameter int unsigned MaxAddr = 32'hffff_ffff,
+    parameter int unsigned MinAddr          = 32'h0000_0000,
+    parameter int unsigned MaxAddr          = 32'hffff_ffff,
     // Wait Parameters
-    parameter int unsigned AMinWaitCycles = 0,
-    parameter int unsigned AMaxWaitCycles = 100,
-    parameter int unsigned RMinWaitCycles = 0,
-    parameter int unsigned RMaxWaitCycles = 100
+    parameter int unsigned AMinWaitCycles   = 0,
+    parameter int unsigned AMaxWaitCycles   = 100,
+    parameter int unsigned RMinWaitCycles   = 0,
+    parameter int unsigned RMaxWaitCycles   = 100
   );
     typedef obi_test::obi_driver #(
-      .ObiCfg           (ObiCfg),
-      .obi_a_optional_t (obi_a_optional_t),
-      .obi_r_optional_t (obi_r_optional_t),
-      .TA               (TA),
-      .TT               (TT)
+      .ObiCfg           ( ObiCfg           ),
+      .obi_a_optional_t ( obi_a_optional_t ),
+      .obi_r_optional_t ( obi_r_optional_t ),
+      .TA               ( TA               ),
+      .TT               ( TT               )
     ) obi_driver_t;
 
     typedef logic [ObiCfg.AddrWidth-1:0] addr_t;
 
-    string name;
+    string       name;
     obi_driver_t drv;
-    addr_t a_queue[$];
-    logic r_queue[$];
+    addr_t       a_queue[$];
+    logic        r_queue[$];
 
     function new(
       virtual OBI_BUS_DV #(
-        .OBI_CFG          (ObiCfg),
-        .obi_a_optional_t (obi_a_optional_t),
-        .obi_r_optional_t (obi_r_optional_t)
+        .OBI_CFG          ( ObiCfg           ),
+        .obi_a_optional_t ( obi_a_optional_t ),
+        .obi_r_optional_t ( obi_r_optional_t )
       ) obi,
       input string name
     );
-      this.drv = new(obi);
+      this.drv  = new(obi);
       this.name = name;
       assert(ObiCfg.AddrWidth != 0) else $fatal(1, "ObiCfg.AddrWidth must be non-zero!");
       assert(ObiCfg.DataWidth != 0) else $fatal(1, "ObiCfg.DataWidth must be non-zero!");
@@ -217,35 +219,39 @@ package obi_test;
     endtask
 
     task automatic send_as(input int unsigned n_reqs);
-      automatic addr_t a_addr;
-      automatic logic a_we;
+      automatic addr_t                         a_addr;
+      automatic logic                          a_we;
       automatic logic [ObiCfg.DataWidth/8-1:0] a_be;
-      automatic logic [ObiCfg.DataWidth-1:0] a_wdata;
-      automatic logic [ObiCfg.IdWidth-1:0] a_aid;
-      automatic obi_a_optional_t a_optional;
+      automatic logic [  ObiCfg.DataWidth-1:0] a_wdata;
+      automatic logic [    ObiCfg.IdWidth-1:0] a_aid;
+      automatic obi_a_optional_t               a_optional;
+
       repeat (n_reqs) begin
         rand_wait(AMinWaitCycles, AMaxWaitCycles);
-        a_addr = addr_t'($urandom_range(MinAddr, MaxAddr));
-        a_we = $urandom() % 2;
-        a_be = $urandom() % (1 << (ObiCfg.DataWidth/8));
-        a_wdata = $urandom() % (1 << ObiCfg.DataWidth);
-        a_aid = $urandom() % (1 << ObiCfg.IdWidth);
+
+        a_addr     = addr_t'($urandom_range(MinAddr, MaxAddr));
+        a_we       = $urandom() % 2;
+        a_be       = $urandom() % (1 << (ObiCfg.DataWidth/8));
+        a_wdata    = $urandom() % (1 << ObiCfg.DataWidth);
+        a_aid      = $urandom() % (1 << ObiCfg.IdWidth);
         a_optional = obi_a_optional_t'($urandom());
+
         this.a_queue.push_back(a_addr);
         this.drv.send_a(a_addr, a_we, a_be, a_wdata, a_aid, a_optional);
       end
     endtask
 
     task automatic recv_rs(input int unsigned n_rsps);
-      automatic addr_t a_addr;
+      automatic addr_t                       a_addr;
       automatic logic [ObiCfg.DataWidth-1:0] r_rdata;
-      automatic logic [ObiCfg.IdWidth-1:0] r_rid;
-      automatic obi_r_optional_t r_optional;
+      automatic logic [  ObiCfg.IdWidth-1:0] r_rid;
+      automatic logic                        r_err;
+      automatic obi_r_optional_t             r_optional;
       repeat (n_rsps) begin
         wait (a_queue.size() > 0);
         a_addr = this.a_queue.pop_front();
         rand_wait(RMinWaitCycles, RMaxWaitCycles);
-        drv.recv_r(r_rdata, r_rid, r_optional);
+        drv.recv_r(r_rdata, r_rid, r_err, r_optional);
       end
     endtask
 
@@ -258,73 +264,75 @@ package obi_test;
     endtask
 
     task automatic write(
-      input addr_t addr,
-      input logic [ObiCfg.DataWidth/8-1:0] be,
-      input logic [ObiCfg.DataWidth-1:0] wdata,
-      input logic [ObiCfg.IdWidth-1:0] aid,
-      input obi_a_optional_t a_optional,
-      output logic [ObiCfg.IdWidth-1:0] r_rid,
-      output obi_r_optional_t r_optional
+      input  addr_t                         addr,
+      input  logic [ObiCfg.DataWidth/8-1:0] be,
+      input  logic [  ObiCfg.DataWidth-1:0] wdata,
+      input  logic [    ObiCfg.IdWidth-1:0] aid,
+      input  obi_a_optional_t               a_optional,
+      output logic [  ObiCfg.DataWidth-1:0] r_rdata,
+      output logic [    ObiCfg.IdWidth-1:0] r_rid,
+      output logic                          r_err,
+      output obi_r_optional_t               r_optional
     );
-      logic [ObiCfg.DataWidth-1:0] r_rdata;
       this.drv.send_a(addr, 1'b1, be, wdata, aid, a_optional);
-      this.drv.recv_r(r_rdata, r_rid, r_optional);
+      this.drv.recv_r(r_rdata, r_rid, r_err, r_optional);
     endtask
 
     task automatic read(
-      input addr_t addr,
-      input logic [ObiCfg.IdWidth-1:0] aid,
-      input obi_a_optional_t a_optional,
+      input  addr_t                       addr,
+      input  logic [  ObiCfg.IdWidth-1:0] aid,
+      input  obi_a_optional_t             a_optional,
       output logic [ObiCfg.DataWidth-1:0] r_rdata,
-      output logic [ObiCfg.IdWidth-1:0] r_rid,
-      output obi_r_optional_t r_optional
+      output logic [  ObiCfg.IdWidth-1:0] r_rid,
+      output logic                        r_err,
+      output obi_r_optional_t             r_optional
     );
       this.drv.send_a(addr, 1'b0, '1, '0, aid, a_optional);
-      this.drv.recv_r(r_rdata, r_rid, r_optional);
+      this.drv.recv_r(r_rdata, r_rid, r_err, r_optional);
     endtask
 
   endclass
 
   class obi_rand_subordinate #(
     // Obi Parameters
-    parameter obi_cfg_t ObiCfg = ObiDefaultConfig,
-    parameter type obi_a_optional_t = logic,
-    parameter type obi_r_optional_t = logic,
+    parameter obi_cfg_t    ObiCfg           = ObiDefaultConfig,
+    parameter type         obi_a_optional_t = logic,
+    parameter type         obi_r_optional_t = logic,
     // Stimuli Parameters
-    parameter time TA = 2ns,
-    parameter time TT = 8ns,
+    parameter time         TA               = 2ns,
+    parameter time         TT               = 8ns,
     // Wait Parameters
-    parameter int unsigned AMinWaitCycles = 0,
-    parameter int unsigned AMaxWaitCycles = 100,
-    parameter int unsigned RMinWaitCycles = 0,
-    parameter int unsigned RMaxWaitCycles = 100
+    parameter int unsigned AMinWaitCycles   = 0,
+    parameter int unsigned AMaxWaitCycles   = 100,
+    parameter int unsigned RMinWaitCycles   = 0,
+    parameter int unsigned RMaxWaitCycles   = 100
   );
     typedef obi_test::obi_driver #(
-      .ObiCfg           (ObiCfg),
-      .obi_a_optional_t (obi_a_optional_t),
-      .obi_r_optional_t (obi_r_optional_t),
-      .TA               (TA),
-      .TT               (TT)
+      .ObiCfg           ( ObiCfg           ),
+      .obi_a_optional_t ( obi_a_optional_t ),
+      .obi_r_optional_t ( obi_r_optional_t ),
+      .TA               ( TA               ),
+      .TT               ( TT               )
     ) obi_driver_t;
 
     typedef logic [ObiCfg.AddrWidth-1:0] addr_t;
-    typedef logic [ObiCfg.IdWidth-1:0] id_t;
+    typedef logic [  ObiCfg.IdWidth-1:0] id_t;
 
-    string name;
+    string       name;
     obi_driver_t drv;
-    addr_t a_queue[$];
-    id_t id_queue[$];
-    logic r_queue[$];
+    addr_t       a_queue[$];
+    id_t         id_queue[$];
+    logic        r_queue[$];
 
     function new(
       virtual OBI_BUS_DV #(
-        .OBI_CFG          (ObiCfg),
-        .obi_a_optional_t (obi_a_optional_t),
-        .obi_r_optional_t (obi_r_optional_t)
+        .OBI_CFG          ( ObiCfg           ),
+        .obi_a_optional_t ( obi_a_optional_t ),
+        .obi_r_optional_t ( obi_r_optional_t )
       ) obi,
       input string name
     );
-      this.drv = new(obi);
+      this.drv  = new(obi);
       this.name = name;
       assert(ObiCfg.AddrWidth != 0) else $fatal(1, "ObiCfg.AddrWidth must be non-zero!");
       assert(ObiCfg.DataWidth != 0) else $fatal(1, "ObiCfg.DataWidth must be non-zero!");
@@ -346,12 +354,13 @@ package obi_test;
 
     task automatic recv_as();
       forever begin
-        automatic addr_t a_addr;
+        automatic addr_t                         a_addr;
         automatic logic [ObiCfg.DataWidth/8-1:0] a_be;
-        automatic logic a_we;
-        automatic logic [ObiCfg.DataWidth-1:0] a_wdata;
-        automatic logic [ObiCfg.IdWidth-1:0] a_aid;
-        automatic obi_a_optional_t a_optional;
+        automatic logic                          a_we;
+        automatic logic [  ObiCfg.DataWidth-1:0] a_wdata;
+        automatic logic [    ObiCfg.IdWidth-1:0] a_aid;
+        automatic obi_a_optional_t               a_optional;
+
         this.drv.recv_a(a_addr, a_we, a_be, a_wdata, a_aid, a_optional);
         this.a_queue.push_back(a_addr);
         this.id_queue.push_back(a_aid);
@@ -360,15 +369,17 @@ package obi_test;
 
     task automatic send_rs();
       forever begin
-        automatic logic rand_success;
-        automatic addr_t a_addr;
+        automatic logic                        rand_success;
+        automatic addr_t                       a_addr;
         automatic logic [ObiCfg.DataWidth-1:0] r_rdata;
-        automatic logic [ObiCfg.IdWidth-1:0] r_rid;
-        automatic obi_r_optional_t r_optional;
+        automatic logic [  ObiCfg.IdWidth-1:0] r_rid;
+        automatic obi_r_optional_t             r_optional;
+
         wait (a_queue.size() > 0);
         wait (id_queue.size() > 0);
+
         a_addr = this.a_queue.pop_front();
-        r_rid = this.id_queue.pop_front();
+        r_rid  = this.id_queue.pop_front();
         rand_success = std::randomize(r_rdata); assert(rand_success);
         rand_success = std::randomize(r_optional); assert(rand_success);
         this.drv.send_r(r_rdata, r_rid, r_optional);
