@@ -107,14 +107,6 @@ module tb_obi_atop_resolver;
   `OBI_TYPEDEF_ALL_A_OPTIONAL(sbr_a_optional_t, AUserWidth, WUserWidth, 0, 0)
   `OBI_TYPEDEF_ALL_R_OPTIONAL(sbr_r_optional_t, RUserWidth, 0)
 
-  // typedef obi_test::obi_rand_subordinate #(
-  //   .ObiCfg ( SbrConfig ),
-  //   .obi_a_optional_t ( sbr_a_optional_t ),
-  //   .obi_r_optional_t ( sbr_r_optional_t ),
-  //   .TA ( ApplTime ),
-  //   .TT ( TestTime )
-  // ) rand_subordinate_t;
-
   logic clk, rst_n;
   logic [NumManagers-1:0] end_of_sim;
   int unsigned num_errors = 0;
@@ -246,8 +238,9 @@ module tb_obi_atop_resolver;
     // // test_interleaving();
     test_atomic_counter();
     // random_amo();
-
     // overtake_r();
+    test_lr_sc();
+
     end_of_sim <= '1;
   end
 
@@ -323,8 +316,6 @@ module tb_obi_atop_resolver;
       write_amo_read_cycle(0, address, data_init, data_amo, 0, 0, atop);
 
     end
-
-    // TODO LR/SC
 
   endtask
 
@@ -402,8 +393,6 @@ module tb_obi_atop_resolver;
 
     #1000ns;
 
-    // TODO LRSC
-
   endtask
 
   // Test if the adapter protects the atomic region correctly
@@ -412,16 +401,11 @@ module tb_obi_atop_resolver;
     parameter logic [AddrWidth-1:0] Address       = 'h01004000;
 
     automatic logic [ AddrWidth-1:0] address         = Address;
-    automatic logic [ DataWidth-1:0] rdata_init;
-    automatic logic [MgrIdWidth-1:0] rid_init;
-    automatic logic                  err_init;
-    automatic mgr_r_optional_t       r_optional_init;
 
     $display("%t - Test write consistency...\n", $realtime);
 
     // Initialize to 0
     write_amo_read_cycle(0, address, '0, '0, '0, 0, '0);
-    // obi_rand_managers[0].write(address, '1, '0, '0, '0, rdata_init, rid_init, err_init, r_optional_init);
 
     for (int i = 0; i < NumManagers; i++) begin
       automatic int m = i;
@@ -489,6 +473,113 @@ module tb_obi_atop_resolver;
                NumIterations*NumManagers);
       num_errors += 1;
     end
+
+  endtask
+
+  // Test LR/SC accesses
+  task automatic test_lr_sc();
+    automatic logic [ AddrWidth-1:0] address;
+    automatic logic [ AddrWidth-1:0] address_2;
+    automatic logic [ DataWidth-1:0] data;
+    automatic logic [MgrIdWidth-1:0] trans_id;
+    automatic mgr_a_optional_t       a_optional = '0;
+    automatic logic [ DataWidth-1:0] rdata;
+    automatic logic [MgrIdWidth-1:0] rid;
+    automatic logic                  err;
+    automatic mgr_r_optional_t       r_optional;
+
+    // SC without acquiring lock -> !exokay
+    assert (randomize(address));
+    address[$clog2(DataWidth/8)-1:0] = '0;
+    assert (randomize(data));
+    assert (randomize(trans_id));
+    a_optional.atop = ATOPSC;
+    obi_rand_managers[0].write(address, '1, data, trans_id, a_optional, rdata, rid,
+                               err, r_optional);
+
+    assert (r_optional.exokay == 1'b0) else begin
+      $warning("%t - SC without LR returned exokay", $realtime);
+      num_errors += 1;
+    end
+
+    // LR/SC sequence -> exokay
+
+    assert (randomize(address));
+    address[$clog2(DataWidth/8)-1:0] = '0;
+    assert (randomize(trans_id));
+    a_optional.atop = ATOPLR;
+    obi_rand_managers[0].read(address, trans_id, a_optional, rdata, rid, err, r_optional);
+
+    assert (r_optional.exokay == 1'b1) else begin
+      $warning("%t - LR did not return exokay", $realtime);
+      num_errors += 1;
+    end
+
+    assert (randomize(data));
+    a_optional.atop = ATOPSC;
+    obi_rand_managers[0].write(address, '1, data, trans_id, a_optional, rdata, rid,
+                               err, r_optional);
+
+    assert (r_optional.exokay == 1'b1) else begin
+      $warning("%t - SC with LR did not return exokay", $realtime);
+      num_errors += 1;
+    end
+
+    // LR then different SC -> !exokay
+
+    assert (randomize(address));
+    address[$clog2(DataWidth/8)-1:0] = '0;
+    assert (randomize(trans_id));
+    a_optional.atop = ATOPLR;
+    obi_rand_managers[0].read(address, trans_id, a_optional, rdata, rid, err, r_optional);
+
+    assert (r_optional.exokay == 1'b1) else begin
+      $warning("%t - LR did not return exokay", $realtime);
+      num_errors += 1;
+    end
+
+    do begin
+      assert (randomize(address_2));
+      address_2[$clog2(DataWidth/8)-1:0] = '0;
+    end while (address_2 == address);
+    assert (randomize(data));
+    a_optional.atop = ATOPSC;
+    obi_rand_managers[0].write(address_2, '1, data, trans_id, a_optional, rdata, rid,
+                               err, r_optional);
+
+    assert (r_optional.exokay == 1'b0) else begin
+      $warning("%t - SC with LR to different address returned exokay", $realtime);
+      num_errors += 1;
+    end
+
+    // LR, other core store, SC -> !exokay
+
+    assert (randomize(address));
+    address[$clog2(DataWidth/8)-1:0] = '0;
+    assert (randomize(trans_id));
+    a_optional.atop = ATOPLR;
+    obi_rand_managers[0].read(address, trans_id, a_optional, rdata, rid, err, r_optional);
+
+    assert (r_optional.exokay == 1'b1) else begin
+      $warning("%t - LR did not return exokay", $realtime);
+      num_errors += 1;
+    end
+
+    assert (randomize(data));
+    a_optional.atop = ATOPNONE;
+    obi_rand_managers[1].write(address, '1, data, trans_id, a_optional, rdata, rid,
+                               err, r_optional);
+
+    assert (randomize(data));
+    a_optional.atop = ATOPSC;
+    obi_rand_managers[0].write(address, '1, data, trans_id, a_optional, rdata, rid,
+                               err, r_optional);
+
+    assert (r_optional.exokay == 1'b0) else begin
+      $warning("%t - SC with LR and injected store returned exokay", $realtime);
+      num_errors += 1;
+    end
+
 
   endtask
 

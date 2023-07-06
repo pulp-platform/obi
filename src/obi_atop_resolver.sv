@@ -95,7 +95,7 @@ module obi_atop_resolver import obi_pkg::*; #(
   assign rdata_ready = !rdata_usage && !rdata_full;
   assign rdata_valid = !rdata_empty;
 
-  logic sc_successful_d, sc_successful_q;
+  logic sc_successful_or_lr_d, sc_successful_or_lr_q;
   logic sc_q;
 
   typedef struct packed {
@@ -109,13 +109,13 @@ module obi_atop_resolver import obi_pkg::*; #(
   assign out_buf_fifo_in = '{
     data:   out_rdata,
     err:    mgr_port_rsp_i.r.err,
-    exokay: sc_successful_q,
+    exokay: sc_successful_or_lr_q,
     optional: mgr_port_rsp_i.r.r_optional
   };
 
   assign sbr_port_rsp_o.r.rdata = out_buf_fifo_out.data;
   assign sbr_port_rsp_o.r.err   = out_buf_fifo_out.err;
-  assign sbr_port_rsp_o.r.r_optional.exokay = out_buf_fifo_out.exokay; // TODO indicate allowed LR!
+  assign sbr_port_rsp_o.r.r_optional.exokay = out_buf_fifo_out.exokay;
   if (SbrPortObiCfg.OptionalCfg.RUserWidth) begin : gen_ruser
     if (MgrPortObiCfg.OptionalCfg.RUserWidth) begin : gen_ruser_assign
       always_comb begin
@@ -148,7 +148,8 @@ module obi_atop_resolver import obi_pkg::*; #(
   );
 
   // In case of a SC we must forward SC result from the cycle earlier.
-  assign out_rdata = (sc_q && LrScEnable) ? $unsigned(!sc_successful_q) : mgr_port_rsp_i.r.rdata;
+  assign out_rdata = (sc_q && LrScEnable) ? $unsigned(!sc_successful_or_lr_q) :
+                                            mgr_port_rsp_i.r.rdata;
 
   // Ready to output data if both meta and read data
   // are available (the read data will always be last)
@@ -186,7 +187,7 @@ module obi_atop_resolver import obi_pkg::*; #(
     } reservation_t;
     reservation_t reservation_d, reservation_q;
 
-    `FF(sc_successful_q, sc_successful_d, 1'b0, clk_i, rst_ni);
+    `FF(sc_successful_or_lr_q, sc_successful_or_lr_d, 1'b0, clk_i, rst_ni);
     `FF(reservation_q, reservation_d, 1'b0, clk_i, rst_ni);
     `FF(sc_q, sbr_port_req_i.req &
               sbr_port_rsp_o.gnt &
@@ -196,7 +197,7 @@ module obi_atop_resolver import obi_pkg::*; #(
       unique_core_id = sbr_port_req_i.a.aid;
 
       reservation_d = reservation_q;
-      sc_successful_d = 1'b0;
+      sc_successful_or_lr_d = 1'b0;
       // new valid transaction
       if (sbr_port_req_i.req && sbr_port_rsp_o.gnt) begin
 
@@ -209,6 +210,7 @@ module obi_atop_resolver import obi_pkg::*; #(
           reservation_d.valid = 1'b1;
           reservation_d.addr = sbr_port_req_i.a.addr;
           reservation_d.core = unique_core_id;
+          sc_successful_or_lr_d = 1'b1;
         end
 
         // An SC may succeed only if no store from another hart (or other device) to
@@ -228,14 +230,14 @@ module obi_atop_resolver import obi_pkg::*; #(
         if (reservation_q.valid && obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPSC
             && reservation_q.core == unique_core_id) begin
           reservation_d.valid = 1'b0;
-          sc_successful_d = (reservation_q.addr == sbr_port_req_i.a.addr);
+          sc_successful_or_lr_d = (reservation_q.addr == sbr_port_req_i.a.addr);
         end
       end
     end // always_comb
   end else begin : gen_disable_lrcs
     assign sc_q = 1'b0;
-    assign sc_successful_d = 1'b0;
-    assign sc_successful_q = 1'b0;
+    assign sc_successful_or_lr_d = 1'b0;
+    assign sc_successful_or_lr_q = 1'b0;
   end
 
   // ----------------
@@ -310,7 +312,7 @@ module obi_atop_resolver import obi_pkg::*; #(
     mgr_port_req_o.req          = sbr_port_req_i.req & rdata_ready;//sbr_port_rsp_o.gnt;
     mgr_port_req_o.a.addr       = sbr_port_req_i.a.addr;
     mgr_port_req_o.a.we         = sbr_port_req_i.a.we |
-                                  (sc_successful_d &
+                                  (sc_successful_or_lr_d &
                                    (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPSC));
     mgr_port_req_o.a.wdata      = sbr_port_req_i.a.wdata;
     mgr_port_req_o.a.be         = sbr_port_req_i.a.be;
