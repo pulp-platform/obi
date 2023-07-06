@@ -120,11 +120,11 @@ package atop_golden_mem_pkg;
       // $display("Writing 0x%x to 0x%x and atop 0x%x", wdata, addr, atop);
 
 
-      if (atop == obi_pkg::AMOSC) begin
+      if (atop == obi_pkg::ATOPSC) begin
 
         // TODO
 
-      end else if (atop == obi_pkg::AMONONE) begin
+      end else if (atop == obi_pkg::ATOPNONE) begin
 
         wait_write_rsp(res_id);
         set_memory(addr, wdata, be);
@@ -208,8 +208,7 @@ package atop_golden_mem_pkg;
       rdata = get_memory(addr);
       err = '0;
 
-      if (atop == obi_pkg::AMOLR) begin
-        // TODO
+      if (atop == obi_pkg::ATOPLR) begin
       end
 
       exokay = '0;

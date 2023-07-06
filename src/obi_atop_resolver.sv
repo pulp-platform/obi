@@ -190,7 +190,7 @@ module obi_atop_resolver import obi_pkg::*; #(
     `FF(reservation_q, reservation_d, 1'b0, clk_i, rst_ni);
     `FF(sc_q, sbr_port_req_i.req &
               sbr_port_rsp_o.gnt &
-              (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC), 1'b0, clk_i, rst_ni);
+              (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPSC), 1'b0, clk_i, rst_ni);
 
     always_comb begin
       unique_core_id = sbr_port_req_i.a.aid;
@@ -204,7 +204,7 @@ module obi_atop_resolver import obi_pkg::*; #(
         // Place a reservation on the address if there isn't already a valid reservation.
         // We prevent a live-lock by don't throwing away the reservation of a hart unless
         // it makes a new reservation in program order or issues any SC.
-        if (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOLR &&
+        if (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPLR &&
             (!reservation_q.valid || reservation_q.core == unique_core_id)) begin
           reservation_d.valid = 1'b1;
           reservation_d.addr = sbr_port_req_i.a.addr;
@@ -219,13 +219,13 @@ module obi_atop_resolver import obi_pkg::*; #(
         // check whether another core has made a write attempt
         if ((unique_core_id != reservation_q.core) &&
             (sbr_port_req_i.a.addr == reservation_q.addr) &&
-            (!((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOLR, AMOSC}) ||
+            (!((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {ATOPLR, ATOPSC}) ||
                !sbr_port_req_i.a.a_optional.atop[5]) || sbr_port_req_i.a.we)) begin
           reservation_d.valid = 1'b0;
         end
 
         // An SC from the same hart clears any pending reservation.
-        if (reservation_q.valid && obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC
+        if (reservation_q.valid && obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPSC
             && reservation_q.core == unique_core_id) begin
           reservation_d.valid = 1'b0;
           sc_successful_d = (reservation_q.addr == sbr_port_req_i.a.addr);
@@ -311,7 +311,7 @@ module obi_atop_resolver import obi_pkg::*; #(
     mgr_port_req_o.a.addr       = sbr_port_req_i.a.addr;
     mgr_port_req_o.a.we         = sbr_port_req_i.a.we |
                                   (sc_successful_d &
-                                   (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == AMOSC));
+                                   (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPSC));
     mgr_port_req_o.a.wdata      = sbr_port_req_i.a.wdata;
     mgr_port_req_o.a.be         = sbr_port_req_i.a.be;
     mgr_port_req_o.a.aid        = sbr_port_req_i.a.aid;
@@ -325,7 +325,7 @@ module obi_atop_resolver import obi_pkg::*; #(
       Idle: begin
         if (sbr_port_req_i.req &
             sbr_port_rsp_o.gnt &
-            !((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOLR, AMOSC}) ||
+            !((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {ATOPLR, ATOPSC}) ||
               !sbr_port_req_i.a.a_optional.atop[5])) begin
           load_amo = 1'b1;
           state_d = DoAMO;
@@ -381,7 +381,7 @@ module obi_atop_resolver import obi_pkg::*; #(
         aid_q           <= sbr_port_req_i.a.aid;
         amo_operand_b_q <= sbr_port_req_i.a.wdata;
       end else begin
-        amo_op_q        <= AMONONE;
+        amo_op_q        <= ATOPNONE;
       end
     end
   end

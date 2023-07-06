@@ -375,7 +375,7 @@ module tb_obi_atop_resolver;
           do begin
             assert (randomize(atop));
           end while (!(obi_atop_e'(atop) inside {AMOSWAP, AMOADD, AMOXOR, AMOAND, AMOOR, AMOMIN,
-                                                 AMOMAX, AMOMINU, AMOMAXU, AMONONE}));
+                                                 AMOMAX, AMOMINU, AMOMAXU, ATOPNONE}));
           a_optional.atop = atop;
           fork
             obi_rand_managers[m].write(address, '1, wdata, id, a_optional, rdata, rid, err,
@@ -387,7 +387,7 @@ module tb_obi_atop_resolver;
                      {err, r_optional.exokay}, {exp_err, exp_exokay});
             num_errors += 1;
           end
-          if (atop != AMONONE) begin
+          if (atop != ATOPNONE) begin
             assert (rdata == exp_data) else begin
               $warning("%t - ATOP data did not match! got: 0x%x, exp: 0x%x with op 0x%x",
                        $realtime, rdata, exp_data, atop);
@@ -436,7 +436,7 @@ module tb_obi_atop_resolver;
           do begin
             assert (randomize(atop));
           end while (!(obi_atop_e'(atop) inside {AMOSWAP, AMOADD, AMOXOR, AMOAND, AMOOR, AMOMIN,
-                                                 AMOMAX, AMOMINU, AMOMAXU, AMONONE}));
+                                                 AMOMAX, AMOMINU, AMOMAXU, ATOPNONE}));
           // assert (randomize(address));
           assert (randomize(data));
           assert (randomize(data_amo));
