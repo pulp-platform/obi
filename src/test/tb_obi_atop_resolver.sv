@@ -481,6 +481,7 @@ module tb_obi_atop_resolver;
     automatic logic [ AddrWidth-1:0] address;
     automatic logic [ AddrWidth-1:0] address_2;
     automatic logic [ DataWidth-1:0] data;
+    automatic logic [ DataWidth-1:0] data_2;
     automatic logic [MgrIdWidth-1:0] trans_id;
     automatic mgr_a_optional_t       a_optional = '0;
     automatic logic [ DataWidth-1:0] rdata;
@@ -488,25 +489,42 @@ module tb_obi_atop_resolver;
     automatic logic                  err;
     automatic mgr_r_optional_t       r_optional;
 
+    $display("%t - Test LR/SC...\n", $realtime);
+
     // SC without acquiring lock -> !exokay
+    ///////////////////////////////////////
     assert (randomize(address));
     address[$clog2(DataWidth/8)-1:0] = '0;
     assert (randomize(data));
     assert (randomize(trans_id));
-    a_optional.atop = ATOPSC;
-    obi_rand_managers[0].write(address, '1, data, trans_id, a_optional, rdata, rid,
-                               err, r_optional);
+    // Initialize address
+    obi_rand_managers[0].write(address, '1, '0, trans_id, a_optional, rdata, rid, err, r_optional);
 
-    assert (r_optional.exokay == 1'b0) else begin
+    a_optional.atop = ATOPSC;
+    obi_rand_managers[0].write(address, '1, data, trans_id, a_optional, rdata, rid, err,
+                               r_optional);
+
+    assert (r_optional.exokay == 1'b0 && rdata != '0) else begin
       $warning("%t - SC without LR returned exokay", $realtime);
       num_errors += 1;
     end
 
-    // LR/SC sequence -> exokay
+    // Ensure SC did not store
+    a_optional.atop = ATOPNONE;
+    obi_rand_managers[0].read(address, trans_id, a_optional, rdata, rid, err, r_optional);
+    assert (rdata == '0 && rdata != data) else begin
+      $warning("%t - SC without LR stored data 0x%x", $realtime, rdata);
+      num_errors += 1;
+    end
 
+    // LR/SC sequence -> exokay
+    ///////////////////////////
     assert (randomize(address));
     address[$clog2(DataWidth/8)-1:0] = '0;
     assert (randomize(trans_id));
+    // Initialize address
+    obi_rand_managers[0].write(address, '1, '0, trans_id, a_optional, rdata, rid, err, r_optional);
+
     a_optional.atop = ATOPLR;
     obi_rand_managers[0].read(address, trans_id, a_optional, rdata, rid, err, r_optional);
 
@@ -517,19 +535,30 @@ module tb_obi_atop_resolver;
 
     assert (randomize(data));
     a_optional.atop = ATOPSC;
-    obi_rand_managers[0].write(address, '1, data, trans_id, a_optional, rdata, rid,
-                               err, r_optional);
+    obi_rand_managers[0].write(address, '1, data, trans_id, a_optional, rdata, rid, err,
+                               r_optional);
 
     assert (r_optional.exokay == 1'b1) else begin
       $warning("%t - SC with LR did not return exokay", $realtime);
       num_errors += 1;
     end
 
-    // LR then different SC -> !exokay
+    // Ensure SC did store
+    a_optional.atop = ATOPNONE;
+    obi_rand_managers[0].read(address, trans_id, a_optional, rdata, rid, err, r_optional);
+    assert (rdata == data) else begin
+      $warning("%t - SC with LR did not store data", $realtime);
+      num_errors += 1;
+    end
 
+    // LR then different SC -> !exokay
+    //////////////////////////////////
     assert (randomize(address));
     address[$clog2(DataWidth/8)-1:0] = '0;
     assert (randomize(trans_id));
+    // Initialize address
+    obi_rand_managers[0].write(address, '1, '0, trans_id, a_optional, rdata, rid, err, r_optional);
+
     a_optional.atop = ATOPLR;
     obi_rand_managers[0].read(address, trans_id, a_optional, rdata, rid, err, r_optional);
 
@@ -544,8 +573,8 @@ module tb_obi_atop_resolver;
     end while (address_2 == address);
     assert (randomize(data));
     a_optional.atop = ATOPSC;
-    obi_rand_managers[0].write(address_2, '1, data, trans_id, a_optional, rdata, rid,
-                               err, r_optional);
+    obi_rand_managers[0].write(address_2, '1, data, trans_id, a_optional, rdata, rid, err,
+                               r_optional);
 
     assert (r_optional.exokay == 1'b0) else begin
       $warning("%t - SC with LR to different address returned exokay", $realtime);
@@ -553,10 +582,13 @@ module tb_obi_atop_resolver;
     end
 
     // LR, other core store, SC -> !exokay
-
+    //////////////////////////////////////
     assert (randomize(address));
     address[$clog2(DataWidth/8)-1:0] = '0;
     assert (randomize(trans_id));
+    // Initialize address
+    obi_rand_managers[0].write(address, '1, '0, trans_id, a_optional, rdata, rid, err, r_optional);
+
     a_optional.atop = ATOPLR;
     obi_rand_managers[0].read(address, trans_id, a_optional, rdata, rid, err, r_optional);
 
@@ -567,19 +599,27 @@ module tb_obi_atop_resolver;
 
     assert (randomize(data));
     a_optional.atop = ATOPNONE;
-    obi_rand_managers[1].write(address, '1, data, trans_id, a_optional, rdata, rid,
-                               err, r_optional);
+    obi_rand_managers[1].write(address, '1, data, trans_id, a_optional, rdata, rid, err,
+                               r_optional);
 
-    assert (randomize(data));
+    assert (randomize(data_2));
     a_optional.atop = ATOPSC;
-    obi_rand_managers[0].write(address, '1, data, trans_id, a_optional, rdata, rid,
-                               err, r_optional);
+    obi_rand_managers[0].write(address, '1, data_2, trans_id, a_optional, rdata, rid, err,
+                               r_optional);
 
     assert (r_optional.exokay == 1'b0) else begin
       $warning("%t - SC with LR and injected store returned exokay", $realtime);
       num_errors += 1;
     end
 
+    // Ensure SC did not store
+    a_optional.atop = ATOPNONE;
+    obi_rand_managers[0].read(address, trans_id, a_optional, rdata, rid, err, r_optional);
+    assert (rdata == data && rdata != data_2) else begin
+      $warning("%t - SC without LR stored data (stored: 0x%x, SC: 0x%x, rdata: 0x%x)", $realtime,
+               data, data_2, rdata);
+      num_errors += 1;
+    end
 
   endtask
 

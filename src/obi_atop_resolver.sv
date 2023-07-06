@@ -311,9 +311,8 @@ module obi_atop_resolver import obi_pkg::*; #(
     sbr_port_rsp_o.gnt          = rdata_ready & mgr_port_rsp_i.gnt;
     mgr_port_req_o.req          = sbr_port_req_i.req & rdata_ready;//sbr_port_rsp_o.gnt;
     mgr_port_req_o.a.addr       = sbr_port_req_i.a.addr;
-    mgr_port_req_o.a.we         = sbr_port_req_i.a.we |
-                                  (sc_successful_or_lr_d &
-                                   (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPSC));
+    mgr_port_req_o.a.we         = obi_atop_e'(sbr_port_req_i.a.a_optional.atop) != ATOPSC ?
+                                  sbr_port_req_i.a.we : sc_successful_or_lr_d;
     mgr_port_req_o.a.wdata      = sbr_port_req_i.a.wdata;
     mgr_port_req_o.a.be         = sbr_port_req_i.a.be;
     mgr_port_req_o.a.aid        = sbr_port_req_i.a.aid;
