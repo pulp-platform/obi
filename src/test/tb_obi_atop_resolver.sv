@@ -409,7 +409,6 @@ module tb_obi_atop_resolver;
 
     for (int i = 0; i < NumManagers; i++) begin
       automatic int m = i;
-      // automatic logic [ AddrWidth-1:0] address;
       automatic logic [MgrIdWidth-1:0] id;
       automatic logic [ DataWidth-1:0] data;
       automatic logic [ DataWidth-1:0] data_amo;
@@ -421,7 +420,6 @@ module tb_obi_atop_resolver;
             assert (randomize(atop));
           end while (!(obi_atop_e'(atop) inside {AMOSWAP, AMOADD, AMOXOR, AMOAND, AMOOR, AMOMIN,
                                                  AMOMAX, AMOMINU, AMOMAXU, ATOPNONE}));
-          // assert (randomize(address));
           assert (randomize(data));
           assert (randomize(data_amo));
           assert (randomize(id));

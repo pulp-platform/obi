@@ -48,7 +48,7 @@ module obi_atop_resolver import obi_pkg::*; #(
   logic meta_valid, meta_ready;
   logic rdata_valid, rdata_ready;
 
-  /// read signal before register
+  // read signal before register
   logic [SbrPortObiCfg.DataWidth-1:0] out_rdata;
 
   logic pop_resp;
@@ -91,7 +91,6 @@ module obi_atop_resolver import obi_pkg::*; #(
   logic rdata_full, rdata_empty;
   logic rdata_usage;
 
-  // assign rdata_ready = !rdata_full;
   assign rdata_ready = !rdata_usage && !rdata_full;
   assign rdata_valid = !rdata_empty;
 
@@ -128,22 +127,20 @@ module obi_atop_resolver import obi_pkg::*; #(
   end
 
   fifo_v3 #(
-    .FALL_THROUGH (1'b1     ),
-    // .DATA_WIDTH   (SbrPortObiCfg.DataWidth),
-    .dtype       (out_buffer_t),
-    .DEPTH        (2        )
+    .FALL_THROUGH (1'b1        ),
+    .dtype        (out_buffer_t),
+    .DEPTH        (2           )
   ) i_rdata_fifo (
     .clk_i,
     .rst_ni,
     .flush_i    (1'b0                    ),
     .testmode_i (1'b0                    ),
-    .full_o     (rdata_full              ),// queue is full
-    .empty_o    (rdata_empty             ),// queue is empty
-    .usage_o    (rdata_usage             ),// fill pointer
-    .data_i     (out_buf_fifo_in         ),// data to push into the queue
+    .full_o     (rdata_full              ),
+    .empty_o    (rdata_empty             ),
+    .usage_o    (rdata_usage             ),
+    .data_i     (out_buf_fifo_in         ),
     .push_i     (~last_amo_wb & mgr_port_rsp_i.rvalid),
-                                           // data is valid and can be pushed to the queue
-    .data_o     (out_buf_fifo_out        ),// output data
+    .data_o     (out_buf_fifo_out        ),
     .pop_i      (pop_resp & ~rdata_empty)
   );
 
@@ -161,7 +158,7 @@ module obi_atop_resolver import obi_pkg::*; #(
     assign pop_resp   = sbr_port_rsp_o.rvalid;
   end
 
-  // Generate out_gnt one cycle after sending a request to the bank, except an AMO's write-back
+  // Buffer amo_wb signal to ensure wb rdata is not used
   `FFL(last_amo_wb, amo_wb, mgr_port_req_o.req, 1'b0, clk_i, rst_ni);
 
   // ----------------
@@ -309,7 +306,7 @@ module obi_atop_resolver import obi_pkg::*; #(
   always_comb begin
     // feed-through
     sbr_port_rsp_o.gnt          = rdata_ready & mgr_port_rsp_i.gnt;
-    mgr_port_req_o.req          = sbr_port_req_i.req & rdata_ready;//sbr_port_rsp_o.gnt;
+    mgr_port_req_o.req          = sbr_port_req_i.req & rdata_ready;
     mgr_port_req_o.a.addr       = sbr_port_req_i.a.addr;
     mgr_port_req_o.a.we         = obi_atop_e'(sbr_port_req_i.a.a_optional.atop) != ATOPSC ?
                                   sbr_port_req_i.a.we : sc_successful_or_lr_d;
