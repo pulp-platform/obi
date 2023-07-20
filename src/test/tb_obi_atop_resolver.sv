@@ -187,10 +187,11 @@ module tb_obi_atop_resolver;
     .LrScEnable    ( 1              ),
     .RegisterAmo   ( 1'b0           )
   ) i_atop_resolver (
-    .clk_i    ( clk           ),
-    .rst_ni   ( rst_n         ),
-    .sbr_port ( mgr_bus_muxed ),
-    .mgr_port ( sbr_bus       )
+    .clk_i      ( clk           ),
+    .rst_ni     ( rst_n         ),
+    .testmode_i ( '0            ),
+    .sbr_port   ( mgr_bus_muxed ),
+    .mgr_port   ( sbr_bus       )
   );
 
   obi_sim_mem_intf #(

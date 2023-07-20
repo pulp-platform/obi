@@ -30,8 +30,9 @@ module obi_atop_resolver import obi_pkg::*; #(
   /// Cut path between request and response at the cost of increased AMO latency
   parameter bit                RegisterAmo        = 1'b0
 ) (
-  input  logic                 clk_i,
-  input  logic                 rst_ni,
+  input  logic              clk_i,
+  input  logic              rst_ni,
+  input  logic              testmode_i,
 
   input  sbr_port_obi_req_t sbr_port_req_i,
   output sbr_port_obi_rsp_t sbr_port_rsp_o,
@@ -40,9 +41,9 @@ module obi_atop_resolver import obi_pkg::*; #(
   input  mgr_port_obi_rsp_t mgr_port_rsp_i
 );
 
-  if (!SbrPortObiCfg.OptionalCfg.UseAtop) $error("Atomics require atop to be enabled");
+  if (!SbrPortObiCfg.OptionalCfg.UseAtop) $fatal(1, "Atomics require atop to be enabled");
   if (MgrPortObiCfg.OptionalCfg.UseAtop)
-    $error("Filter requires atop to be disabled on manager port");
+    $fatal(1, "Filter requires atop to be disabled on manager port");
   if (SbrPortObiCfg.Integrity || MgrPortObiCfg.Integrity) $error("Integrity not supported");
 
   logic meta_valid, meta_ready;
@@ -133,8 +134,8 @@ module obi_atop_resolver import obi_pkg::*; #(
   ) i_rdata_fifo (
     .clk_i,
     .rst_ni,
+    .testmode_i,
     .flush_i    (1'b0                    ),
-    .testmode_i (1'b0                    ),
     .full_o     (rdata_full              ),
     .empty_o    (rdata_empty             ),
     .usage_o    (rdata_usage             ),
@@ -462,6 +463,7 @@ module obi_atop_resolver_intf import obi_pkg::*; #(
 ) (
   input  logic        clk_i,
   input  logic        rst_ni,
+  input  logic        testmode_i,
 
   OBI_BUS.Subordinate sbr_port,
 
@@ -497,6 +499,7 @@ module obi_atop_resolver_intf import obi_pkg::*; #(
   ) i_obi_atop_resolver (
     .clk_i,
     .rst_ni,
+    .testmode_i,
     .sbr_port_req_i(sbr_port_req),
     .sbr_port_rsp_o(sbr_port_rsp),
     .mgr_port_req_o(mgr_port_req),
