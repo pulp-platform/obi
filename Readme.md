@@ -2,7 +2,7 @@
 
 The repository contains a collection of SystemVerilog IPs for the [OBI v1.6 standard](https://github.com/openhwgroup/obi/blob/072d9173c1f2d79471d6f2a10eae59ee387d4c6f/OBI-v1.6.0.pdf).
 
-They are designed by PULP-platform and are available under the Solderpad v0.51 license (See LICENSE).
+They are designed by PULP-platform and are available under the Solderpad v0.51 license (See [`LICENSE`](LICENSE)).
 
 ## Using the IPs
 As the OBI protocol is very configurable, the IPs are designed to incorporate specific parameters for the design:
