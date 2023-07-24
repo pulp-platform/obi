@@ -167,8 +167,8 @@ module obi_atop_resolver import obi_pkg::*; #(
   // ----------------
 
   if (LrScEnable) begin : gen_lrsc
-    // unique core identifier, does not necessarily match core_id
-    logic [SbrPortObiCfg.IdWidth-1:0] unique_core_id;
+    // unique requester identifier, does not necessarily match core_id
+    logic [SbrPortObiCfg.IdWidth-1:0] unique_requester_id;
 
     typedef struct packed {
       /// Is the reservation valid.
@@ -178,10 +178,10 @@ module obi_atop_resolver import obi_pkg::*; #(
       /// implying that the reservation happen on a set size
       /// equal to the word width of the memory (32 or 64 bit).
       logic [SbrPortObiCfg.AddrWidth-1:0] addr;
-      /// Which core made this reservation. Important to
-      /// track the reservations from different cores and
+      /// Which requester made this reservation. Important to
+      /// track the reservations from different requesters and
       /// to prevent any live-locking.
-      logic [SbrPortObiCfg.IdWidth-1:0] core;
+      logic [SbrPortObiCfg.IdWidth-1:0] requester;
     } reservation_t;
     reservation_t reservation_d, reservation_q;
 
@@ -192,7 +192,7 @@ module obi_atop_resolver import obi_pkg::*; #(
               (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPSC), 1'b0, clk_i, rst_ni);
 
     always_comb begin
-      unique_core_id = sbr_port_req_i.a.aid;
+      unique_requester_id = sbr_port_req_i.a.aid;
 
       reservation_d = reservation_q;
       sc_successful_or_lr_d = 1'b0;
@@ -204,10 +204,10 @@ module obi_atop_resolver import obi_pkg::*; #(
         // We prevent a live-lock by don't throwing away the reservation of a hart unless
         // it makes a new reservation in program order or issues any SC.
         if (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPLR &&
-            (!reservation_q.valid || reservation_q.core == unique_core_id)) begin
+            (!reservation_q.valid || reservation_q.requester == unique_requester_id)) begin
           reservation_d.valid = 1'b1;
           reservation_d.addr = sbr_port_req_i.a.addr;
-          reservation_d.core = unique_core_id;
+          reservation_d.requester = unique_requester_id;
           sc_successful_or_lr_d = 1'b1;
         end
 
@@ -216,8 +216,8 @@ module obi_atop_resolver import obi_pkg::*; #(
         // the LR and the SC, and if there is no other SC between the
         // LR and itself in program order.
 
-        // check whether another core has made a write attempt
-        if ((unique_core_id != reservation_q.core) &&
+        // check whether another requester has made a write attempt
+        if ((unique_requester_id != reservation_q.requester) &&
             (sbr_port_req_i.a.addr == reservation_q.addr) &&
             (!((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {ATOPLR, ATOPSC}) ||
                !sbr_port_req_i.a.a_optional.atop[5]) || sbr_port_req_i.a.we)) begin
@@ -226,7 +226,7 @@ module obi_atop_resolver import obi_pkg::*; #(
 
         // An SC from the same hart clears any pending reservation.
         if (reservation_q.valid && obi_atop_e'(sbr_port_req_i.a.a_optional.atop) == ATOPSC
-            && reservation_q.core == unique_core_id) begin
+            && reservation_q.requester == unique_requester_id) begin
           reservation_d.valid = 1'b0;
           sc_successful_or_lr_d = (reservation_q.addr == sbr_port_req_i.a.addr);
         end
