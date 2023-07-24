@@ -15,6 +15,10 @@ package obi_pkg;
   /// The OBI prot type, to be expanded.
   typedef logic [2:0] prot_t;
 
+  localparam atop_t    DefaultAtop    = 6'b000000;
+  localparam memtype_t DefaultMemtype = 2'b00;
+  localparam prot_t    DefaultProt    = 3'b111;
+
   /// The config type for OBI bus optional fields.
   typedef struct packed {
     bit          UseAtop;
@@ -115,18 +119,18 @@ package obi_pkg;
   endfunction
 
   typedef enum atop_t {
-    AMOLR   = 6'h22,
-    AMOSC   = 6'h23,
-    AMOSWAP = 6'h21,
-    AMOADD  = 6'h20,
-    AMOXOR  = 6'h24,
-    AMOAND  = 6'h2C,
-    AMOOR   = 6'h28,
-    AMOMIN  = 6'h30,
-    AMOMAX  = 6'h34,
-    AMOMINU = 6'h38,
-    AMOMAXU = 6'h3C,
-    AMONONE = 6'h0
+    ATOPLR   = 6'h22,
+    ATOPSC   = 6'h23,
+    AMOSWAP  = 6'h21,
+    AMOADD   = 6'h20,
+    AMOXOR   = 6'h24,
+    AMOAND   = 6'h2C,
+    AMOOR    = 6'h28,
+    AMOMIN   = 6'h30,
+    AMOMAX   = 6'h34,
+    AMOMINU  = 6'h38,
+    AMOMAXU  = 6'h3C,
+    ATOPNONE = 6'h0
   } obi_atop_e;
 
 endpackage

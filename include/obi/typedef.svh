@@ -21,7 +21,7 @@
   typedef logic a_optional_t;
 
 `define OBI_TYPEDEF_ATOP_A_OPTIONAL(a_optional_t) \
-  typdef struct packed {                          \
+  typedef struct packed {                         \
     obi_pkg::atop_t atop;                         \
   } a_optional_t;
 
