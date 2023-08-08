@@ -84,13 +84,18 @@ module obi_mux #(
 
   assign mgr_port_req_o.req = mgr_port_req && ~fifo_full;
 
-  always_comb begin
-    mgr_port_req_o.a.aid = '0;
-    `OBI_SET_A_STRUCT(mgr_port_req_o.a, mgr_port_a_in_sbr)
-    if (MgrPortObiCfg.IdWidth > 0 &&
-        (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth + RequiredExtraIdWidth)) begin
+  if (MgrPortObiCfg.IdWidth > 0 &&
+    (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth + RequiredExtraIdWidth)) begin : gen_aid_extend
+    always_comb begin
+      mgr_port_req_o.a.aid = '0;
+      `OBI_SET_A_STRUCT(mgr_port_req_o.a, mgr_port_a_in_sbr)
       mgr_port_req_o.a.aid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0] =
         {selected_id, mgr_port_a_in_sbr.aid};
+    end
+  end else begin : gen_aid_consistent
+    always_comb begin
+      mgr_port_req_o.a.aid = '0;
+      `OBI_SET_A_STRUCT(mgr_port_req_o.a, mgr_port_a_in_sbr)
     end
   end
 
