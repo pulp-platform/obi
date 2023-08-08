@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+## 0.1.1 - 2023-08-08
+### Fixed
+- `obi_mux`: Move `if` outside `always_comb` to enforce `generate` and remove compile warning
+
 ## 0.1.0 - 2023-07-24
 
 Initial release
