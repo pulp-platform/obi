@@ -17,6 +17,16 @@
     a_optional_t             a_optional;                                               \
   } a_chan_t;
 
+`define OBI_TYPEDEF_TYPE_A_CHAN_T(a_chan_t, addr_t, data_t, strb_t, id_t, a_optional_t) \
+  typedef struct packed {                                                               \
+    addr_t       addr;                                                                  \
+    logic        we;                                                                    \
+    strb_t       be;                                                                    \
+    data_t       wdata;                                                                 \
+    id_t         aid;                                                                   \
+    a_optional_t a_optional;                                                            \
+  } a_chan_t;
+
 `define OBI_TYPEDEF_MINIMAL_A_OPTIONAL(a_optional_t) \
   typedef logic a_optional_t;
 
@@ -43,6 +53,14 @@
     logic [   ID_WIDTH-1:0] rid;                                            \
     logic                   err;                                            \
     r_optional_t            r_optional;                                     \
+  } r_chan_t;
+
+`define OBI_TYPEDEF_TYPE_R_CHAN_T(r_chan_t, data_t, id_t, r_optional_t) \
+  typedef struct packed {                                               \
+    data_t       rdata;                                                 \
+    id_t         rid;                                                   \
+    logic        err;                                                   \
+    r_optional_t r_optional;                                            \
   } r_chan_t;
 
 `define OBI_TYPEDEF_MINIMAL_R_OPTIONAL(r_optional_t) \
