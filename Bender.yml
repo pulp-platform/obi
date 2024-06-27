@@ -17,8 +17,10 @@ export_include_dirs:
 sources:
   # Level 1
   - src/obi_pkg.sv
+  - src/credit_counter.sv
   # Level 2
   - src/obi_intf.sv
+  - src/obi_rready_converter.sv
   # Level 3
   - src/obi_atop_resolver.sv
   - src/obi_demux.sv
