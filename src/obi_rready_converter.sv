@@ -7,7 +7,8 @@
 module obi_rready_converter #(
   parameter type         obi_a_chan_t = logic,
   parameter type         obi_r_chan_t = logic,
-  parameter int unsigned Depth        = 1
+  parameter int unsigned Depth        = 1,
+  parameter bit          CombRspReq   = 1'b1
 ) (
   input  logic        clk_i,
   input  logic        rst_ni,
@@ -61,10 +62,11 @@ module obi_rready_converter #(
     .credit_full_o ()
   );
 
-  assign req_o = req_i & (credit_left | (rready_i & rvalid_o)); // only transmit requests if we have credits left or free a
-                                                   // space in the FIFO
-  assign gnt_o = gnt_i & (credit_left | (rready_i & rvalid_o)); // only grant requests if we have credits left or free a
-                                                   // space in the FIFO
+  // only transmit requests if we have credits left or free a space in the FIFO
+  assign req_o = req_i & (credit_left | (CombRspReq & rready_i & rvalid_o));
+  // only grant requests if we have credits left or free a space in the FIFO
+  assign gnt_o = gnt_i & (credit_left | (CombRspReq & rready_i & rvalid_o));
+
   assign mgr_a_chan_o = sbr_a_chan_i;
 
 endmodule
