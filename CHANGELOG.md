@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+## 0.1.3 - 2024-07-18
+### Added
+- Add `obi_rready_converter` to convert between manager requiring rready to subordinate not supporting it.
+
 ## 0.1.2 - 2024-03-11
 ### Added
 - Add assertion module to check protocol constraints.
