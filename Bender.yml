@@ -8,7 +8,7 @@ package:
     - "Michael Rogenmoser <michaero@iis.ee.ethz.ch>"
 
 dependencies:
-  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.26.0 }
+  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.37.0 }
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.3 }
 
 export_include_dirs:
@@ -17,7 +17,6 @@ export_include_dirs:
 sources:
   # Level 1
   - src/obi_pkg.sv
-  - src/credit_counter.sv
   # Level 2
   - src/obi_intf.sv
   - src/obi_rready_converter.sv
