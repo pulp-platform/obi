@@ -38,6 +38,7 @@ module obi_demux #(
 
   logic cnt_up, cnt_down, overflow;
   logic [CounterWidth-1:0] in_flight;
+  logic sbr_port_gnt;
   logic sbr_port_rready;
 
   select_t select_d, select_q;
@@ -49,11 +50,13 @@ module obi_demux #(
       mgr_ports_req_o[i].req = 1'b0;
       mgr_ports_req_o[i].a   = '0;
     end
+    sbr_port_gnt = 1'b0;
 
     if (!overflow) begin
       if (sbr_port_select_i == select_q || in_flight == '0 || (in_flight == 1 && cnt_down)) begin
         mgr_ports_req_o[sbr_port_select_i].req = sbr_port_req_i.req;
-        mgr_ports_req_o[sbr_port_select_i].a = sbr_port_req_i.a;
+        mgr_ports_req_o[sbr_port_select_i].a   = sbr_port_req_i.a;
+        sbr_port_gnt                           = mgr_ports_rsp_i[sbr_port_select_i].gnt;
       end
     end
 
@@ -63,7 +66,7 @@ module obi_demux #(
     end
   end
 
-  assign sbr_port_rsp_o.gnt    = mgr_ports_rsp_i[sbr_port_select_i].gnt;
+  assign sbr_port_rsp_o.gnt    = sbr_port_gnt;
   assign sbr_port_rsp_o.r      = mgr_ports_rsp_i[select_q].r;
   assign sbr_port_rsp_o.rvalid = mgr_ports_rsp_i[select_q].rvalid;
 
