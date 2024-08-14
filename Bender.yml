@@ -39,3 +39,12 @@ sources:
       - src/test/tb_obi_xbar.sv
       - src/test/atop_golden_mem_pkg.sv
       - src/test/tb_obi_atop_resolver.sv
+
+  - target: relOBI
+    files:
+      # Level 1
+      - src/relobi_decoder.sv
+      - src/relobi_encoder.sv
+      - src/relobi_tmr_r.sv
+      # Level 2
+      - src/relobi_demux.sv
