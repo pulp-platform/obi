@@ -22,6 +22,7 @@ sources:
   - src/obi_rready_converter.sv
   # Level 3
   - src/obi_atop_resolver.sv
+  - src/obi_cut.sv
   - src/obi_demux.sv
   - src/obi_err_sbr.sv
   - src/obi_mux.sv
