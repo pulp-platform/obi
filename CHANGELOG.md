@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+## 0.1.4 - 2024-08-15
+### Added
+- Add `obi_cut` to add a pipeline stage and cut combinatorial paths.
+### Fixed
+- `obi_demux`: Ensure `gnt` signal is properly passed and handshake is consistent for Manager and Subordinate ports.
+
 ## 0.1.3 - 2024-07-18
 ### Added
 - Add `obi_rready_converter` to convert between manager requiring rready to subordinate not supporting it.
