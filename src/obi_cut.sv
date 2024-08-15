@@ -59,7 +59,7 @@ module obi_cut #(
     .data_i  (                    mgr_port_rsp_i.r                      ),
     .valid_o (                    sbr_port_rsp_o.rvalid                 ),
     .ready_i ( ObiCfg.UseRReady ? sbr_port_req_i.rready : 1'b1          ),
-    .data_o  (                    sbr_ports_rsp_o.r                     )
+    .data_o  (                    sbr_port_rsp_o.r                      )
   );
 
 endmodule
