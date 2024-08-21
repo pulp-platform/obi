@@ -40,8 +40,8 @@
   struct packed {                         \
     obi_pkg::atop_t atop;                         \
   }
-`define OBI_TYPEDEF_ATOP_A_OPTIONAL() \
-  typedef OBI_ATOP_A_OPTIONAL() a_optional_t;
+`define OBI_TYPEDEF_ATOP_A_OPTIONAL \
+  typedef OBI_ATOP_A_OPTIONAL a_optional_t;
 
 `define OBI_ALL_A_OPTIONAL(AUSER_WIDTH, WUSER_WIDTH, MID_WIDTH, ACHK_WIDTH) \
    struct packed {                                                          \
@@ -105,8 +105,8 @@
     logic    req;                  \
     logic    rready;               \
   }
-`define OBI_TYPEDEF_REQ_T(req_t, a_chan_t)
-typedef `OBI_REQ_T(req_t, a_chan_t) req_t;
+`define OBI_TYPEDEF_REQ_T(req_t, a_chan_t) \
+  typedef `OBI_REQ_T(req_t, a_chan_t) req_t;
 
 `define OBI_RSP_T(rsp_t, r_chan_t) \
   struct packed {                  \
