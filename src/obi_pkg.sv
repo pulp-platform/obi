@@ -103,7 +103,16 @@ package obi_pkg;
   endfunction
 
   /// The default OBI bus config.
-  localparam obi_cfg_t ObiDefaultConfig = obi_default_cfg(32, 32, 1, ObiMinimalOptionalConfig);
+  localparam obi_cfg_t ObiDefaultConfig = '{
+      UseRReady: 1'b0,
+      CombGnt: 1'b0,
+      AddrWidth: 32,
+      DataWidth: 32,
+      IdWidth: 1,
+      Integrity: 1'b0,
+      BeFull: 1'b1,
+      OptionalCfg: ObiMinimalOptionalConfig
+  };
 
   function automatic obi_cfg_t mux_grow_cfg(obi_cfg_t ObiCfgIn, int unsigned NumManagers);
     mux_grow_cfg = '{
