@@ -143,7 +143,7 @@
     logic [2:0] rready;                       \
   } req_t;
 
-`define OBI_TYPEDEF_R_CHAN_T(r_chan_t, RDATA_WIDTH, ID_WIDTH, r_optional_t)        \
+`define RELOBI_TYPEDEF_R_CHAN_T(r_chan_t, RDATA_WIDTH, ID_WIDTH, r_optional_t)     \
   typedef struct packed {                                                          \
     logic [       RDATA_WIDTH+hsiao_ecc_pkg::min_ecc(RDATA_WIDTH)-1:0] rdata;      \
     logic [                                              ID_WIDTH-1:0] rid;        \
