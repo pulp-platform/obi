@@ -65,23 +65,19 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .err_o     ()
   );
 
-  hsiao_ecc_dec #(
-    .DataWidth ( 1               /* we */ +
-                 Cfg.DataWidth/8 /* be */ +
-                 Cfg.IdWidth     /* aid */ +
-                 $bits(a_optional_t) /* optional */ )
+  relobi_a_other_decoder #(
+    .Cfg          (Cfg),
+    .a_optional_t (a_optional_t)
   ) i_a_remaining_dec (
-    .in        ( {rel_req_i.a.other_ecc,
-                  rel_req_i.a.we,
-                  rel_req_i.a.be,
-                  rel_req_i.a.aid,
-                  rel_req_i.a.a_optional} ),
-    .out       ( {req_o.a.we,
-                  req_o.a.be,
-                  req_o.a.aid,
-                  req_o.a.a_optional} ),
-    .syndrome_o(),
-    .err_o     ()
+    .we_i        (rel_req_i.a.we),
+    .be_i        (rel_req_i.a.be),
+    .aid_i       (rel_req_i.a.aid),
+    .a_optional_i(rel_req_i.a.a_optional),
+    .other_ecc   (rel_req_i.a.other_ecc),
+    .we_o        (req_o.a.we),
+    .be_o        (req_o.a.be),
+    .aid_o       (req_o.a.aid),
+    .a_optional_o(req_o.a.a_optional )
   );
 
   hsiao_ecc_enc #(

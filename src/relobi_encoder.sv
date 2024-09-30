@@ -60,22 +60,20 @@ module relobi_encoder #(
     .out( rel_req_o.a.wdata ),
   );
 
-  hsiao_ecc_enc #(
-    .DataWidth ( 1               /* we */ +
-                 Cfg.DataWidth/8 /* be */ +
-                 Cfg.IdWidth     /* aid */ +
-                 $bits(a_optional_t) /* optional */ )
+  relobi_a_other_encoder #(
+    .Cfg          (Cfg),
+    .a_optional_t (a_optional_t)
   ) i_a_remaining_enc (
-    .in        ( {req_i.a.we,
-                  req_i.a.be,
-                  req_i.a.aid,
-                  req_i.a.a_optional} ),
-    .out       ( {rel_req_o.a.other_ecc,
-                  rel_req_o.a.we,
-                  rel_req_o.a.be,
-                  rel_req_o.a.aid,
-                  rel_req_o.a.a_optional} )
+    .we_i        (req_i.a.we),
+    .be_i        (req_i.a.be),
+    .aid_i       (req_i.a.aid),
+    .a_optional_i(req_i.a.a_optional),
+    .other_ecc_o (rel_req_o.a.other_ecc)
   );
+  assign rel_req_o.a.we = req_i.a.we;
+  assign rel_req_o.a.be = req_i.a.be;
+  assign rel_req_o.a.aid = req_i.a.aid;
+  assign rel_req_o.a.a_optional = req_i.a.a_optional;
 
   hsiao_ecc_dec #(
     .DataWidth ( Cfg.DataWidth )
