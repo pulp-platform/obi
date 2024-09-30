@@ -15,8 +15,11 @@ package obi_pkg;
   /// The OBI prot type, to be expanded.
   typedef logic [2:0] prot_t;
 
+  /// Default ATOP has no atomic/exclusive operation, i.e., standard transaction.
   localparam atop_t    DefaultAtop    = 6'b000000;
+  /// Default Memory type is non-bufferable and non-cacheable.
   localparam memtype_t DefaultMemtype = 2'b00;
+  /// Default Prot is Data access in machine mode.
   localparam prot_t    DefaultProt    = 3'b111;
 
   /// The config type for OBI bus optional fields.
@@ -33,6 +36,7 @@ package obi_pkg;
     int unsigned RChkWidth;
   } obi_optional_cfg_t;
 
+  /// The minimal optional configuration disables all optional features.
   localparam obi_optional_cfg_t ObiMinimalOptionalConfig = '{
     UseAtop:    1'b0,
     UseMemtype: 1'b0,
@@ -46,6 +50,7 @@ package obi_pkg;
     RChkWidth:     0
   };
 
+  /// The atop optional config only enables atomics, everything else is disabled.
   localparam obi_optional_cfg_t ObiAtopOptionalConfig = '{
     UseAtop:    1'b1,
     UseMemtype: 1'b0,
@@ -59,6 +64,7 @@ package obi_pkg;
     RChkWidth:     0
   };
 
+  /// Returns a config enabling all optional features with specified user, mid, and chk widths.
   function automatic obi_optional_cfg_t obi_all_optional_config(int unsigned AUserWidth,
       int unsigned WUserWidth, int unsigned RUserWidth, int unsigned MidWidth,
       int unsigned AChkWidth, int unsigned RChkWidth);
@@ -88,6 +94,7 @@ package obi_pkg;
     obi_optional_cfg_t OptionalCfg;
   } obi_cfg_t;
 
+  /// Returns a default configuration with specified address, data, and ID widths, and a specified optional configuration.
   function automatic obi_cfg_t obi_default_cfg(int unsigned AddrWidth, int unsigned DataWidth,
     int unsigned IdWidth, obi_optional_cfg_t OptionalCfg);
     obi_default_cfg = '{
@@ -102,9 +109,10 @@ package obi_pkg;
     };
   endfunction
 
-  /// The default OBI bus config.
+  /// The default OBI bus config (32-bit address and data, 1-bit ID width, no optional features.
   localparam obi_cfg_t ObiDefaultConfig = obi_default_cfg(32, 32, 1, ObiMinimalOptionalConfig);
 
+  /// Returns an OBI bus config increasing the ID width for a multiplexer/crossbar with NumManagers.
   function automatic obi_cfg_t mux_grow_cfg(obi_cfg_t ObiCfgIn, int unsigned NumManagers);
     mux_grow_cfg = '{
       UseRReady:   ObiCfgIn.UseRReady,
@@ -118,6 +126,7 @@ package obi_pkg;
     };
   endfunction
 
+  /// OBI Atomic operations.
   typedef enum atop_t {
     ATOPLR   = 6'h22,
     ATOPSC   = 6'h23,

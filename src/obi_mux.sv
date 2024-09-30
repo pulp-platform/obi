@@ -35,9 +35,11 @@ module obi_mux #(
   input  logic rst_ni,
   input  logic testmode_i,
 
+  /// Subordinate ports (input)
   input  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req_i,
   output sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp_o,
 
+  /// Manager ports (output)
   output mgr_port_obi_req_t                   mgr_port_req_o,
   input  mgr_port_obi_rsp_t                   mgr_port_rsp_i
 );
