@@ -43,8 +43,13 @@ sources:
   - target: relOBI
     files:
       # Level 1
-      - src/relobi_decoder.sv
-      - src/relobi_encoder.sv
+      - src/relobi_pkg.sv
       - src/relobi_tmr_r.sv
       # Level 2
+      - src/relobi_a_other_decoder.sv
+      - src/relobi_a_other_encoder.sv
+      # Level 3
+      - src/relobi_decoder.sv
+      - src/relobi_encoder.sv
+      # Level 4
       - src/relobi_demux.sv
