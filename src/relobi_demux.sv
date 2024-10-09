@@ -50,8 +50,9 @@ module relobi_demux #(
 
   select_t [2:0] select_d, select_d_voted, select_q, select_i_tmr;
 
-  logic [NumMgrPorts-1:0][2:0] mgr_ports_req;
+  logic [2:0][NumMgrPorts-1:0] mgr_ports_req;
 
+  // TMR on control signals
   for (genvar i = 0; i < 3; i++) begin : gen_tmr
     assign select_i_tmr[i] = TmrSelect ? sbr_port_select_i[i] : sbr_port_select_i[0];
 
@@ -59,18 +60,18 @@ module relobi_demux #(
       select_d[i] = select_q[i];
       cnt_up[i] = 1'b0;
       for (int j = 0; j < NumMgrPorts; j++) begin
-        mgr_ports_req[j][i] = 1'b0;
+        mgr_ports_req[i][j] = 1'b0;
       end
       sbr_port_gnt[i] = 1'b0;
 
       if (!overflow[i]) begin
         if (select_i_tmr[i] == select_q[i] || in_flight[i] == '0 || (in_flight[i] == 1 && cnt_down[i])) begin
-          mgr_ports_req[select_i_tmr[i]][i] = sbr_port_req_i.req[i];
+          mgr_ports_req[i][select_i_tmr[i]] = sbr_port_req_i.req[i];
           sbr_port_gnt[i]                   = mgr_ports_rsp_i[select_i_tmr[i]].gnt[i];
         end
       end
 
-      if (mgr_ports_req[select_i_tmr[i]][i] && mgr_ports_rsp_i[select_i_tmr[i]].gnt[i]) begin
+      if (mgr_ports_req[i][select_i_tmr[i]] && mgr_ports_rsp_i[select_i_tmr[i]].gnt[i]) begin
         select_d[i] = select_i_tmr[i];
         cnt_up[i] = 1'b1;
       end
@@ -78,8 +79,12 @@ module relobi_demux #(
   end
 
   for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_mgr_req
-    assign mgr_ports_req_o[i].req = mgr_ports_req[i];
-    assign mgr_ports_req_o[i].a   = sbr_port_req_i.a;
+    always_comb begin
+      for (int j = 0; j < 3; j ++) begin
+        mgr_ports_req_o[i].req[j] = mgr_ports_req[j][i];
+      end
+      mgr_ports_req_o[i].a   = sbr_port_req_i.a;
+    end
   end
 
   assign sbr_port_rsp_o.gnt    = sbr_port_gnt;
@@ -114,8 +119,8 @@ module relobi_demux #(
     // Could be voted, but with only one error source (either select_q or rvalid) should suffice
     assign cnt_down[i] = mgr_ports_rsp_i[select_q[i]].rvalid[i] && sbr_port_rready[i];
 
-    assign overflow[i] = counter_q[CounterWidth];
-    assign in_flight[i] = counter_q[CounterWidth-1:0];
+    assign overflow[i] = counter_q[i][CounterWidth];
+    assign in_flight[i] = counter_q[i][CounterWidth-1:0];
 
     always_comb begin
       counter_d[i] = counter_q[i];
@@ -123,7 +128,7 @@ module relobi_demux #(
       if (cnt_up & ~cnt_down) begin
         counter_d[i] = counter_q[i] + {{CounterWidth-1{1'b0}}, 1'b1};
       end else if (cnt_down & ~cnt_up) begin
-        coutner_d[i] = counter_q[i] - {{CounterWidth-1{1'b0}}, 1'b1};
+        counter_d[i] = counter_q[i] - {{CounterWidth-1{1'b0}}, 1'b1};
       end
     end
   end
@@ -141,7 +146,7 @@ module relobi_demux #(
     );
     bitwise_TMR_voter #(
       .DataWidth( CounterWidth+1 )
-    ) i_select_vote (
+    ) i_counter_vote (
       .a_i        (counter_d[0]),
       .b_i        (counter_d[1]),
       .c_i        (counter_d[2]),

@@ -159,4 +159,12 @@
     logic [2:0] rvalid;                       \
   } rsp_t;
 
+`define RELOBI_TYPEDEF_ALL(relobi_t, cfg)                                                                                                                           \
+  `OBI_TYPEDEF_ALL_A_OPTIONAL(relobi_t``_a_optional_t, cfg.OptionalCfg.AUserWidth, cfg.OptionalCfg.WUserWidth, cfg.OptionalCfg.MidWidth, cfg.OptionalCfg.AChkWidth) \
+  `RELOBI_TYPEDEF_A_CHAN_T(relobi_t``_a_chan_t, cfg.AddrWidth, cfg.DataWidth, cfg.IdWidth, relobi_t``_a_optional_t)                                                 \
+  `RELOBI_TYEPDEF_REQ_T(relobi_t``_req_t, relobi_t``_a_chan_t)                                                                                                      \
+  `OBI_TYPEDEF_ALL_R_OPTIONAL(relobi_t``_r_optional_t, cfg.OptionalCfg.RUserWidth, cfg.OptionalCfg.RChkWidth)                                                       \
+  `RELOBI_TYPEDEF_R_CHAN_T(relobi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, relobi_t``_r_optional_t)                                                                \
+  `RELOBI_TYPEDEF_RSP_T(relobi_t``_rsp_t, relobi_t``_r_chan_t)
+
 `endif // OBI_TYPEDEF_SVH

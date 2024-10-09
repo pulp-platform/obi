@@ -52,3 +52,8 @@ sources:
       - src/relobi_encoder.sv
       # Level 4
       - src/relobi_demux.sv
+      # Level 5
+      - src/relobi_test_intf.sv
+      - target: test
+        files:
+        - src/test/tb_relobi_dec.sv

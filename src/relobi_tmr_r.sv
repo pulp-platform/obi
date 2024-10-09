@@ -43,11 +43,11 @@ module relobi_tmr_r #(
   if (ObiCfg.OptionalCfg.RUserWidth) begin : gen_ruser
     bitwise_TMR_voter #(
       .DataWidth(ObiCfg.OptionalCfg.RUserWidth)
-    ) i_r_id (
-      .a_i        (three_r_i[0].r_optional.user),
-      .b_i        (three_r_i[1].r_optional.user),
-      .c_i        (three_r_i[2].r_optional.user),
-      .majority_o (voted_r_o.r_optional.user),
+    ) i_r_user (
+      .a_i        (three_r_i[0].r_optional.ruser),
+      .b_i        (three_r_i[1].r_optional.ruser),
+      .c_i        (three_r_i[2].r_optional.ruser),
+      .majority_o (voted_r_o.r_optional.ruser),
       .error_o    (),
       .error_cba_o()
     );
@@ -55,7 +55,7 @@ module relobi_tmr_r #(
   if (ObiCfg.OptionalCfg.RChkWidth) begin : gen_rchk
     bitwise_TMR_voter #(
       .DataWidth(ObiCfg.OptionalCfg.RChkWidth)
-    ) i_r_id (
+    ) i_r_rchk (
       .a_i        (three_r_i[0].r_optional.rchk),
       .b_i        (three_r_i[1].r_optional.rchk),
       .c_i        (three_r_i[2].r_optional.rchk),
@@ -80,7 +80,7 @@ module relobi_tmr_r #(
 
   bitwise_TMR_voter #(
     .DataWidth(hsiao_ecc_pkg::min_ecc(ObiCfg.IdWidth+1+$bits(r_optional_t)))
-  ) i_r_id (
+  ) i_r_other (
     .a_i        (three_r_i[0].other_ecc),
     .b_i        (three_r_i[1].other_ecc),
     .c_i        (three_r_i[2].other_ecc),

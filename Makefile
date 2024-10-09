@@ -4,23 +4,24 @@
 
 BENDER ?= bender
 VSIM ?= vsim
+QUESTA ?= questa-2023.4
 
-AVAILABLE_TESTBENCHES = tb_obi_xbar tb_obi_atop_resolver
+AVAILABLE_TESTBENCHES = tb_obi_xbar tb_obi_atop_resolver tb_relobi_dec
 
 scripts/compile.tcl:
 	mkdir -p scripts
-	$(BENDER) script vsim -t test --vlog-arg="-svinputport=compat" > $@
+	$(BENDER) script vsim -t relOBI -t test --vlog-arg="-svinputport=compat" > $@
 
 .PHONY: build
 build: scripts/compile.tcl
-	$(VSIM) -c -do 'exit -code [source scripts/compile.tcl]'
+	$(QUESTA) $(VSIM) -c -do 'exit -code [source scripts/compile.tcl]'
 
 .PHONY: $(AVAILABLE_TESTBENCHES)
 $(AVAILABLE_TESTBENCHES): build
 ifdef gui
-	$(VSIM) $@ -voptargs="+acc"
+	$(QUESTA) $(VSIM) $@ -voptargs="+acc" -do ./scripts/run.tcl
 else
-	$(VSIM) -c $@ -do "run -all; quit -f"
+	$(QUESTA) $(VSIM) -c $@ -do "run -all; quit -f"
 endif
 
 .PHONY: all

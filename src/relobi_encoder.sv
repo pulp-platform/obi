@@ -8,12 +8,12 @@ module relobi_encoder #(
   /// Configuration of the bus
   parameter obi_pkg::obi_cfg_t Cfg = obi_pkg::ObiDefaultConfig,
 
-  parameter relobi_req_t           = logic,
-  parameter relobi_rsp_t           = logic,
-  parameter obi_req_t              = logic,
-  parameter obi_rsp_t              = logic,
-  parameter a_optional_t           = logic,
-  parameter r_optional_t           = logic
+  parameter type relobi_req_t           = logic,
+  parameter type relobi_rsp_t           = logic,
+  parameter type obi_req_t              = logic,
+  parameter type obi_rsp_t              = logic,
+  parameter type a_optional_t           = logic,
+  parameter type r_optional_t           = logic
 ) (
   input  obi_req_t    req_i,
   output obi_rsp_t    rsp_o,
@@ -50,14 +50,14 @@ module relobi_encoder #(
     .DataWidth ( Cfg.AddrWidth )
   ) i_addr_enc (
     .in ( req_i.a.addr ),
-    .out( rel_req_o.a.addr ),
+    .out( rel_req_o.a.addr )
   );
 
   hsiao_ecc_enc #(
     .DataWidth ( Cfg.DataWidth )
   ) i_wdata_enc (
     .in ( req_i.a.wdata ),
-    .out( rel_req_o.a.wdata ),
+    .out( rel_req_o.a.wdata )
   );
 
   relobi_a_other_encoder #(

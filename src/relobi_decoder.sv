@@ -9,12 +9,12 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
   /// Configuration of the bus
   parameter obi_pkg::obi_cfg_t Cfg = obi_pkg::ObiDefaultConfig,
 
-  parameter relobi_req_t           = logic,
-  parameter relobi_rsp_t           = logic,
-  parameter obi_req_t              = logic,
-  parameter obi_rsp_t              = logic,
-  parameter a_optional_t           = logic,
-  parameter r_optional_t           = logic
+  parameter type relobi_req_t           = logic,
+  parameter type relobi_rsp_t           = logic,
+  parameter type obi_req_t              = logic,
+  parameter type obi_rsp_t              = logic,
+  parameter type a_optional_t           = logic,
+  parameter type r_optional_t           = logic
 ) (
   input  relobi_req_t rel_req_i,
   output relobi_rsp_t rel_rsp_o,
@@ -73,7 +73,7 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .be_i        (rel_req_i.a.be),
     .aid_i       (rel_req_i.a.aid),
     .a_optional_i(rel_req_i.a.a_optional),
-    .other_ecc   (rel_req_i.a.other_ecc),
+    .other_ecc_i (rel_req_i.a.other_ecc),
     .we_o        (req_o.a.we),
     .be_o        (req_o.a.be),
     .aid_o       (req_o.a.aid),
@@ -84,7 +84,7 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .DataWidth ( Cfg.DataWidth )
   ) i_rdata_enc (
     .in ( rsp_i.r.rdata ),
-    .out( rsp_o.r.rdata )
+    .out( rel_rsp_o.r.rdata )
   );
 
   hsiao_ecc_enc #(
