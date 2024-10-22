@@ -30,7 +30,7 @@ sources:
   - src/obi_sram_shim.sv
   # Level 4
   - src/obi_xbar.sv
-  - target: test
+  - target: obi_test
     files:
       - src/test/obi_asserter.sv
       - src/test/obi_test.sv
@@ -54,6 +54,6 @@ sources:
       - src/relobi_demux.sv
       # Level 5
       - src/relobi_test_intf.sv
-      - target: test
+      - target: obi_test
         files:
         - src/test/tb_relobi_dec.sv

@@ -7,6 +7,12 @@
 `ifndef OBI_TYPEDEF_SVH
 `define OBI_TYPEDEF_SVH
 
+// Use this function to ensure no infintie field
+// `let` command not supported in VCS
+function automatic integer unsigned sigwidth (input integer unsigned width);
+  return (width != 32'd0) ? unsigned'(width-1) : 32'd0;
+endfunction
+
 `define OBI_TYPEDEF_A_CHAN_T(a_chan_t, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH, a_optional_t) \
   typedef struct packed {                                                              \
     logic [  ADDR_WIDTH-1:0] addr;                                                     \
@@ -37,14 +43,14 @@
 
 `define OBI_TYPEDEF_ALL_A_OPTIONAL(a_optional_t, AUSER_WIDTH, WUSER_WIDTH, MID_WIDTH, ACHK_WIDTH) \
   typedef struct packed {                                                                         \
-    logic [ AUSER_WIDTH-1:0] auser;                                                               \
-    logic [ WUSER_WIDTH-1:0] wuser;                                                               \
-    obi_pkg::atop_t          atop;                                                                \
-    obi_pkg::memtype_t       memtype;                                                             \
-    logic [   MID_WIDTH-1:0] mid;                                                                 \
-    obi_pkg::prot_t          prot;                                                                \
-    logic                    dbg;                                                                 \
-    logic [  ACHK_WIDTH-1:0] achk;                                                                \
+    logic [sigwidth(AUSER_WIDTH):0] auser;                                                        \
+    logic [sigwidth(WUSER_WIDTH):0] wuser;                                                        \
+    obi_pkg::atop_t                 atop;                                                         \
+    obi_pkg::memtype_t              memtype;                                                      \
+    logic [  sigwidth(MID_WIDTH):0] mid;                                                          \
+    obi_pkg::prot_t                 prot;                                                         \
+    logic                           dbg;                                                          \
+    logic [ sigwidth(ACHK_WIDTH):0] achk;                                                         \
   } a_optional_t;
 
 `define OBI_TYPEDEF_R_CHAN_T(r_chan_t, RDATA_WIDTH, ID_WIDTH, r_optional_t) \
@@ -68,9 +74,9 @@
 
 `define OBI_TYPEDEF_ALL_R_OPTIONAL(r_optional_t, RUSER_WIDTH, RCHK_WIDTH) \
   typedef struct packed {                                                 \
-    logic [RUSER_WIDTH-1:0] ruser;                                        \
-    logic                   exokay;                                       \
-    logic [ RCHK_WIDTH-1:0] rchk;                                         \
+    logic [sigwidth(RUSER_WIDTH):0] ruser;                                \
+    logic                           exokay;                               \
+    logic [ sigwidth(RCHK_WIDTH):0] rchk;                                 \
   } r_optional_t;
 
 `define OBI_TYPEDEF_DEFAULT_REQ_T(req_t, a_chan_t) \
