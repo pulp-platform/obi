@@ -95,7 +95,7 @@ module tb_relobi_dec;
     .TT ( TestTime )
   ) rand_subordinate_t;
 
-  localparam int unsigned NumRules = 2;
+  localparam int unsigned NumRules = NumSubordinates;
   typedef struct packed {
     int unsigned idx;
     logic [AddrWidth-1:0] start_addr;
