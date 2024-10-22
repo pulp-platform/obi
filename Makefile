@@ -16,6 +16,12 @@ VLOGAN = "\$$VCS vlogan"
 AVAILABLE_TESTBENCHES = tb_obi_xbar tb_obi_atop_resolver tb_relobi_dec
 VCS_TOPLEVEL ?= tb_obi_xbar
 
+# DPI
+DPI_LIBS =
+
+# Enable debug mode
+DEBUG ?= 0 # 0: opt, 1: no opt
+
 # VCS options
 vlogan_args += -assert svaext +v2k  \"+incdir+\$$ROOT/includes\" -override_timescale=10ns/10ps -kdb
 
@@ -27,6 +33,9 @@ ZOIX_COMPILE_ARGS += -lca
 ZOIX_COMPILE_ARGS += +notimingchecks +nospecify +sv
 # Zoix useful debug options
 ZOIX_COMPILE_ARGS += +noprune
+
+ZOIX_RUNTIME_ARGS += +debug+$(DEBUG)
+
 
 dpi_vcs := $(patsubst src/dpi/%.cpp,build/$(dpi_library)/%_vcs.o,$(wildcard src/dpi/*.cpp))
 
