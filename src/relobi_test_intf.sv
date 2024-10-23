@@ -152,5 +152,48 @@ module relobi_test_intf #(
   /// Assertions ///
   //////////////////
 
+  // req side: check information integrity: only check a field (all output ports should be the same)
+  // TODO: check if the right slave receive the request!
+  property check_a_addr;
+    @(posedge clk_i) rst_ni |-> (sbr_ports_req.a.addr == mgr_ports_req[0].a.addr);
+  endproperty
+
+  // mute the check if sent data is x
+  property check_a_wdata;
+    @(posedge clk_i) rst_ni |-> ($isunknown(sbr_ports_req.a.wdata) || (sbr_ports_req.a.wdata == mgr_ports_req[0].a.wdata));
+  endproperty
+
+  property check_a_we;
+    @(posedge clk_i) rst_ni |-> (sbr_ports_req.a.we == mgr_ports_req[0].a.we);
+  endproperty
+
+  property check_a_be;
+    @(posedge clk_i) rst_ni |-> (sbr_ports_req.a.be == mgr_ports_req[0].a.be);
+  endproperty
+
+  property check_a_id;
+    @(posedge clk_i) rst_ni |-> (sbr_ports_req.a.aid == mgr_ports_req[0].a.aid);
+  endproperty
+
+  property check_a_opt;
+    @(posedge clk_i) rst_ni |-> 
+    (SbrPortObiCfg.OptionalCfg.UseAtop        ? (sbr_ports_req.a.a_optional.atop    == mgr_ports_req[0].a.a_optional.atop)    : 1'b1) &&
+    (SbrPortObiCfg.OptionalCfg.UseMemtype     ? (sbr_ports_req.a.a_optional.memtype == mgr_ports_req[0].a.a_optional.memtype) : 1'b1) &&
+    (SbrPortObiCfg.OptionalCfg.UseProt        ? (sbr_ports_req.a.a_optional.prot    == mgr_ports_req[0].a.a_optional.prot)    : 1'b1) &&
+    (SbrPortObiCfg.OptionalCfg.UseDbg         ? (sbr_ports_req.a.a_optional.dbg     == mgr_ports_req[0].a.a_optional.dbg)     : 1'b1) &&
+    (SbrPortObiCfg.OptionalCfg.AUserWidth > 0 ? (sbr_ports_req.a.a_optional.auser   == mgr_ports_req[0].a.a_optional.auser)   : 1'b1) &&
+    (SbrPortObiCfg.OptionalCfg.WUserWidth > 0 ? (sbr_ports_req.a.a_optional.wuser   == mgr_ports_req[0].a.a_optional.wuser)   : 1'b1) &&
+    (SbrPortObiCfg.OptionalCfg.MidWidth   > 0 ? (sbr_ports_req.a.a_optional.mid     == mgr_ports_req[0].a.a_optional.mid)     : 1'b1) &&
+    (SbrPortObiCfg.OptionalCfg.AChkWidth  > 0 ? (sbr_ports_req.a.a_optional.achk    == mgr_ports_req[0].a.a_optional.achk)    : 1'b1);
+  endproperty
+
+  assert property (check_a_addr)  else $error("Assertion failed: Address mismatch in requests!");
+  assert property (check_a_wdata) else $error("Assertion failed: Wdata mismatch in requests!");
+  assert property (check_a_we)    else $error("Assertion failed: WE mismatch in requests!");
+  assert property (check_a_be)    else $error("Assertion failed: BE mismatch in requests!");
+  assert property (check_a_id)    else $error("Assertion failed: AID mismatch in requests!");
+  assert property (check_a_opt)   else $error("Assertion failed: AOPT mismatch in requests!");
+
+  // TODO: check response!
 
 endmodule
