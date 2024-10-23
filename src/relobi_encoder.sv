@@ -84,20 +84,18 @@ module relobi_encoder #(
     .err_o     ()
   );
 
-  hsiao_ecc_dec #(
-    .DataWidth ( Cfg.IdWidth /* rid */ +
-                 1           /* err */ +
-                 $bits(r_optional_t) /* optional */ )
+  relobi_r_other_decoder #(
+    .Cfg          (Cfg),
+    .r_optional_t (r_optional_t)
   ) i_r_remaining_dec (
-    .in ( {rel_rsp_i.r.other_ecc,
-           rel_rsp_i.r.rid,
-           rel_rsp_i.r.err,
-           rel_rsp_i.r.r_optional} ),
-    .out( {rsp_o.r.rid,
-           rsp_o.r.err,
-           rsp_o.r.r_optional} ),
-    .syndrome_o(),
-    .err_o     ()
+    .err_i        (rel_rsp_i.r.err),
+    .rid_i        (rel_rsp_i.r.rid),
+    .r_optional_i (rel_rsp_i.r.r_optional),
+    .other_ecc_i  (rel_rsp_i.r.other_ecc),
+    .err_o        (rsp_o.r.err),
+    .rid_o        (rsp_o.r.rid),
+    .r_optional_o (rsp_o.r.r_optional )
   );
+
 
 endmodule

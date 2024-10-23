@@ -72,7 +72,7 @@ all: $(AVAILABLE_TESTBENCHES)
 # VCS Flow
 scripts/compile-vcs.sh:
 	mkdir -p scripts
-	$(BENDER) script vcs --vlogan-bin=$(VLOGAN) --vlog-arg="$(vlogan_args)" -t obi_test > $@
+	$(BENDER) script vcs --vlogan-bin=$(VLOGAN) --vlog-arg="$(vlogan_args)" -t obi_test -t relobi > $@
 
 .PHONY: elabvcs
 elabvcs: scripts/compile-vcs.sh

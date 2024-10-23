@@ -21,72 +21,60 @@ module relobi_a_other_encoder #(
   
   localparam int unsigned AOtherWidth = relobi_pkg::relobi_a_other_width(Cfg);
   localparam int unsigned EssentialWidth = 1 + Cfg.DataWidth/8 + Cfg.IdWidth;
-  localparam int unsigned OptWidth = AOtherWidth - EssentialWidth;
 
   logic [AOtherWidth-1:0] unused;
-  logic [AOtherWidth-1:0] a_opt_used;
+  logic [AOtherWidth-1:0] preenc;
 
-  logic error;
-  logic [31:0] remaining_width;
-  always_comb begin : used_opt_comb
-    // Determine which field needs to be protected
-    // If a field is not used, we don't need to add ECC to it
-    a_opt_used = '0;
-    a_opt_used[AOtherWidth-1-:EssentialWidth] = {we_i, be_i, aid_i};
-    error = 1'b0;
+  localparam int unsigned AtopBit    = AOtherWidth - EssentialWidth;
+  localparam int unsigned MemTypeBit = Cfg.OptionalCfg.UseAtop    ? AtopBit - 6    : AtopBit;
+  localparam int unsigned ProtBit    = Cfg.OptionalCfg.UseMemtype ? MemTypeBit - 2 : MemTypeBit;
+  localparam int unsigned DebugBit   = Cfg.OptionalCfg.UseProt    ? ProtBit - 3    : ProtBit;
+  localparam int unsigned AUserBit   = Cfg.OptionalCfg.UseDbg     ? DebugBit - 1   : DebugBit;
 
-    remaining_width = AOtherWidth - EssentialWidth;
+  localparam int unsigned WUserBit   = (Cfg.OptionalCfg.AUserWidth > 0) ? AUserBit - Cfg.OptionalCfg.AUserWidth : AUserBit;
+  localparam int unsigned MidBit     = (Cfg.OptionalCfg.WUserWidth > 0) ? WUserBit - Cfg.OptionalCfg.WUserWidth : WUserBit;
+  localparam int unsigned AChkBit    = (Cfg.OptionalCfg.MidWidth > 0)   ? MidBit - Cfg.OptionalCfg.MidWidth     : MidBit;
 
-    if (Cfg.OptionalCfg.UseAtop) begin
-      a_opt_used[remaining_width-1-:6] = a_optional_i.atop;
-      remaining_width -= 6;
-    end
+  // Determine which field needs to be protected
+  // If a field is not used, we don't need to add ECC to it
+  assign preenc[AOtherWidth-1-:EssentialWidth] = {we_i, be_i, aid_i};
 
-    if (Cfg.OptionalCfg.UseMemtype) begin
-      a_opt_used[remaining_width-1-:2] = a_optional_i.memtype;
-      remaining_width -= 2;
-    end
+  if (Cfg.OptionalCfg.UseAtop) begin
+    assign preenc[AtopBit-1-:6] = a_optional_i.atop;
+  end
 
-    if (Cfg.OptionalCfg.UseProt) begin
-      a_opt_used[remaining_width-1-:3] = a_optional_i.prot;
-      remaining_width -= 3;
-    end
+  if (Cfg.OptionalCfg.UseMemtype) begin
+    assign preenc[MemTypeBit-1-:2] = a_optional_i.memtype;
+  end
 
-    if (Cfg.OptionalCfg.UseDbg) begin
-      a_opt_used[remaining_width-1-:1] = a_optional_i.dbg;
-      remaining_width -= 1;
-    end
+  if (Cfg.OptionalCfg.UseProt) begin
+    assign preenc[ProtBit-1-:3] = a_optional_i.prot;
+  end
 
-    if (Cfg.OptionalCfg.AUserWidth > 0) begin
-      a_opt_used[remaining_width-1-:Cfg.OptionalCfg.AUserWidth] = a_optional_i.auser;
-      remaining_width -= Cfg.OptionalCfg.AUserWidth;
-    end
+  if (Cfg.OptionalCfg.UseDbg) begin
+    assign preenc[DebugBit-1-:1] = a_optional_i.dbg;
+  end
 
-    if (Cfg.OptionalCfg.WUserWidth > 0) begin
-      a_opt_used[remaining_width-1-:Cfg.OptionalCfg.WUserWidth] = a_optional_i.wuser;
-      remaining_width -= Cfg.OptionalCfg.WUserWidth;
-    end
+  if (Cfg.OptionalCfg.AUserWidth > 0) begin
+    assign preenc[AUserBit-1-:Cfg.OptionalCfg.AUserWidth] = a_optional_i.auser;
+  end
 
-    if (Cfg.OptionalCfg.MidWidth > 0) begin
-      a_opt_used[remaining_width-1-:Cfg.OptionalCfg.MidWidth] = a_optional_i.mid;
-      remaining_width -= Cfg.OptionalCfg.MidWidth;
-    end
+  if (Cfg.OptionalCfg.WUserWidth > 0) begin
+    assign preenc[WUserBit-1-:Cfg.OptionalCfg.WUserWidth] = a_optional_i.wuser;
+  end
 
-    if (Cfg.OptionalCfg.AChkWidth > 0) begin
-      a_opt_used[remaining_width-1-:Cfg.OptionalCfg.AChkWidth] = a_optional_i.achk;
-      remaining_width -= Cfg.OptionalCfg.AChkWidth;
-    end
+  if (Cfg.OptionalCfg.MidWidth > 0) begin
+    assign preenc[MidBit-1-:Cfg.OptionalCfg.MidWidth] = a_optional_i.mid;
+  end
 
-    // if error is not 0, means we have some used field not assigned correctly
-    // debug use only
-    if (remaining_width != 0)
-      error = 1'b1;
+  if (Cfg.OptionalCfg.AChkWidth > 0) begin
+    assign preenc[AChkBit-1-:Cfg.OptionalCfg.AChkWidth] = a_optional_i.achk;
   end
 
   hsiao_ecc_enc #(
     .DataWidth (AOtherWidth)
   ) i_a_remaining_enc (
-    .in        ( a_opt_used ),
+    .in        ( preenc ),
     .out       ( {other_ecc_o, unused} )
   );
 

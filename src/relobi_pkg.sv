@@ -35,9 +35,9 @@ package relobi_pkg;
   endfunction
 
   function automatic int unsigned relobi_r_other_width(obi_pkg::obi_cfg_t Cfg);
-
-    relobi_r_other_width =     1                   /* err */ +
-                               Cfg.IdWidth         /* rid */ +
+    // Error is not implemented yet, take it out from ecc for testing
+    relobi_r_other_width =     Cfg.IdWidth         /* rid */ +
+                               // 1                   /* err */ +
 /* a_optional_t */   sigwidth((Cfg.OptionalCfg.UseAtop    ? 1 : 0) +
                               (Cfg.OptionalCfg.RUserWidth) +
                               (Cfg.OptionalCfg.RChkWidth ));
