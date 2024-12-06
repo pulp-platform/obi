@@ -29,6 +29,7 @@ sources:
   - src/obi_sram_shim.sv
   # Level 4
   - src/obi_xbar.sv
+  - src/obi_atop_resolver_wrapper.sv
   - target: test
     files:
       - src/test/obi_asserter.sv
