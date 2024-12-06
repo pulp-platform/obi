@@ -436,7 +436,8 @@ module obi_atop_resolver import obi_pkg::*; #(
   // Check for unsupported parameters
   if (SbrPortObiCfg.DataWidth != 32 || MgrPortObiCfg.DataWidth != 32) begin : gen_datawidth_err
     $error($sformatf({"Module currently only supports DataWidth = 32. ",
-      "DataWidth is currently set to: %0d"}, DataWidth));
+      "DataWidth is currently set to: %0d (Subordinate Port) and %0d (Manager Port)"},
+      SbrPortObiCfg.DataWidth, MgrPortObiCfg.DataWidth));
   end
 
   `ifndef VERILATOR
