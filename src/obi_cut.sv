@@ -46,7 +46,15 @@ module obi_cut #(
     .data_o  ( mgr_port_req_o.a   )
   );
 
-  logic unused_rready;
+  logic ready_o;
+  logic ready_i;
+
+  if (ObiCfg.UseRReady) begin : gen_use_rready
+    assign ready_o = mgr_port_req_o.rready;
+    assign ready_i = sbr_port_req_i.rready;
+  end else begin : gen_no_use_rready
+    assign ready_i = 1'b1;
+  end
 
   spill_register #(
     .T      ( obi_r_chan_t ),
@@ -54,12 +62,12 @@ module obi_cut #(
   ) i_req_r (
     .clk_i,
     .rst_ni,
-    .valid_i (                    mgr_port_rsp_i.rvalid                 ),
-    .ready_o ( ObiCfg.UseRReady ? mgr_port_req_o.rready : unused_rready ),
-    .data_i  (                    mgr_port_rsp_i.r                      ),
-    .valid_o (                    sbr_port_rsp_o.rvalid                 ),
-    .ready_i ( ObiCfg.UseRReady ? sbr_port_req_i.rready : 1'b1          ),
-    .data_o  (                    sbr_port_rsp_o.r                      )
+    .valid_i ( mgr_port_rsp_i.rvalid ),
+    .ready_o ( ready_o               ),
+    .data_i  ( mgr_port_rsp_i.r      ),
+    .valid_o ( sbr_port_rsp_o.rvalid ),
+    .ready_i ( ready_i               ),
+    .data_o  ( sbr_port_rsp_o.r      )
   );
 
 endmodule
