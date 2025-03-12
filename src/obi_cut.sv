@@ -49,15 +49,12 @@ module obi_cut #(
   logic ready_o;
   logic ready_i;
 
-  generate
-    if (ObiCfg.UseRReady) begin
-      assign ready_o = mgr_port_req_o.rready;
-      assign ready_i = sbr_port_req_i.rready;
-    end
-    else begin
-        assign ready_i = 1'b1;
-    end
-  endgenerate
+  if (ObiCfg.UseRReady) begin : gen_use_rready
+    assign ready_o = mgr_port_req_o.rready;
+    assign ready_i = sbr_port_req_i.rready;
+  end else begin : gen_no_use_rready
+    assign ready_i = 1'b1;
+  end
 
   spill_register #(
     .T      ( obi_r_chan_t ),
