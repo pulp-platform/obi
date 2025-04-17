@@ -28,7 +28,11 @@ module obi_atop_resolver import obi_pkg::*; #(
   /// Enable LR & SC AMOS
   parameter bit                LrScEnable         = 1,
   /// Cut path between request and response at the cost of increased AMO latency
-  parameter bit                RegisterAmo        = 1'b0
+  parameter bit                RegisterAmo        = 1'b0,
+  // Word width of the widest RISC-V processor that can issue requests to this module.
+  // 32 for RV32; 64 for RV64, where both 32-bit (.W suffix) and 64-bit (.D suffix) AMOs are
+  // supported if `aw_strb` is set correctly.
+  parameter int unsigned RISCV_WORD_WIDTH     = 0
 ) (
   input  logic              clk_i,
   input  logic              rst_ni,
@@ -64,14 +68,30 @@ module obi_atop_resolver import obi_pkg::*; #(
   logic                 load_amo;
   obi_atop_e            amo_op_q;
   logic                 amo_wb;
-  logic [SbrPortObiCfg.DataWidth/8-1:0]   be_expand;
   logic [SbrPortObiCfg.AddrWidth-1:0] addr_q;
+
   logic [SbrPortObiCfg.IdWidth-1:0] aid_q;
 
-  logic [31:0] amo_operand_a;
-  logic [31:0] amo_operand_a_q;
-  logic [31:0] amo_operand_b_q;
-  logic [31:0] amo_result, amo_result_q;
+  localparam int unsigned AXI_ALU_RATIO = SbrPortObiCfg.DataWidth/RISCV_WORD_WIDTH;
+  logic [AXI_ALU_RATIO-1:0][RISCV_WORD_WIDTH-1:0] amo_operand_a;
+  logic [AXI_ALU_RATIO-1:0][RISCV_WORD_WIDTH-1:0] amo_operand_a_q;
+  logic [AXI_ALU_RATIO-1:0][RISCV_WORD_WIDTH-1:0] amo_operand_b_q;
+  logic [$clog2(SbrPortObiCfg.DataWidth/8)-$clog2(RISCV_WORD_WIDTH/8)-1:0] amo_operand_addr, amo_operand_addr_q;
+  logic [AXI_ALU_RATIO-1:0][RISCV_WORD_WIDTH-1:0] amo_result, amo_result_q;
+
+  // Selection of the RISCV_WORD_WIDTH word within the wide atomic request.
+  logic [SbrPortObiCfg.DataWidth/8-1:0] be_q;
+  logic [$clog2(SbrPortObiCfg.DataWidth/8)-1:0] lz_cnt;
+  assign amo_operand_addr = lz_cnt >> $clog2(RISCV_WORD_WIDTH/8);
+
+  lzc #(
+    .WIDTH 	(SbrPortObiCfg.DataWidth/8),
+    .MODE 	(1'b0                     )
+  ) i_count_addr(
+    .in_i 		( be_q     ),
+    .cnt_o 		( lz_cnt   ),
+    .empty_o 	(/*Unused*/)
+  );
 
   // Store the metadata at handshake
   spill_register #(
@@ -347,12 +367,14 @@ module obi_atop_resolver import obi_pkg::*; #(
         mgr_port_req_o.a.we   = 1'b1;
         mgr_port_req_o.a.addr = addr_q;
         mgr_port_req_o.a.aid  = aid_q;
-        mgr_port_req_o.a.be   = {SbrPortObiCfg.DataWidth/8{1'b1}};
+        mgr_port_req_o.a.be   = '0;
         // serve from register if we cut the path
         if (RegisterAmo) begin
           mgr_port_req_o.a.wdata = amo_result_q;
+          mgr_port_req_o.a.be = {RISCV_WORD_WIDTH/8{1'b1}} << (amo_operand_addr_q * RISCV_WORD_WIDTH/8);
         end else begin
           mgr_port_req_o.a.wdata = amo_result;
+          mgr_port_req_o.a.be = {RISCV_WORD_WIDTH/8{1'b1}} << (amo_operand_addr * RISCV_WORD_WIDTH/8);
         end
       end
       default:;
@@ -361,8 +383,10 @@ module obi_atop_resolver import obi_pkg::*; #(
 
   if (RegisterAmo) begin : gen_amo_slice
     `FFLNR(amo_result_q, amo_result, (state_q == DoAMO), clk_i)
+    `FFLNR(amo_operand_addr_q, amo_operand_addr, (state_q == DoAMO), clk_i)
   end else begin : gen_amo_slice
     assign amo_result_q = '0;
+    assign amo_operand_addr_q = '0;
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -370,6 +394,7 @@ module obi_atop_resolver import obi_pkg::*; #(
       state_q         <= Idle;
       amo_op_q        <= obi_atop_e'('0);
       addr_q          <= '0;
+      be_q            <= '0;
       amo_operand_b_q <= '0;
       aid_q           <= '0;
     end else begin
@@ -377,6 +402,7 @@ module obi_atop_resolver import obi_pkg::*; #(
       if (load_amo) begin
         amo_op_q        <= obi_atop_e'(sbr_port_req_i.a.a_optional.atop);
         addr_q          <= sbr_port_req_i.a.addr;
+        be_q            <= sbr_port_req_i.a.be;
         aid_q           <= sbr_port_req_i.a.aid;
         amo_operand_b_q <= sbr_port_req_i.a.wdata;
       end else begin
@@ -388,45 +414,45 @@ module obi_atop_resolver import obi_pkg::*; #(
   // ----------------
   // AMO ALU
   // ----------------
-  logic [33:0] adder_sum;
-  logic [32:0] adder_operand_a, adder_operand_b;
-
+  logic [RISCV_WORD_WIDTH+1:0] adder_sum;
+  logic [RISCV_WORD_WIDTH:0] adder_operand_a, adder_operand_b;
+  
   `FFL(amo_operand_a_q, mgr_port_rsp_i.r.rdata, mgr_port_rsp_i.rvalid, '0, clk_i, rst_ni)
-
   assign amo_operand_a = mgr_port_rsp_i.rvalid ? mgr_port_rsp_i.r.rdata : amo_operand_a_q;
-  assign adder_sum     = adder_operand_a + adder_operand_b;
+  assign adder_sum = adder_operand_a + adder_operand_b;
+
   /* verilator lint_off WIDTH */
   always_comb begin : amo_alu
 
-    adder_operand_a = $signed(amo_operand_a);
-    adder_operand_b = $signed(amo_operand_b_q);
+    adder_operand_a = $signed(amo_operand_a[amo_operand_addr]);
+    adder_operand_b = $signed(amo_operand_b_q[amo_operand_addr]);
 
     amo_result = amo_operand_b_q;
 
     unique case (amo_op_q)
       // the default is to output operand_b
       AMOSWAP:;
-      AMOADD: amo_result = adder_sum[31:0];
-      AMOAND: amo_result = amo_operand_a & amo_operand_b_q;
-      AMOOR:  amo_result = amo_operand_a | amo_operand_b_q;
-      AMOXOR: amo_result = amo_operand_a ^ amo_operand_b_q;
+      AMOADD: amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH-1:0];
+      AMOAND: amo_result[amo_operand_addr] = amo_operand_a[amo_operand_addr] & amo_operand_b_q[amo_operand_addr];
+      AMOOR:  amo_result[amo_operand_addr] = amo_operand_a[amo_operand_addr] | amo_operand_b_q[amo_operand_addr];
+      AMOXOR: amo_result[amo_operand_addr] = amo_operand_a[amo_operand_addr] ^ amo_operand_b_q[amo_operand_addr];
       AMOMAX: begin
-        adder_operand_b = -$signed(amo_operand_b_q);
-        amo_result = adder_sum[32] ? amo_operand_b_q : amo_operand_a;
+        adder_operand_b = -$signed(amo_operand_b_q[amo_operand_addr]);
+        amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH] ? amo_operand_b_q[amo_operand_addr] : amo_operand_a[amo_operand_addr];
       end
       AMOMIN: begin
-        adder_operand_b = -$signed(amo_operand_b_q);
-        amo_result = adder_sum[32] ? amo_operand_a : amo_operand_b_q;
+        adder_operand_b = -$signed(amo_operand_b_q[amo_operand_addr]);
+        amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH] ? amo_operand_a[amo_operand_addr] : amo_operand_b_q[amo_operand_addr];
       end
       AMOMAXU: begin
-        adder_operand_a = $unsigned(amo_operand_a);
-        adder_operand_b = -$unsigned(amo_operand_b_q);
-        amo_result = adder_sum[32] ? amo_operand_b_q : amo_operand_a;
+        adder_operand_a = $unsigned(amo_operand_a[amo_operand_addr]);
+        adder_operand_b = -$unsigned(amo_operand_b_q[amo_operand_addr]);
+        amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH] ? amo_operand_b_q[amo_operand_addr] : amo_operand_a[amo_operand_addr];
       end
       AMOMINU: begin
-        adder_operand_a = $unsigned(amo_operand_a);
-        adder_operand_b = -$unsigned(amo_operand_b_q);
-        amo_result = adder_sum[32] ? amo_operand_a : amo_operand_b_q;
+        adder_operand_a = $unsigned(amo_operand_a[amo_operand_addr]);
+        adder_operand_b = -$unsigned(amo_operand_b_q[amo_operand_addr]);
+        amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH] ? amo_operand_a[amo_operand_addr] : amo_operand_b_q[amo_operand_addr];
       end
       default: amo_result = '0;
     endcase
@@ -434,10 +460,8 @@ module obi_atop_resolver import obi_pkg::*; #(
 
   // pragma translate_off
   // Check for unsupported parameters
-  if (SbrPortObiCfg.DataWidth != 32 || MgrPortObiCfg.DataWidth != 32) begin : gen_datawidth_err
-    $error($sformatf({"Module currently only supports DataWidth = 32. ",
-      "DataWidth is currently set to: %0d (Subordinate Port) and %0d (Manager Port)"},
-      SbrPortObiCfg.DataWidth, MgrPortObiCfg.DataWidth));
+  if (RISCV_WORD_WIDTH != 32) begin : gen_datawidth_err
+    $error("Module currently only supports DataWidth = 32. ");
   end
 
   `ifndef VERILATOR
