@@ -50,7 +50,7 @@ module obi_cut #(
   logic ready_i;
 
   if (ObiCfg.UseRReady) begin : gen_use_rready
-    assign ready_o = mgr_port_req_o.rready;
+    assign mgr_port_req_o.rready = ready_o;
     assign ready_i = sbr_port_req_i.rready;
   end else begin : gen_no_use_rready
     assign ready_i = 1'b1;
