@@ -34,7 +34,7 @@ module obi_atop_resolver
     // Word width of the widest RISC-V processor that can issue requests to this module.
     // 32 for RV32; 64 for RV64, where both 32-bit (.W suffix) and 64-bit (.D suffix) AMOs are
     // supported if `aw_strb` is set correctly.
-    parameter int unsigned       RISCV_WORD_WIDTH          = 32
+    parameter int unsigned       RiscvWordWidth            = 32
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -76,18 +76,18 @@ module obi_atop_resolver
 
   logic      [  SbrPortObiCfg.IdWidth-1:0] aid_q;
 
-  localparam int unsigned AxiAluRatio = SbrPortObiCfg.DataWidth / RISCV_WORD_WIDTH;
-  logic [AxiAluRatio-1:0][RISCV_WORD_WIDTH-1:0] amo_operand_a;
-  logic [AxiAluRatio-1:0][RISCV_WORD_WIDTH-1:0] amo_operand_a_q;
-  logic [AxiAluRatio-1:0][RISCV_WORD_WIDTH-1:0] amo_operand_b_q;
-  logic [$clog2(SbrPortObiCfg.DataWidth/8)-$clog2(RISCV_WORD_WIDTH/8)-1:0]
+  localparam int unsigned AxiAluRatio = SbrPortObiCfg.DataWidth / RiscvWordWidth;
+  logic [AxiAluRatio-1:0][RiscvWordWidth-1:0] amo_operand_a;
+  logic [AxiAluRatio-1:0][RiscvWordWidth-1:0] amo_operand_a_q;
+  logic [AxiAluRatio-1:0][RiscvWordWidth-1:0] amo_operand_b_q;
+  logic [$clog2(SbrPortObiCfg.DataWidth/8)-$clog2(RiscvWordWidth/8)-1:0]
       amo_operand_addr, amo_operand_addr_q;
-  logic [AxiAluRatio-1:0][RISCV_WORD_WIDTH-1:0] amo_result, amo_result_q;
+  logic [AxiAluRatio-1:0][RiscvWordWidth-1:0] amo_result, amo_result_q;
 
-  // Selection of the RISCV_WORD_WIDTH word within the wide atomic request.
+  // Selection of the RiscvWordWidth word within the wide atomic request.
   logic [SbrPortObiCfg.DataWidth/8-1:0] be_q;
   logic [$clog2(SbrPortObiCfg.DataWidth/8)-1:0] lz_cnt;
-  assign amo_operand_addr = lz_cnt >> $clog2(RISCV_WORD_WIDTH / 8);
+  assign amo_operand_addr = lz_cnt >> $clog2(RiscvWordWidth / 8);
 
   lzc #(
       .WIDTH(SbrPortObiCfg.DataWidth / 8),
@@ -379,12 +379,12 @@ module obi_atop_resolver
         // serve from register if we cut the path
         if (RegisterAmo) begin
           mgr_port_req_o.a.wdata = amo_result_q;
-          mgr_port_req_o.a.be = {RISCV_WORD_WIDTH/8{1'b1}} <<
-          (amo_operand_addr_q * RISCV_WORD_WIDTH/8);
+          mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
+          (amo_operand_addr_q * RiscvWordWidth/8);
         end else begin
           mgr_port_req_o.a.wdata = amo_result;
-          mgr_port_req_o.a.be = {RISCV_WORD_WIDTH/8{1'b1}} <<
-          (amo_operand_addr * RISCV_WORD_WIDTH/8);
+          mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
+          (amo_operand_addr * RiscvWordWidth/8);
         end
       end
       default: ;
@@ -424,8 +424,8 @@ module obi_atop_resolver
   // ----------------
   // AMO ALU
   // ----------------
-  logic [RISCV_WORD_WIDTH+1:0] adder_sum;
-  logic [RISCV_WORD_WIDTH:0] adder_operand_a, adder_operand_b;
+  logic [RiscvWordWidth+1:0] adder_sum;
+  logic [RiscvWordWidth:0] adder_operand_a, adder_operand_b;
 
   `FFL(amo_operand_a_q, mgr_port_rsp_i.r.rdata, mgr_port_rsp_i.rvalid, '0, clk_i, rst_ni)
   assign amo_operand_a = mgr_port_rsp_i.rvalid ? mgr_port_rsp_i.r.rdata : amo_operand_a_q;
@@ -442,7 +442,7 @@ module obi_atop_resolver
     unique case (amo_op_q)
       // the default is to output operand_b
       AMOSWAP: ;
-      AMOADD: amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH-1:0];
+      AMOADD: amo_result[amo_operand_addr] = adder_sum[RiscvWordWidth-1:0];
       AMOAND:
       amo_result[amo_operand_addr] = amo_operand_a[amo_operand_addr] &
       amo_operand_b_q[amo_operand_addr];
@@ -454,24 +454,24 @@ module obi_atop_resolver
       amo_operand_b_q[amo_operand_addr];
       AMOMAX: begin
         adder_operand_b = -$signed(amo_operand_b_q[amo_operand_addr]);
-        amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH] ?
+        amo_result[amo_operand_addr] = adder_sum[RiscvWordWidth] ?
         amo_operand_b_q[amo_operand_addr] : amo_operand_a[amo_operand_addr];
       end
       AMOMIN: begin
         adder_operand_b = -$signed(amo_operand_b_q[amo_operand_addr]);
-        amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH] ?
+        amo_result[amo_operand_addr] = adder_sum[RiscvWordWidth] ?
         amo_operand_a[amo_operand_addr] : amo_operand_b_q[amo_operand_addr];
       end
       AMOMAXU: begin
         adder_operand_a = $unsigned(amo_operand_a[amo_operand_addr]);
         adder_operand_b = -$unsigned(amo_operand_b_q[amo_operand_addr]);
-        amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH] ?
+        amo_result[amo_operand_addr] = adder_sum[RiscvWordWidth] ?
         amo_operand_b_q[amo_operand_addr] : amo_operand_a[amo_operand_addr];
       end
       AMOMINU: begin
         adder_operand_a = $unsigned(amo_operand_a[amo_operand_addr]);
         adder_operand_b = -$unsigned(amo_operand_b_q[amo_operand_addr]);
-        amo_result[amo_operand_addr] = adder_sum[RISCV_WORD_WIDTH] ?
+        amo_result[amo_operand_addr] = adder_sum[RiscvWordWidth] ?
         amo_operand_a[amo_operand_addr] : amo_operand_b_q[amo_operand_addr];
       end
       default: amo_result = '0;
@@ -480,8 +480,9 @@ module obi_atop_resolver
 
   // pragma translate_off
   // Check for unsupported parameters
-  if (RISCV_WORD_WIDTH != 32) begin : gen_datawidth_err
-    $error("Module currently only supports DataWidth = 32. ");
+  if (RiscvWordWidth != 32) begin : gen_datawidth_err
+    $error($sformatf({"Module currently only supports RiscvWordWidth = 32 (Currently %0d)."
+    }, RiscvWordWidth));
   end
 
 `ifndef VERILATOR
