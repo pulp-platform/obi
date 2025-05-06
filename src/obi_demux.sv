@@ -16,7 +16,7 @@ module obi_demux #(
   /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans = 32'd0,
   /// The type of the port select signal.
-  parameter type               select_t    = logic [$clog2(NumMgrPorts)-1:0]
+  parameter type               select_t    = logic [cf_math_pkg::idx_width(NumMgrPorts)-1:0]
 ) (
   input  logic                       clk_i,
   input  logic                       rst_ni,
@@ -119,7 +119,7 @@ module obi_demux_intf #(
   /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans = 32'd0,
   /// The type of the port select signal.
-  parameter type               select_t    = logic [$clog2(NumMgrPorts)-1:0]
+  parameter type               select_t    = logic [cf_math_pkg::idx_width(NumMgrPorts)-1:0]
 ) (
   input logic         clk_i,
   input logic         rst_ni,
