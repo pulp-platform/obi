@@ -73,11 +73,11 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .be_i        (rel_req_i.a.be),
     .aid_i       (rel_req_i.a.aid),
     .a_optional_i(rel_req_i.a.a_optional),
-    .other_ecc   (rel_req_i.a.other_ecc),
+    .other_ecc_i (rel_req_i.a.other_ecc),
     .we_o        (req_o.a.we),
     .be_o        (req_o.a.be),
     .aid_o       (req_o.a.aid),
-    .a_optional_o(req_o.a.a_optional )
+    .a_optional_o(req_o.a.a_optional)
   );
 
   hsiao_ecc_enc #(
