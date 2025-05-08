@@ -7,7 +7,7 @@
 `include "obi/assign.svh"
 
 /// An OBI multiplexer.
-module obi_mux #(
+module relobi_mux #(
   /// The configuration of the subordinate ports (input ports).
   parameter obi_pkg::obi_cfg_t SbrPortObiCfg      = obi_pkg::ObiDefaultConfig,
   /// The configuration of the manager port (output port).
@@ -28,6 +28,8 @@ module obi_mux #(
   parameter type               mgr_port_a_chan_t  = logic,
   /// The A channel optionals struct for all ports.
   parameter type               a_optional_t = logic,
+  /// The R channel optionals struct for all ports.
+  parameter type               r_optional_t = logic,
   /// The number of subordinate ports (input ports).
   parameter int unsigned       NumSbrPorts        = 32'd0,
   /// The maximum number of outstanding transactions.
@@ -78,28 +80,35 @@ module obi_mux #(
 
   assign mgr_port_req_o.req = mgr_port_req & ~fifo_full;
 
-  // rr_arb_tree #(
-  //   .NumIn     ( NumSbrPorts       ),
-  //   .DataType  ( sbr_port_a_chan_t ),
-  //   .AxiVldRdy ( 1'b1              ),
-  //   .LockIn    ( 1'b1              )
-  // ) i_rr_arb (
-  //   .clk_i,
-  //   .rst_ni,
+  logic [2:0] rr_arb_mgr_port_gnt;
 
-  //   .flush_i ( 1'b0 ),
-  //   .rr_i    ( '0 ),
+  for (genvar i = 0; i < 3; i++) begin : gen_mgr_port_gnt
+    assign rr_arb_mgr_port_gnt[i] = mgr_port_rsp_i.gnt[i] && ~fifo_full[i];
+  end
 
-  //   .req_i   ( sbr_ports_req                    ),
-  //   .gnt_o   ( sbr_ports_gnt                    ),
-  //   .data_i  ( sbr_ports_a                      ),
+  rel_rr_arb_tree #(
+    .NumIn     ( NumSbrPorts       ),
+    .DataType  ( sbr_port_a_chan_t ),
+    .AxiVldRdy ( 1'b1              ),
+    .LockIn    ( 1'b1              ),
+    .TmrStatus ( 1'b1              )
+  ) i_rr_arb (
+    .clk_i,
+    .rst_ni,
 
-  //   .req_o   ( mgr_port_req                     ),
-  //   .gnt_i   ( mgr_port_rsp_i.gnt && ~fifo_full ),
-  //   .data_o  ( mgr_port_a_in_sbr                ),
+    .flush_i ( 1'b0 ),
+    .rr_i    ( '0 ),
 
-  //   .idx_o   ( selected_id                      )
-  // );
+    .req_i   ( sbr_ports_req       ),
+    .gnt_o   ( sbr_ports_gnt       ),
+    .data_i  ( sbr_ports_a         ),
+
+    .req_o   ( mgr_port_req        ),
+    .gnt_i   ( rr_arb_mgr_port_gnt ),
+    .data_o  ( mgr_port_a_in_sbr   ),
+
+    .idx_o   ( selected_id         )
+  );
 
   for (genvar i = 0; i < 3; i++) begin : gen_tmr_aid
     if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_aid_identical
@@ -173,7 +182,18 @@ module obi_mux #(
     end
 
     for (genvar i = 0; i < 3; i++) begin : gen_tmr_rid
-      // TODO: ecc
+      relobi_r_other_decoder #(
+        .Cfg          (SbrPortObiCfg),
+        .r_optional_t (r_optional_t)
+      ) i_r_other_decode (
+        .rid_i       (mgr_port_rsp_i.r.rid[SbrPortObiCfg.IdWidth-1:0]),
+        .err_i       (mgr_port_rsp_i.r.err),
+        .r_optional_i(mgr_port_rsp_i.r.r_optional),
+        .other_ecc_i (mgr_port_rsp_i.r.other_ecc),
+        .rid_o       (rsp_rid[i]),
+        .err_o       (),
+        .r_optional_o()
+      );
 
       assign {response_id[i], rsp_rid[i]} =
         mgr_port_rsp_i.r.rid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0];
@@ -181,47 +201,75 @@ module obi_mux #(
     end
 
   end else begin : gen_no_id_assign
+    logic [2:0][hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr_three;
+    logic [hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr, response_id_encoded;
 
-  //   fifo_v3 #(
-  //     .FALL_THROUGH( 1'b0                 ),
-  //     .DATA_WIDTH  ( RequiredExtraIdWidth ),
-  //     .DEPTH       ( NumMaxTrans          )
-  //   ) i_fifo (
-  //     .clk_i,
-  //     .rst_ni,
-  //     .flush_i   ('0),
-  //     .testmode_i,
+    for (genvar i = 0; i < 3; i++) begin : gen_extra_id_tmr
+      hsiao_ecc_enc #(
+        .DataWidth (RequiredExtraIdWidth)
+      ) i_ecc (
+        .in        (selected_id[i]),
+        .out       (selected_id_tmr_three[i])
+      );
 
-  //     .full_o    ( fifo_full                                ),
-  //     .empty_o   (),
-  //     .usage_o   (),
-  //     .data_i    ( selected_id                              ),
-  //     .push_i    ( mgr_port_req_o.req && mgr_port_rsp_i.gnt ),
+      hsiao_ecc_dec #(
+        .DataWidth (RequiredExtraIdWidth)
+      ) i_ecc_dec (
+        .in        (response_id_encoded),
+        .out       (response_id[i]),
+        .syndrome_o(),
+        .err_o     () // TODO
+      );
+    end
 
-  //     .data_o    ( response_id                              ),
-  //     .pop_i     ( fifo_pop                                 )
-  //   );
+    `VOTE31F(selected_id, selected_id_tmr, TODO)
+
+    rel_fifo #(
+      .FallThrough( 1'b0                 ),
+      .DataWidth  ( hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth) ),
+      .Depth      ( NumMaxTrans          ),
+      .TmrStatus  ( 1'b1                 ),
+      .DataHasECC ( 1'b1                 ),
+      .StatusFF   ( 1'b0                 )
+    ) i_fifo (
+      .clk_i,
+      .rst_ni,
+      .flush_i   ('0),
+      .testmode_i,
+
+      .full_o    ( fifo_full                               ),
+      .empty_o   (),
+      .usage_o   (),
+      .data_i    ( selected_id_tmr                         ),
+      .push_i    ( mgr_port_req_o.req & mgr_port_rsp_i.gnt ),
+      .data_o    ( response_id_encoded                     ),
+      .pop_i     ( fifo_pop                                )
+    );
 
   end
 
-  // if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
-  //   assign mgr_port_req_o.rready = sbr_ports_req_i[response_id].rready;
-  // end
-  // logic [NumSbrPorts-1:0] sbr_rsp_rvalid;
-  // sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
-  // always_comb begin : proc_sbr_rsp
-  //   for (int i = 0; i < NumSbrPorts; i++) begin
-  //     sbr_rsp_r[i] = '0;
-  //     sbr_rsp_rvalid[i] = '0;
-  //   end
-  //   `OBI_SET_R_STRUCT(sbr_rsp_r[response_id], mgr_port_rsp_i.r);
-  //   sbr_rsp_rvalid[response_id] = mgr_port_rsp_i.rvalid;
-  // end
+  if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
+    for (genvar i = 0; i < 3; i++) begin : gen_rready_connect_tmr
+      assign mgr_port_req_o.rready[i] = sbr_ports_req_i[response_id[i]].rready[i];
+    end
+  end
+  logic [NumSbrPorts-1:0][2:0] sbr_rsp_rvalid;
+  sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
+  always_comb begin : proc_sbr_rsp
+    for (int i = 0; i < NumSbrPorts; i++) begin
+      // Always assign r struct to avoid triplication overhead
+      `OBI_SET_R_STRUCT(sbr_rsp_r[i], mgr_port_rsp_i.r);
+      sbr_rsp_rvalid[i] = '0;
+    end
+    for (genvar i = 0; i < 3; i++) begin
+      sbr_rsp_rvalid[response_id[i]][i] = mgr_port_rsp_i.rvalid[i];
+    end
+  end
 
-  // for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_rsp_assign
-  //   assign sbr_ports_rsp_o[i].r = sbr_rsp_r[i];
-  //   assign sbr_ports_rsp_o[i].rvalid = sbr_rsp_rvalid[i];
-  // end
+  for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_rsp_assign
+    assign sbr_ports_rsp_o[i].r = sbr_rsp_r[i];
+    assign sbr_ports_rsp_o[i].rvalid = sbr_rsp_rvalid[i];
+  end
 
   if (MgrPortObiCfg.UseRReady) begin : gen_fifo_pop
     assign fifo_pop = mgr_port_rsp_i.rvalid & mgr_port_req_o.rready;
