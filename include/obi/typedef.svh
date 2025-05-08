@@ -127,6 +127,18 @@
   `OBI_TYPEDEF_R_CHAN_T(obi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, obi_t``_r_optional_t)                \
   `OBI_TYPEDEF_RSP_T(obi_t``_rsp_t, obi_t``_r_chan_t)
 
+`define OBI_TYPEDEF_ALL_WITH_OPTIONAL(obi_t, cfg, a_optional_t, r_optional_t) \
+  `OBI_TYPEDEF_A_CHAN_T(obi_t``_a_chan_t, cfg.AddrWidth, cfg.DataWidth, cfg.IdWidth, a_optional_t)                                                       \
+  `OBI_TYPEDEF_INTEGRITY_REQ_T(obi_t``_req_t, obi_t``_a_chan_t)                                                                                                  \
+  `OBI_TYPEDEF_R_CHAN_T(obi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, r_optional_t)                                                                      \
+  `OBI_TYPEDEF_INTEGRITY_RSP_T(obi_t``_rsp_t, obi_t``_r_chan_t)
+
+`define OBI_TYPEDEF_ALL_DEFAULT_WITH_OPTIONAL(obi_t, cfg, a_optional_t, r_optional_t) \
+  `OBI_TYPEDEF_A_CHAN_T(obi_t``_a_chan_t, cfg.AddrWidth, cfg.DataWidth, cfg.IdWidth, a_optional_t)                                                       \
+  `OBI_TYPEDEF_DEFAULT_REQ_T(obi_t``_req_t, obi_t``_a_chan_t)                                                                                                  \
+  `OBI_TYPEDEF_R_CHAN_T(obi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, r_optional_t)                                                                      \
+  `OBI_TYPEDEF_RSP_T(obi_t``_rsp_t, obi_t``_r_chan_t)
+
 `define RELOBI_TYPEDEF_A_CHAN_T(a_chan_t, ADDR_WIDTH, DATA_WIDTH, ID_WIDTH, a_optional_t)       \
   typedef struct packed {                                                                       \
     logic [                      ADDR_WIDTH+hsiao_ecc_pkg::min_ecc(ADDR_WIDTH)-1:0] addr;       \
@@ -138,13 +150,13 @@
     logic [hsiao_ecc_pkg::min_ecc(1+DATA_WIDTH/8+ID_WIDTH+$bits(a_optional_t))-1:0] other_ecc;  \
   } a_chan_t;
 
-`define RELOBI_TYEPDEF_DEFAULT_REQ_T(req_t, a_chan_t) \
+`define RELOBI_TYPEDEF_DEFAULT_REQ_T(req_t, a_chan_t) \
   typedef struct packed {                     \
     a_chan_t    a;                            \
     logic [2:0] req;                          \
   } req_t;
 
-`define RELOBI_TYEPDEF_REQ_T(req_t, a_chan_t) \
+`define RELOBI_TYPEDEF_REQ_T(req_t, a_chan_t) \
   typedef struct packed {                     \
     a_chan_t    a;                            \
     logic [2:0] req;                          \
@@ -166,5 +178,20 @@
     logic [2:0] gnt;                          \
     logic [2:0] rvalid;                       \
   } rsp_t;
+
+`define RELOBI_TYPEDEF_ALL(obi_t, cfg)                                                                                                                              \
+  `OBI_TYPEDEF_ALL_A_OPTIONAL(obi_t``_a_optional_t, cfg.OptionalCfg.AUserWidth, cfg.OptionalCfg.WUserWidth, cfg.OptionalCfg.MidWidth, cfg.OptionalCfg.AChkWidth) \
+  `RELOBI_TYPEDEF_A_CHAN_T(obi_t``_a_chan_t, cfg.AddrWidth, cfg.DataWidth, cfg.IdWidth, obi_t``_a_optional_t)                                                       \
+  `RELOBI_TYPEDEF_DEFAULT_REQ_T(obi_t``_req_t, obi_t``_a_chan_t)                                                                                                  \
+  `OBI_TYPEDEF_ALL_R_OPTIONAL(obi_t``_r_optional_t, cfg.OptionalCfg.RUserWidth, cfg.OptionalCfg.RChkWidth)                                                       \
+  `RELOBI_TYPEDEF_R_CHAN_T(obi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, obi_t``_r_optional_t)                                                                      \
+  `RELOBI_TYPEDEF_RSP_T(obi_t``_rsp_t, obi_t``_r_chan_t)
+
+`define RELOBI_TYPEDEF_ALL_WITH_OPTIONAL(obi_t, cfg, a_optional_t, r_optional_t)                                                                                                                              \
+  `RELOBI_TYPEDEF_A_CHAN_T(obi_t``_a_chan_t, cfg.AddrWidth, cfg.DataWidth, cfg.IdWidth, a_optional_t)                                                       \
+  `RELOBI_TYPEDEF_DEFAULT_REQ_T(obi_t``_req_t, obi_t``_a_chan_t)                                                                                                  \
+  `RELOBI_TYPEDEF_R_CHAN_T(obi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, r_optional_t)                                                                      \
+  `RELOBI_TYPEDEF_RSP_T(obi_t``_rsp_t, obi_t``_r_chan_t)
+
 
 `endif // OBI_TYPEDEF_SVH

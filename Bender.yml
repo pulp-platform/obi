@@ -10,7 +10,7 @@ package:
 dependencies:
   common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.38.0 }
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.3 }
-  redundancy_cells: { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: d924bd6a2ffa48f0e6d26e6c66725012cf677abe }
+  redundancy_cells: { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: b23577c955b392f5661c6fd7bbda710a6a752377 }
 
 export_include_dirs:
   - include
@@ -59,3 +59,6 @@ sources:
       - src/relobi_mux.sv
       # Level 5
       - src/relobi_xbar.sv
+      - target: test
+        files:
+          - src/test/tb_relobi_xbar.sv

@@ -20,9 +20,9 @@ module relobi_a_other_decoder #(
   output logic                       we_o,
   output logic [Cfg.DataWidth/8-1:0] be_o,
   output logic [Cfg.IdWidth    -1:0] aid_o,
-  output a_optional_t                a_optional_o
+  output a_optional_t                a_optional_o,
 
-  // TODO: error
+  output logic [1:0]                 relerr_o
 );
 
   hsiao_ecc_dec #(
@@ -38,7 +38,7 @@ module relobi_a_other_decoder #(
                   aid_o,
                   a_optional_o} ),
     .syndrome_o(),
-    .err_o     ()
+    .err_o     (relerr_o)
   );
 
 endmodule

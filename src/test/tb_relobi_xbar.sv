@@ -1,4 +1,4 @@
-// Copyright 2023 ETH Zurich and University of Bologna.
+// Copyright 2025 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 
@@ -7,7 +7,8 @@
 `include "obi/typedef.svh"
 `include "obi/assign.svh"
 
-module tb_obi_xbar;
+module tb_relobi_xbar;
+  import obi_pkg::*;
 
   localparam int unsigned NumManagers = 32'd6;
   localparam int unsigned NumSubordinates = 32'd8;
@@ -17,14 +18,14 @@ module tb_obi_xbar;
   localparam int unsigned AddrWidth = 32;
   localparam int unsigned DataWidth = 32;
   localparam int unsigned MgrIdWidth = 5;
-  localparam int unsigned SbrIdWidth = MgrIdWidth+cf_math_pkg::idx_width(NumManagers);
+  localparam int unsigned SbrIdWidth = MgrIdWidth+$clog2(NumManagers);
   localparam int unsigned AUserWidth = 4;
   localparam int unsigned WUserWidth = 2;
   localparam int unsigned RUserWidth = 3;
 
   // TODO CHK!
 
-  localparam int unsigned NumRequests = 32'd10000;
+  localparam int unsigned NumRequests = 32'd1000;
 
   localparam time CyclTime = 10ns;
   localparam time ApplTime =  2ns;
@@ -51,8 +52,19 @@ module tb_obi_xbar;
       RChkWidth:           0
     }
   };
-  `OBI_TYPEDEF_ALL_A_OPTIONAL(mgr_a_optional_t, AUserWidth, WUserWidth, 0, 0)
-  `OBI_TYPEDEF_ALL_R_OPTIONAL(mgr_r_optional_t, RUserWidth, 0)
+
+  typedef struct packed {
+    logic [ AUserWidth-1:0] auser;
+    logic [ WUserWidth-1:0] wuser;
+    obi_pkg::atop_t         atop;
+    obi_pkg::memtype_t      memtype;
+    obi_pkg::prot_t         prot;
+    logic                   dbg;
+  } mgr_a_optional_t;
+  typedef struct packed {
+    logic [RUserWidth-1:0] ruser;
+    logic                  exokay;
+  } mgr_r_optional_t;
   typedef obi_test::obi_rand_manager #(
     .ObiCfg           ( MgrConfig ),
     .obi_a_optional_t ( mgr_a_optional_t ),
@@ -84,8 +96,9 @@ module tb_obi_xbar;
       RChkWidth:           0
     }
   };
-  `OBI_TYPEDEF_ALL_A_OPTIONAL(sbr_a_optional_t, AUserWidth, WUserWidth, 0, 0)
-  `OBI_TYPEDEF_ALL_R_OPTIONAL(sbr_r_optional_t, RUserWidth, 0)
+
+  typedef mgr_a_optional_t sbr_a_optional_t;
+  typedef mgr_r_optional_t sbr_r_optional_t;
 
   typedef obi_test::obi_rand_subordinate #(
     .ObiCfg ( SbrConfig ),
@@ -145,18 +158,14 @@ module tb_obi_xbar;
                                wuser: '0,
                                atop: '0,
                                memtype: obi_pkg::memtype_t'('0),
-                               mid: '0,
                                prot: obi_pkg::prot_t'('0),
-                               dbg: '0,
-                               achk: '0}, r_rdata, r_rid, r_err, r_optional);
+                               dbg: '0}, r_rdata, r_rid, r_err, r_optional);
       obi_rand_manager.read(32'h0000_e100, 2, '{auser: '0,
                                                 wuser: '0,
                                                 atop: '0,
                                                 memtype: obi_pkg::memtype_t'('0),
-                                                mid: '0,
                                                 prot: obi_pkg::prot_t'('0),
-                                                dbg: '0,
-                                                achk: '0}, r_rdata, r_rid, r_err, r_optional);
+                                                dbg: '0}, r_rdata, r_rid, r_err, r_optional);
       obi_rand_manager.run(NumRequests);
       end_of_sim[i] <= 1'b1;
     end
@@ -199,25 +208,101 @@ module tb_obi_xbar;
   );
 
   // DUT
-  obi_xbar_intf #(
+  `OBI_TYPEDEF_ALL_DEFAULT_WITH_OPTIONAL(mgr_bus, MgrConfig, mgr_a_optional_t, mgr_r_optional_t)
+  `OBI_TYPEDEF_ALL_DEFAULT_WITH_OPTIONAL(sbr_bus, SbrConfig, sbr_a_optional_t, sbr_r_optional_t)
+  `RELOBI_TYPEDEF_ALL_WITH_OPTIONAL(rel_mgr_bus, MgrConfig, mgr_a_optional_t, mgr_r_optional_t)
+  `RELOBI_TYPEDEF_ALL_WITH_OPTIONAL(rel_sbr_bus, SbrConfig, sbr_a_optional_t, sbr_r_optional_t)
+  mgr_bus_req_t [NumManagers-1:0] mgr_bus_req;
+  mgr_bus_rsp_t [NumManagers-1:0] mgr_bus_rsp;
+  sbr_bus_req_t [NumSubordinates-1:0] sbr_bus_req;
+  sbr_bus_rsp_t [NumSubordinates-1:0] sbr_bus_rsp;
+  rel_mgr_bus_req_t [NumManagers-1:0] rel_mgr_bus_req;
+  rel_mgr_bus_rsp_t [NumManagers-1:0] rel_mgr_bus_rsp;
+  rel_sbr_bus_req_t [NumSubordinates-1:0] rel_sbr_bus_req;
+  rel_sbr_bus_rsp_t [NumSubordinates-1:0] rel_sbr_bus_rsp;
+
+  for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_encode
+
+    `OBI_ASSIGN_TO_REQ(mgr_bus_req[i], mgr_bus[i], MgrConfig)
+    `OBI_ASSIGN_FROM_RSP(mgr_bus[i], mgr_bus_rsp[i], MgrConfig)
+
+    relobi_encoder #(
+      .Cfg          ( MgrConfig         ),
+      .relobi_req_t ( rel_mgr_bus_req_t ),
+      .relobi_rsp_t ( rel_mgr_bus_rsp_t ),
+      .obi_req_t    ( mgr_bus_req_t     ),
+      .obi_rsp_t    ( mgr_bus_rsp_t     ),
+      .a_optional_t ( mgr_a_optional_t  ),
+      .r_optional_t ( mgr_r_optional_t  )
+    ) i_enc_mgr (
+      .req_i (mgr_bus_req[i]),
+      .rsp_o (mgr_bus_rsp[i]),
+
+      .rel_req_o (rel_mgr_bus_req[i]),
+      .rel_rsp_i (rel_mgr_bus_rsp[i]),
+
+      .relerr_o ()
+    );
+  end
+
+  relobi_xbar #(
     .SbrPortObiCfg   ( MgrConfig       ),
     .MgrPortObiCfg   ( SbrConfig       ),
+    .sbr_port_obi_req_t ( rel_mgr_bus_req_t     ),
+    .sbr_port_a_chan_t  ( rel_mgr_bus_a_chan_t  ),
+    .sbr_port_obi_rsp_t ( rel_mgr_bus_rsp_t     ),
+    .sbr_port_r_chan_t  ( rel_mgr_bus_r_chan_t  ),
+    .mgr_port_obi_req_t ( rel_sbr_bus_req_t     ),
+    .mgr_port_obi_rsp_t ( rel_sbr_bus_rsp_t     ),
+    .mgr_port_a_chan_t  ( rel_sbr_bus_a_chan_t  ),
+    .a_optional_t       ( mgr_a_optional_t  ),
+    .r_optional_t       ( mgr_r_optional_t  ),
     .NumSbrPorts     ( NumManagers     ),
     .NumMgrPorts     ( NumSubordinates ),
     .NumMaxTrans     ( NumMaxTrans     ),
     .NumAddrRules    ( NumRules        ),
     .addr_map_rule_t ( rule_t          ),
-    .UseIdForRouting ( UseIdForRouting )
+    .UseIdForRouting ( UseIdForRouting ),
+    .TmrMap (1'b1)
   ) i_dut (
     .clk_i            ( clk     ),
     .rst_ni           ( rst_n   ),
     .testmode_i       ( 1'b0    ),
-    .sbr_ports        ( mgr_bus ),
-    .mgr_ports        ( sbr_bus ),
-    .addr_map_i       ( AddrMap ),
+
+    .sbr_ports_req_i  ( rel_mgr_bus_req ),
+    .sbr_ports_rsp_o  ( rel_mgr_bus_rsp ),
+
+    .mgr_ports_req_o  ( rel_sbr_bus_req ),
+    .mgr_ports_rsp_i  ( rel_sbr_bus_rsp ),
+
+    .addr_map_i       ( {3{AddrMap}} ),
     .en_default_idx_i ( '0 ),
     .default_idx_i    ( '0 )
   );
+
+  for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_decode
+    relobi_decoder #(
+      .Cfg          ( SbrConfig         ),
+      .relobi_req_t ( rel_sbr_bus_req_t ),
+      .relobi_rsp_t ( rel_sbr_bus_rsp_t ),
+      .obi_req_t    ( sbr_bus_req_t     ),
+      .obi_rsp_t    ( sbr_bus_rsp_t     ),
+      .a_optional_t ( sbr_a_optional_t  ),
+      .r_optional_t ( sbr_r_optional_t  )
+    ) i_dec_sbr (
+      .req_o (sbr_bus_req[i]),
+      .rsp_i (sbr_bus_rsp[i]),
+
+      .rel_req_i (rel_sbr_bus_req[i]),
+      .rel_rsp_o (rel_sbr_bus_rsp[i]),
+
+      .relerr_o ()
+    );
+
+    `OBI_ASSIGN_FROM_REQ(sbr_bus[i], sbr_bus_req[i], SbrConfig)
+    `OBI_ASSIGN_TO_RSP(sbr_bus_rsp[i], sbr_bus[i], SbrConfig)
+
+  end
 
   initial begin
     wait(&end_of_sim);

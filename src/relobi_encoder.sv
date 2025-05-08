@@ -8,21 +8,34 @@ module relobi_encoder #(
   /// Configuration of the bus
   parameter obi_pkg::obi_cfg_t Cfg = obi_pkg::ObiDefaultConfig,
 
-  parameter relobi_req_t           = logic,
-  parameter relobi_rsp_t           = logic,
-  parameter obi_req_t              = logic,
-  parameter obi_rsp_t              = logic,
-  parameter a_optional_t           = logic,
-  parameter r_optional_t           = logic
+  parameter type relobi_req_t      = logic,
+  parameter type relobi_rsp_t      = logic,
+  parameter type obi_req_t         = logic,
+  parameter type obi_rsp_t         = logic,
+  parameter type a_optional_t      = logic,
+  parameter type r_optional_t      = logic
 ) (
   input  obi_req_t    req_i,
   output obi_rsp_t    rsp_o,
 
   output relobi_req_t rel_req_o,
-  input  relobi_rsp_t rel_rsp_i
+  input  relobi_rsp_t rel_rsp_i,
 
-  // TODO: error output!!!
+  logic  [1:0]        relerr_o
 );
+
+  logic [1:0][2:0] voter_errs;
+  logic [1:0][1:0] hsiao_errs;
+  logic [1:0][1:0] hsiao_errs_transpose;
+
+  for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs
+    for (genvar j = 0; j < 2; j++) begin
+      assign hsiao_errs_transpose[i][j] = hsiao_errs_transpose[j][i];
+    end
+  end
+
+  assign relerr_o[0] = |voter_errs | |(hsiao_errs_transpose[0]);
+  assign relerr_o[1] = |(hsiao_errs_transpose[1]);
 
   assign rel_req_o.req = {3{req_i.req}};
 
@@ -31,7 +44,7 @@ module relobi_encoder #(
     .b_i        (rel_rsp_i.gnt[1]),
     .c_i        (rel_rsp_i.gnt[2]),
     .majority_o (rsp_o.gnt),
-    .error_cba_o()
+    .error_cba_o(voter_errs[0])
   );
 
   if (Cfg.UseRReady) begin : gen_rready_multiply
@@ -43,21 +56,21 @@ module relobi_encoder #(
     .b_i        (rel_rsp_i.rvalid[1]),
     .c_i        (rel_rsp_i.rvalid[2]),
     .majority_o (rsp_o.rvalid),
-    .error_cba_o()
+    .error_cba_o(voter_errs[1])
   );
 
   hsiao_ecc_enc #(
     .DataWidth ( Cfg.AddrWidth )
   ) i_addr_enc (
     .in ( req_i.a.addr ),
-    .out( rel_req_o.a.addr ),
+    .out( rel_req_o.a.addr )
   );
 
   hsiao_ecc_enc #(
     .DataWidth ( Cfg.DataWidth )
   ) i_wdata_enc (
     .in ( req_i.a.wdata ),
-    .out( rel_req_o.a.wdata ),
+    .out( rel_req_o.a.wdata )
   );
 
   relobi_a_other_encoder #(
@@ -81,7 +94,7 @@ module relobi_encoder #(
     .in        ( rel_rsp_i.r.rdata ),
     .out       ( rsp_o.r.rdata ),
     .syndrome_o(),
-    .err_o     ()
+    .err_o     (hsiao_errs[0])
   );
 
   relobi_r_other_decoder #(
@@ -94,7 +107,8 @@ module relobi_encoder #(
     .other_ecc_i (rel_rsp_i.r.other_ecc),
     .rid_o       (rsp_o.r.rid),
     .err_o       (rsp_o.r.err),
-    .r_optional_o(rsp_o.r.r_optional)
+    .r_optional_o(rsp_o.r.r_optional),
+    .relerr_o    (hsiao_errs[1])
   );
 
 endmodule
