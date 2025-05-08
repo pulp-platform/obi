@@ -18,9 +18,9 @@ module relobi_r_other_decoder #(
 
   output logic [Cfg.IdWidth  -1:0] rid_o,
   output logic                     err_o,
-  output r_optional_t              r_optional_o
+  output r_optional_t              r_optional_o,
 
-  // TODO: error
+  output logic [1:0]               relerr_o
 );
 
 
@@ -35,7 +35,7 @@ module relobi_r_other_decoder #(
            err_o,
            r_optional_o} ),
     .syndrome_o(),
-    .err_o     ()
+    .err_o     (relerr_o)
   );
 
 endmodule

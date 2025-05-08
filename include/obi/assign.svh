@@ -27,46 +27,11 @@
   __opt_as __lhs``__lhs_sep``r_optional = __rhs``__rhs_sep``r_optional;
 `define __OBI_TO_REQ(__opt_as, __lhs, __lhs_sep, __rhs, __rhs_sep, __lhscfg, __rhscfg) \
   `__OBI_TO_A(__opt_as, __lhs, __lhs_sep, __rhs, __rhs_sep)                            \
-  __opt_as __lhs.req                   = __rhs.req;                                    \
-  if (__lhscfg.UseRReady) begin                                                        \
-    if (__rhscfg.UseRReady) begin                                                      \
-      __opt_as __lhs.rready            = __rhs.rready;                                 \
-      if (__lhscfg.Integrity) begin                                                    \
-        if (__rhscfg.Integrity) begin                                                  \
-          __opt_as __lhs.rreadypar     = __rhs.rreadypar;                              \
-        end else begin                                                                 \
-          __opt_as __lhs.rreadypar     = ~__rhs.rready;                                \
-        end                                                                            \
-      end                                                                              \
-    end else begin                                                                     \
-      __opt_as __lhs.rready            = 1'b1;                                         \
-      if (__lhscfg.Integrity) begin                                                    \
-        __opt_as __lhs.rreadypar       = 1'b0;                                         \
-      end                                                                              \
-    end                                                                                \
-  end else if (__rhscfg.UseRReady) begin                                               \
-    $error("Incompatible Configs! Please assign manually!");                           \
-  end                                                                                  \
-  if (__lhscfg.Integrity) begin                                                        \
-    if (__rhscfg.Integrity) begin                                                      \
-      __opt_as __lhs.reqpar           = __rhs.reqpar;                                  \
-    end else begin                                                                     \
-      __opt_as __lhs.reqpar           = ~__rhs.req;                                    \
-    end                                                                                \
-  end
+  __opt_as __lhs.req                   = __rhs.req;
 `define __OBI_TO_RSP(__opt_as, __lhs, __lhs_sep, __rhs, __rhs_sep, __lhscfg, __rhscfg) \
   `__OBI_TO_R(__opt_as, __lhs, __lhs_sep, __rhs, __rhs_sep)                            \
   __opt_as __lhs.gnt                   = __rhs.gnt;                                    \
-  __opt_as __lhs.rvalid                = __rhs.rvalid;                                 \
-  if (__lhscfg.Integrity) begin                                                        \
-    if (__rhscfg.Integrity) begin                                                      \
-      __opt_as __lhs.gntpar              = __rhs.gntpar;                               \
-      __opt_as __lhs.rvalidpar           = __rhs.rvalidpar;                            \
-    end else begin                                                                     \
-      __opt_as __lhs.gntpar              = ~__rhs.gnt;                                 \
-      __opt_as __lhs.rvalidpar           = ~__rhs.rvalid;                              \
-    end                                                                                \
-  end
+  __opt_as __lhs.rvalid                = __rhs.rvalid;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -86,36 +51,10 @@
 `define OBI_ASSIGN_A(dst, src, dstcfg, srccfg)               \
   `__OBI_TO_A(assign, dst, ., src, .)                        \
   assign dst.req = src.req;                                  \
-  assign src.gnt = dst.gnt;                                  \
-  if (dstcfg.Integrity && srccfg.Integrity) begin            \
-    assign dst.reqpar = src.reqpar;                          \
-    assign src.gntpar = dst.gntpar;                          \
-  end else if (dstcfg.Integrity ^ srccfg.Integrity) begin    \
-    $error("Incompatible Configs! Please assign manually!"); \
-  end
+  assign src.gnt = dst.gnt;
 `define OBI_ASSIGN_R(dst, src, dstcfg, srccfg)               \
   `__OBI_TO_R(assign, dst, ., src, .)                        \
-  assign dst.rvalid = src.rvalid;                            \
-  if (dstcfg.Integrity && srccfg.Integrity) begin            \
-    assign dst.rvalidpar = src.rvalidpar;                    \
-  end else if (dstcfg.Integrity ^ srccfg.Integrity) begin    \
-    $error("Incompatible Configs! Please assign manually!"); \
-  end                                                        \
-  if (srccfg.UseRReady) begin                                \
-    if (dstcfg.UseRReady) begin                              \
-      assign src.rready = dst.rready;                        \
-      if (srccfg.Integrity && dstcfg.Integrity) begin        \
-        assign src.rreadypar = dst.rreadypar;                \
-      end                                                    \
-    end else begin                                           \
-      assign src.rready = 1'b1;                              \
-      if (srccfg.Integrity) begin                            \
-        assign src.rreadypar = 1'b0;                         \
-      end                                                    \
-    end                                                      \
-  end else if (dstcfg.UseRReady) begin                       \
-    $error("Incompatible Configs! Please assign manually!"); \
-  end
+  assign dst.rvalid = src.rvalid;
 `define OBI_ASSIGN(sbr, mgr, sbrcfg, mgrcfg) \
   `OBI_ASSIGN_A(sbr, mgr, sbrcfg, mgrcfg)    \
   `OBI_ASSIGN_R(mgr, sbr, mgrcfg, sbrcfg)

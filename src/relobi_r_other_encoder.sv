@@ -11,8 +11,8 @@ module relobi_r_other_encoder #(
   parameter type               r_optional_t  = logic,
   parameter int unsigned       OtherEccWidth = relobi_pkg::relobi_r_other_ecc_width(Cfg)
 ) (
-  input  logic                       rid_i,
-  input  logic [Cfg.DataWidth/8-1:0] err_i,
+  input  logic [Cfg.IdWidth    -1:0] rid_i,
+  input  logic                       err_i,
   input  r_optional_t                r_optional_i,
 
   output logic [  OtherEccWidth-1:0] other_ecc_o

@@ -5,11 +5,14 @@
 BENDER ?= bender
 VSIM ?= vsim
 
-AVAILABLE_TESTBENCHES = tb_obi_xbar tb_obi_atop_resolver
+BENDER_TARGETS := -t test
+BENDER_TARGETS += -t relOBI
+
+AVAILABLE_TESTBENCHES = tb_obi_xbar tb_obi_atop_resolver tb_relobi_xbar
 
 scripts/compile.tcl:
 	mkdir -p scripts
-	$(BENDER) script vsim -t test --vlog-arg="-svinputport=compat" > $@
+	$(BENDER) script vsim $(BENDER_TARGETS) --vlog-arg="-svinputport=compat" > $@
 
 .PHONY: build
 build: scripts/compile.tcl

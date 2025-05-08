@@ -22,6 +22,12 @@ module relobi_xbar #(
   parameter type               mgr_port_obi_req_t = sbr_port_obi_req_t,
   /// The response struct for the manager ports (output ports).
   parameter type               mgr_port_obi_rsp_t = sbr_port_obi_rsp_t,
+  /// The A channel struct for the manager port (output port).
+  parameter type               mgr_port_a_chan_t  = logic,
+  /// The A channel optionals struct for all ports.
+  parameter type               a_optional_t = logic,
+  /// The R channel optionals struct for all ports.
+  parameter type               r_optional_t = logic,
   /// The number of subordinate ports (input ports).
   parameter int unsigned       NumSbrPorts        = 32'd0,
   /// The number of manager ports (output ports).
@@ -38,7 +44,7 @@ module relobi_xbar #(
   parameter bit [NumSbrPorts-1:0][NumMgrPorts-1:0] Connectivity = '1,
   /// Use TMR for addr map signal
   parameter bit                TmrMap          = 1'b1,
-  parameter int unsigned       MapWidth    = TmrSelect ? 3 : 1
+  parameter int unsigned       MapWidth    = TmrMap ? 3 : 1
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -67,13 +73,25 @@ module relobi_xbar #(
 
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_demux
     for (genvar j = 0; j < 3; j++) begin : gen_tmr
+
+      logic [MgrPortObiCfg.AddrWidth-1:0] addr;
+
+      hsiao_ecc_dec #(
+        .DataWidth ( MgrPortObiCfg.AddrWidth )
+      ) i_addr_dec (
+        .in        ( sbr_ports_req_i[i].a.addr ),
+        .out       ( addr     ),
+        .syndrome_o(),
+        .err_o     ()
+      );
+
       addr_decode #(
         .NoIndices ( NumMgrPorts                         ),
         .NoRules   ( NumAddrRules                        ),
         .addr_t    ( logic [MgrPortObiCfg.AddrWidth-1:0] ),
         .rule_t    ( addr_map_rule_t                     )
       ) i_addr_decode (
-        .addr_i          ( sbr_ports_req_i[i].a.addr ), // TODO ecc
+        .addr_i          ( addr ),
         .addr_map_i      ( TmrMap ? addr_map_i[j] : addr_map_i[0] ),
         .idx_o           ( sbr_port_select[i][j]        ),
         .dec_valid_o     (),
@@ -87,6 +105,8 @@ module relobi_xbar #(
       .ObiCfg      ( SbrPortObiCfg      ),
       .obi_req_t   ( sbr_port_obi_req_t ),
       .obi_rsp_t   ( sbr_port_obi_rsp_t ),
+      .obi_r_chan_t( sbr_port_r_chan_t ),
+      .obi_r_optional_t ( r_optional_t       ),
       .NumMgrPorts ( NumMgrPorts        ),
       .NumMaxTrans ( NumMaxTrans        ),
       .TmrSelect   ( 1'b1               )
@@ -107,7 +127,7 @@ module relobi_xbar #(
         assign mgr_reqs[j][i] = sbr_reqs[i][j];
         assign sbr_rsps[i][j] = mgr_rsps[j][i];
       end else begin : gen_err_sbr
-        assign mgr_reqs[j][i].req = '0';
+        assign mgr_reqs[j][i].req = '0;
         if (MgrPortObiCfg.UseRReady) begin : gen_rready
           assign mgr_reqs[j][i].rready = '0;
         end
@@ -145,6 +165,9 @@ module relobi_xbar #(
       .sbr_port_r_chan_t  ( sbr_port_r_chan_t  ),
       .mgr_port_obi_req_t ( mgr_port_obi_req_t ),
       .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t ),
+      .mgr_port_a_chan_t  ( mgr_port_a_chan_t  ),
+      .a_optional_t       ( a_optional_t       ),
+      .r_optional_t       ( r_optional_t       ),
       .NumSbrPorts        ( NumSbrPorts        ),
       .NumMaxTrans        ( NumMaxTrans        ),
       .UseIdForRouting    ( UseIdForRouting    )

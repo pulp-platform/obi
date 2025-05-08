@@ -5,6 +5,7 @@
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
 `include "obi/assign.svh"
+`include "redundancy_cells/voters.svh"
 
 /// An OBI multiplexer.
 module relobi_mux #(
@@ -67,20 +68,21 @@ module relobi_mux #(
 
   logic [NumSbrPorts-1:0][2:0] sbr_ports_req, sbr_ports_gnt;
   sbr_port_a_chan_t [NumSbrPorts-1:0] sbr_ports_a;
+
+  sbr_port_a_chan_t       mgr_port_a_in_sbr;
+  mgr_port_a_chan_t [2:0] mgr_port_a_tmr;
+  logic [2:0][RequiredExtraIdWidth-1:0] selected_id, response_id;
+  logic [2:0] mgr_port_req, fifo_full, fifo_pop;
+
+  logic [2:0] rr_arb_mgr_port_gnt;
+
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_assign
     assign sbr_ports_req[i] = sbr_ports_req_i[i].req;
     assign sbr_ports_a[i] = sbr_ports_req_i[i].a;
     assign sbr_ports_rsp_o[i].gnt = sbr_ports_gnt[i];
   end
 
-  sbr_port_a_chan_t [2:0] mgr_port_a_in_sbr;
-  mgr_port_a_chan_t [2:0] mgr_port_a_tmr;
-  logic [2:0][RequiredExtraIdWidth-1:0] selected_id, response_id;
-  logic [2:0] mgr_port_req, fifo_full, fifo_pop;
-
   assign mgr_port_req_o.req = mgr_port_req & ~fifo_full;
-
-  logic [2:0] rr_arb_mgr_port_gnt;
 
   for (genvar i = 0; i < 3; i++) begin : gen_mgr_port_gnt
     assign rr_arb_mgr_port_gnt[i] = mgr_port_rsp_i.gnt[i] && ~fifo_full[i];
@@ -107,14 +109,16 @@ module relobi_mux #(
     .gnt_i   ( rr_arb_mgr_port_gnt ),
     .data_o  ( mgr_port_a_in_sbr   ),
 
-    .idx_o   ( selected_id         )
+    .idx_o   ( selected_id         ),
+
+    .relerr_o ()
   );
 
   for (genvar i = 0; i < 3; i++) begin : gen_tmr_aid
     if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_aid_identical
       always_comb begin
-        `OBI_SET_A_STRUCT(mgr_port_a_tmr[i], mgr_port_a_in_sbr[i])
-        mgr_port_a_tmr[i].other_ecc = mgr_port_a_in_sbr[i].other_ecc;
+        `OBI_SET_A_STRUCT(mgr_port_a_tmr[i], mgr_port_a_in_sbr)
+        mgr_port_a_tmr[i].other_ecc = mgr_port_a_in_sbr.other_ecc;
       end
     end else begin : gen_aid_extend
       logic we;
@@ -127,15 +131,17 @@ module relobi_mux #(
         .Cfg          (SbrPortObiCfg),
         .a_optional_t (a_optional_t)
       ) i_other_decode (
-        .we_i        (mgr_port_a_in_sbr[i].we),
-        .be_i        (mgr_port_a_in_sbr[i].be),
-        .aid_i       (mgr_port_a_in_sbr[i].aid),
-        .a_optional_i(mgr_port_a_in_sbr[i].a_optional),
-        .other_ecc_i (mgr_port_a_in_sbr[i].other_ecc),
+        .we_i        (mgr_port_a_in_sbr.we),
+        .be_i        (mgr_port_a_in_sbr.be),
+        .aid_i       (mgr_port_a_in_sbr.aid),
+        .a_optional_i(mgr_port_a_in_sbr.a_optional),
+        .other_ecc_i (mgr_port_a_in_sbr.other_ecc),
         .we_o        (we),
         .be_o        (be),
         .aid_o       (sbr_aid),
-        .a_optional_o(a_optional)
+        .a_optional_o(a_optional),
+
+        .relerr_o ()
       );
       if (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth +
                                    RequiredExtraIdWidth   ) begin
@@ -157,20 +163,21 @@ module relobi_mux #(
         .be_i        (be),
         .aid_i       (mgr_aid),
         .a_optional_i(a_optional),
-        .other_ecc_o (other_ecc),
+        .other_ecc_o (other_ecc)
       );
 
-      always_comb begin
-        `OBI_SET_A_STRUCT(mgr_port_a_tmr[i], mgr_port_a_in_sbr[i])
-        mgr_port_a_tmr[i].we         = we;
-        mgr_port_a_tmr[i].be         = be;
-        mgr_port_a_tmr[i].aid        = mgr_aid;
-        mgr_port_a_tmr[i].a_optional = a_optional;
-        mgr_port_a_tmr[i].other_ecc  = other_ecc;
-      end
+      assign mgr_port_a_tmr[i].addr       = mgr_port_a_in_sbr.addr;
+      assign mgr_port_a_tmr[i].wdata      = mgr_port_a_in_sbr.wdata;
+      assign mgr_port_a_tmr[i].we         = we;
+      assign mgr_port_a_tmr[i].be         = be;
+      assign mgr_port_a_tmr[i].aid        = mgr_aid;
+      assign mgr_port_a_tmr[i].a_optional = a_optional;
+      assign mgr_port_a_tmr[i].other_ecc  = other_ecc;
 
     end
   end
+
+  `VOTE31F(mgr_port_a_tmr, mgr_port_req_o.a, )
 
   logic [2:0][SbrPortObiCfg.IdWidth-1:0] rsp_rid;
 
@@ -201,8 +208,8 @@ module relobi_mux #(
     end
 
   end else begin : gen_no_id_assign
-    logic [2:0][hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr_three;
-    logic [hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr, response_id_encoded;
+    logic [2:0][RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr_three;
+    logic [RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr, response_id_encoded;
 
     for (genvar i = 0; i < 3; i++) begin : gen_extra_id_tmr
       hsiao_ecc_enc #(
@@ -222,14 +229,14 @@ module relobi_mux #(
       );
     end
 
-    `VOTE31F(selected_id, selected_id_tmr, TODO)
+    `VOTE31F(selected_id_tmr_three, selected_id_tmr, )
 
     rel_fifo #(
       .FallThrough( 1'b0                 ),
-      .DataWidth  ( hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth) ),
+      .DataWidth  ( RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth) ),
       .Depth      ( NumMaxTrans          ),
       .TmrStatus  ( 1'b1                 ),
-      .DataHasECC ( 1'b1                 ),
+      .DataHasEcc ( 1'b1                 ),
       .StatusFF   ( 1'b0                 )
     ) i_fifo (
       .clk_i,
@@ -243,7 +250,9 @@ module relobi_mux #(
       .data_i    ( selected_id_tmr                         ),
       .push_i    ( mgr_port_req_o.req & mgr_port_rsp_i.gnt ),
       .data_o    ( response_id_encoded                     ),
-      .pop_i     ( fifo_pop                                )
+      .pop_i     ( fifo_pop                                ),
+
+      .fault_o ()
     );
 
   end
@@ -259,9 +268,10 @@ module relobi_mux #(
     for (int i = 0; i < NumSbrPorts; i++) begin
       // Always assign r struct to avoid triplication overhead
       `OBI_SET_R_STRUCT(sbr_rsp_r[i], mgr_port_rsp_i.r);
+      sbr_rsp_r[i].other_ecc = mgr_port_rsp_i.r.other_ecc;
       sbr_rsp_rvalid[i] = '0;
     end
-    for (genvar i = 0; i < 3; i++) begin
+    for (int i = 0; i < 3; i++) begin
       sbr_rsp_rvalid[response_id[i]][i] = mgr_port_rsp_i.rvalid[i];
     end
   end

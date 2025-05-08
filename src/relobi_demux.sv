@@ -13,6 +13,8 @@ module relobi_demux #(
   parameter type               obi_rsp_t   = logic,
   /// The r_chan struct for all ports.
   parameter type               obi_r_chan_t = logic,
+  /// The optional r_chan struct for all ports.
+  parameter type               obi_r_optional_t = logic,
   /// The number of manager ports.
   parameter int unsigned       NumMgrPorts = 32'd0,
   /// The maximum number of outstanding transactions.
@@ -52,10 +54,10 @@ module relobi_demux #(
 
   logic [NumMgrPorts-1:0][2:0] mgr_ports_req;
 
-  for (genvar i = 0; i < 3; i++) begin : gen_tmr
-    assign select_i_tmr[i] = TmrSelect ? sbr_port_select_i[i] : sbr_port_select_i[0];
+  always_comb begin : proc_req
+    for (int i = 0; i < 3; i++) begin : gen_tmr
+      select_i_tmr[i] = TmrSelect ? sbr_port_select_i[i] : sbr_port_select_i[0];
 
-    always_comb begin : proc_req
       select_d[i] = select_q[i];
       cnt_up[i] = 1'b0;
       for (int j = 0; j < NumMgrPorts; j++) begin
@@ -86,7 +88,8 @@ module relobi_demux #(
 
   relobi_tmr_r #(
     .ObiCfg      (ObiCfg),
-    .obi_r_chan_t(obi_r_chan_t)
+    .obi_r_chan_t(obi_r_chan_t),
+    .r_optional_t (obi_r_optional_t)
   ) i_r_vote (
     .three_r_i({mgr_ports_rsp_i[select_q[2]].r,
                 mgr_ports_rsp_i[select_q[1]].r,
@@ -114,8 +117,8 @@ module relobi_demux #(
     // Could be voted, but with only one error source (either select_q or rvalid) should suffice
     assign cnt_down[i] = mgr_ports_rsp_i[select_q[i]].rvalid[i] && sbr_port_rready[i];
 
-    assign overflow[i] = counter_q[CounterWidth];
-    assign in_flight[i] = counter_q[CounterWidth-1:0];
+    assign overflow[i] = counter_q[i][CounterWidth];
+    assign in_flight[i] = counter_q[i][CounterWidth-1:0];
 
     always_comb begin
       counter_d[i] = counter_q[i];
@@ -123,7 +126,7 @@ module relobi_demux #(
       if (cnt_up & ~cnt_down) begin
         counter_d[i] = counter_q[i] + {{CounterWidth-1{1'b0}}, 1'b1};
       end else if (cnt_down & ~cnt_up) begin
-        coutner_d[i] = counter_q[i] - {{CounterWidth-1{1'b0}}, 1'b1};
+        counter_d[i] = counter_q[i] - {{CounterWidth-1{1'b0}}, 1'b1};
       end
     end
   end
@@ -141,7 +144,7 @@ module relobi_demux #(
     );
     bitwise_TMR_voter #(
       .DataWidth( CounterWidth+1 )
-    ) i_select_vote (
+    ) i_counter_vote (
       .a_i        (counter_d[0]),
       .b_i        (counter_d[1]),
       .c_i        (counter_d[2]),
