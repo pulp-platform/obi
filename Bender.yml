@@ -55,3 +55,7 @@ sources:
       - src/relobi_encoder.sv
       # Level 4
       - src/relobi_demux.sv
+      - src/relobi_err_sbr.sv
+      - src/relobi_mux.sv
+      # Level 5
+      - src/relobi_xbar.sv
