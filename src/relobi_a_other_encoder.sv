@@ -28,7 +28,7 @@ module relobi_a_other_encoder #(
                   be_i,
                   aid_i,
                   a_optional_i} ),
-    .out       ( {other_ecc, unused} )
+    .out       ( {other_ecc_o, unused} )
   );
 
 endmodule
