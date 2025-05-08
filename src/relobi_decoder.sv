@@ -87,18 +87,17 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .out( rsp_o.r.rdata )
   );
 
-  hsiao_ecc_enc #(
-    .DataWidth ( Cfg.IdWidth /* rid */ +
-                 1           /* err */ +
-                 $bits(r_optional_t) /* optional */ )
+  relobi_r_other_encoder #(
+    .Cfg          (Cfg),
+    .r_optional_t (r_optional_t)
   ) i_r_remaining_enc (
-    .in ( {rsp_i.r.rid,
-           rsp_i.r.err,
-           rsp_i.r.r_optional} ),
-    .out( {rel_rsp_o.r.other_ecc,
-           rel_rsp_o.r.rid,
-           rel_rsp_o.r.err,
-           rel_rsp_o.r.r_optional} )
+    .rid_i       (rsp_i.r.rid),
+    .err_i       (rsp_i.r.err),
+    .r_optional_i(rsp_i.r.r_optional),
+    .other_ecc_o (rel_rsp_o.r.other_ecc)
   );
+  assign rel_rsp_o.r.rid       = rsp_i.r.rid;
+  assign rel_rsp_o.r.err       = rsp_i.r.err;
+  assign rel_rsp_o.r.r_optional = rsp_i.r.r_optional;
 
 endmodule

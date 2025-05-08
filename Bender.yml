@@ -47,6 +47,8 @@ sources:
       # Level 2
       - src/relobi_a_other_decoder.sv
       - src/relobi_a_other_encoder.sv
+      - src/relobi_r_other_decoder.sv
+      - src/relobi_r_other_encoder.sv
       # Level 3
       - src/relobi_decoder.sv
       - src/relobi_encoder.sv

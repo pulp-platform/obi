@@ -34,7 +34,7 @@ package relobi_pkg;
 
     relobi_r_other_width =     1                   /* err */ +
                                Cfg.IdWidth         /* rid */ +
-/* a_optional_t */    max(1, ((Cfg.OptionalCfg.UseAtop    ? 1 : 0) +
+/* r_optional_t */    max(1, ((Cfg.OptionalCfg.UseAtop    ? 1 : 0) +
                                Cfg.OptionalCfg.RUserWidth +
                                Cfg.OptionalCfg.RChkWidth           ));
 
