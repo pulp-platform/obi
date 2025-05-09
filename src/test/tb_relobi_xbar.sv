@@ -241,7 +241,7 @@ module tb_relobi_xbar;
       .rel_req_o (rel_mgr_bus_req[i]),
       .rel_rsp_i (rel_mgr_bus_rsp[i]),
 
-      .relerr_o ()
+      .fault_o ()
     );
   end
 
@@ -277,7 +277,9 @@ module tb_relobi_xbar;
 
     .addr_map_i       ( {3{AddrMap}} ),
     .en_default_idx_i ( '0 ),
-    .default_idx_i    ( '0 )
+    .default_idx_i    ( '0 ),
+
+    .fault_o          ( )
   );
 
   for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_decode
@@ -296,7 +298,7 @@ module tb_relobi_xbar;
       .rel_req_i (rel_sbr_bus_req[i]),
       .rel_rsp_o (rel_sbr_bus_rsp[i]),
 
-      .relerr_o ()
+      .fault_o ()
     );
 
     `OBI_ASSIGN_FROM_REQ(sbr_bus[i], sbr_bus_req[i], SbrConfig)

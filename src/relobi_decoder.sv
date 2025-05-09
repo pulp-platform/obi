@@ -22,10 +22,10 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
   output obi_req_t    req_o,
   input  obi_rsp_t    rsp_i,
 
-  output logic [1:0]  relerr_o
+  output logic [1:0]  fault_o
 );
 
-  logic [1:0][2:0] voter_errs;
+  logic [1:0] voter_errs;
   logic [2:0][1:0] hsiao_errs;
   logic [1:0][2:0] hsiao_errs_transpose;
 
@@ -35,26 +35,26 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     end
   end
 
-  assign relerr_o[0] = |voter_errs | |hsiao_errs_transpose[0];
-  assign relerr_o[1] = |hsiao_errs_transpose[1];
+  assign fault_o[0] = |voter_errs | |hsiao_errs_transpose[0];
+  assign fault_o[1] = |hsiao_errs_transpose[1];
 
-  TMR_voter_detect i_req_valid_vote (
+  TMR_voter_fail i_req_valid_vote (
     .a_i        (rel_req_i.req[0]),
     .b_i        (rel_req_i.req[1]),
     .c_i        (rel_req_i.req[2]),
     .majority_o (req_o.req),
-    .error_cba_o(voter_errs[0])
+    .fault_detected_o(voter_errs[0])
   );
 
   assign rel_rsp_o.gnt = {3{rsp_i.gnt}};
 
   if (Cfg.UseRReady) begin : gen_rready_vote
-    TMR_voter_detect i_rsp_ready_vote (
+    TMR_voter_fail i_rsp_ready_vote (
       .a_i        (rel_req_i.rready[0]),
       .b_i        (rel_req_i.rready[1]),
       .c_i        (rel_req_i.rready[2]),
       .majority_o (req_o.rready),
-      .error_cba_o(voter_errs[1])
+      .fault_detected_o(voter_errs[1])
     );
   end else begin : gen_no_rready
     assign voter_errs[1] = '0;
@@ -93,7 +93,7 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .be_o        (req_o.a.be),
     .aid_o       (req_o.a.aid),
     .a_optional_o(req_o.a.a_optional),
-    .relerr_o    (hsiao_errs[2])
+    .fault_o     (hsiao_errs[2])
   );
 
   hsiao_ecc_enc #(

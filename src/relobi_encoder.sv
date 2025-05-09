@@ -21,7 +21,7 @@ module relobi_encoder #(
   output relobi_req_t rel_req_o,
   input  relobi_rsp_t rel_rsp_i,
 
-  logic  [1:0]        relerr_o
+  logic  [1:0]        fault_o
 );
 
   logic [1:0][2:0] voter_errs;
@@ -34,8 +34,8 @@ module relobi_encoder #(
     end
   end
 
-  assign relerr_o[0] = |voter_errs | |(hsiao_errs_transpose[0]);
-  assign relerr_o[1] = |(hsiao_errs_transpose[1]);
+  assign fault_o[0] = |voter_errs | |(hsiao_errs_transpose[0]);
+  assign fault_o[1] = |(hsiao_errs_transpose[1]);
 
   assign rel_req_o.req = {3{req_i.req}};
 
@@ -108,7 +108,7 @@ module relobi_encoder #(
     .rid_o       (rsp_o.r.rid),
     .err_o       (rsp_o.r.err),
     .r_optional_o(rsp_o.r.r_optional),
-    .relerr_o    (hsiao_errs[1])
+    .fault_o    (hsiao_errs[1])
   );
 
 endmodule

@@ -58,8 +58,20 @@ module relobi_xbar #(
 
   input  addr_map_rule_t [MapWidth-1:0][NumAddrRules-1:0]   addr_map_i,
   input  logic [MapWidth-1:0][NumSbrPorts-1:0]              en_default_idx_i,
-  input  logic [MapWidth-1:0][NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] default_idx_i
+  input  logic [MapWidth-1:0][NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] default_idx_i,
+
+  output logic [1:0] fault_o
 );
+
+  logic [4*NumSbrPorts+NumMgrPorts-1:0][1:0] faults;
+  logic [1:0][4*NumSbrPorts+NumMgrPorts-1:0] faults_transpose;
+  for (genvar i = 0; i < 4*NumSbrPorts+NumMgrPorts; i++) begin : gen_faults_transpose
+    for (genvar j = 0; j < 2; j++) begin
+      assign faults_transpose[j][i] = faults[i][j];
+    end
+  end
+  assign fault_o[0] = |faults_transpose[0];
+  assign fault_o[1] = |faults_transpose[1];
 
   logic [NumSbrPorts-1:0][2:0][$clog2(NumMgrPorts)-1:0] sbr_port_select;
 
@@ -82,7 +94,7 @@ module relobi_xbar #(
         .in        ( sbr_ports_req_i[i].a.addr ),
         .out       ( addr     ),
         .syndrome_o(),
-        .err_o     ()
+        .err_o     (faults[4*i+j])
       );
 
       addr_decode #(
@@ -117,7 +129,8 @@ module relobi_xbar #(
       .sbr_port_req_i    ( sbr_ports_req_i[i] ),
       .sbr_port_rsp_o    ( sbr_ports_rsp_o[i] ),
       .mgr_ports_req_o   ( sbr_reqs[i]        ),
-      .mgr_ports_rsp_i   ( sbr_rsps[i]        )
+      .mgr_ports_rsp_i   ( sbr_rsps[i]        ),
+      .fault_o           ( faults[4*i+3] )
     );
   end
 
@@ -178,7 +191,8 @@ module relobi_xbar #(
       .sbr_ports_req_i ( mgr_reqs[i]        ),
       .sbr_ports_rsp_o ( mgr_rsps[i]        ),
       .mgr_port_req_o  ( mgr_ports_req_o[i] ),
-      .mgr_port_rsp_i  ( mgr_ports_rsp_i[i] )
+      .mgr_port_rsp_i  ( mgr_ports_rsp_i[i] ),
+      .fault_o ( faults[4*NumSbrPorts+i] )
     );
   end
 

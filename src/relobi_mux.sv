@@ -46,7 +46,9 @@ module relobi_mux #(
   output sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp_o,
 
   output mgr_port_obi_req_t                   mgr_port_req_o,
-  input  mgr_port_obi_rsp_t                   mgr_port_rsp_i
+  input  mgr_port_obi_rsp_t                   mgr_port_rsp_i,
+
+  output logic [1:0]                          fault_o
 );
   if (NumSbrPorts <= 1) begin : gen_NumSbrPorts_err
     $fatal(1, "unimplemented");
@@ -65,6 +67,17 @@ module relobi_mux #(
   end
 
   localparam int unsigned RequiredExtraIdWidth = $clog2(NumSbrPorts);
+
+  logic [5:0][1:0] hsiao_faults;
+  logic [1:0][5:0] hsiao_faults_transpose;
+  logic [3:0] voter_faults;
+  for (genvar i = 0; i < 6; i++) begin : gen_hsiao_faults
+    for (genvar j = 0; j < 2; j++) begin
+      assign hsiao_faults_transpose[j][i] = hsiao_faults[i][j];
+    end
+  end
+  assign fault_o[0] = |voter_faults | |hsiao_faults_transpose[0];
+  assign fault_o[1] = |hsiao_faults_transpose[1];
 
   logic [NumSbrPorts-1:0][2:0] sbr_ports_req, sbr_ports_gnt;
   sbr_port_a_chan_t [NumSbrPorts-1:0] sbr_ports_a;
@@ -111,7 +124,7 @@ module relobi_mux #(
 
     .idx_o   ( selected_id         ),
 
-    .relerr_o ()
+    .fault_o ( voter_faults[0] )
   );
 
   for (genvar i = 0; i < 3; i++) begin : gen_tmr_aid
@@ -120,6 +133,7 @@ module relobi_mux #(
         `OBI_SET_A_STRUCT(mgr_port_a_tmr[i], mgr_port_a_in_sbr)
         mgr_port_a_tmr[i].other_ecc = mgr_port_a_in_sbr.other_ecc;
       end
+      assign hsiao_faults[i] = '0;
     end else begin : gen_aid_extend
       logic we;
       logic [MgrPortObiCfg.DataWidth/8-1:0] be;
@@ -141,7 +155,7 @@ module relobi_mux #(
         .aid_o       (sbr_aid),
         .a_optional_o(a_optional),
 
-        .relerr_o ()
+        .fault_o (hsiao_faults[i])
       );
       if (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth +
                                    RequiredExtraIdWidth   ) begin
@@ -177,7 +191,7 @@ module relobi_mux #(
     end
   end
 
-  `VOTE31F(mgr_port_a_tmr, mgr_port_req_o.a, )
+  `VOTE31F(mgr_port_a_tmr, mgr_port_req_o.a, voter_faults[1])
 
   logic [2:0][SbrPortObiCfg.IdWidth-1:0] rsp_rid;
 
@@ -199,13 +213,16 @@ module relobi_mux #(
         .other_ecc_i (mgr_port_rsp_i.r.other_ecc),
         .rid_o       (rsp_rid[i]),
         .err_o       (),
-        .r_optional_o()
+        .r_optional_o(),
+        .fault_o (hsiao_faults[3+i])
       );
 
       assign {response_id[i], rsp_rid[i]} =
         mgr_port_rsp_i.r.rid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0];
       assign fifo_full[i] = 1'b0;
     end
+
+    assign voter_faults[3:2] = '0;
 
   end else begin : gen_no_id_assign
     logic [2:0][RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr_three;
@@ -225,11 +242,11 @@ module relobi_mux #(
         .in        (response_id_encoded),
         .out       (response_id[i]),
         .syndrome_o(),
-        .err_o     () // TODO
+        .err_o     (hsiao_faults[3+i])
       );
     end
 
-    `VOTE31F(selected_id_tmr_three, selected_id_tmr, )
+    `VOTE31F(selected_id_tmr_three, selected_id_tmr, voter_faults[2])
 
     rel_fifo #(
       .FallThrough( 1'b0                 ),
@@ -252,7 +269,7 @@ module relobi_mux #(
       .data_o    ( response_id_encoded                     ),
       .pop_i     ( fifo_pop                                ),
 
-      .fault_o ()
+      .fault_o (voter_faults[3])
     );
 
   end
