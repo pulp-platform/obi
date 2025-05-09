@@ -20,7 +20,7 @@ module relobi_r_other_decoder #(
   output logic                     err_o,
   output r_optional_t              r_optional_o,
 
-  output logic [1:0]               relerr_o
+  output logic [1:0]               fault_o
 );
 
 
@@ -35,7 +35,7 @@ module relobi_r_other_decoder #(
            err_o,
            r_optional_o} ),
     .syndrome_o(),
-    .err_o     (relerr_o)
+    .err_o     (fault_o)
   );
 
 endmodule

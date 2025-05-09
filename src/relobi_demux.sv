@@ -33,12 +33,18 @@ module relobi_demux #(
   output obi_rsp_t                   sbr_port_rsp_o,
 
   output obi_req_t [NumMgrPorts-1:0] mgr_ports_req_o,
-  input  obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp_i
+  input  obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp_i,
+
+  output logic [1:0]                 fault_o
 );
 
   if (ObiCfg.Integrity) begin : gen_integrity_err
     $fatal(1, "unimplemented");
   end
+
+  logic [7:0] faults;
+  assign fault_o[0] = |faults;
+  assign fault_o[1] = 1'b0; // reserved for future use
 
   // stall requests to ensure in-order behavior (could be handled differently with rready)
   localparam int unsigned CounterWidth = cf_math_pkg::idx_width(NumMaxTrans);
@@ -94,7 +100,8 @@ module relobi_demux #(
     .three_r_i({mgr_ports_rsp_i[select_q[2]].r,
                 mgr_ports_rsp_i[select_q[1]].r,
                 mgr_ports_rsp_i[select_q[0]].r}),
-    .voted_r_o(sbr_port_rsp_o.r)
+    .voted_r_o(sbr_port_rsp_o.r),
+    .fault_o (faults[0])
   );
 
   for (genvar i = 0; i < 3; i++) begin : gen_rvalid
@@ -132,25 +139,23 @@ module relobi_demux #(
   end
 
   for (genvar i = 0; i < 3; i++) begin : gen_tmr_state
-    bitwise_TMR_voter #(
+    bitwise_TMR_voter_fail #(
       .DataWidth( $clog2(NumMgrPorts) )
     ) i_select_vote (
       .a_i        (select_d[0]),
       .b_i        (select_d[1]),
       .c_i        (select_d[2]),
       .majority_o (select_d_voted[i]),
-      .error_o    (),
-      .error_cba_o()
+      .fault_detected_o (faults[1+2*i])
     );
-    bitwise_TMR_voter #(
+    bitwise_TMR_voter_fail #(
       .DataWidth( CounterWidth+1 )
     ) i_counter_vote (
       .a_i        (counter_d[0]),
       .b_i        (counter_d[1]),
       .c_i        (counter_d[2]),
       .majority_o (counter_d_voted[i]),
-      .error_o    (),
-      .error_cba_o()
+      .fault_detected_o (faults[2+2*i])
     );
   end
 
