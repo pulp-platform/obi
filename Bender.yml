@@ -20,6 +20,7 @@ sources:
   # Level 2
   - src/obi_intf.sv
   - src/obi_rready_converter.sv
+  - src/apb_to_obi.sv
   # Level 3
   - src/obi_atop_resolver.sv
   - src/obi_cut.sv
