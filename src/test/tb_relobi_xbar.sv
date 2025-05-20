@@ -310,7 +310,7 @@ module tb_relobi_xbar;
     wait(&end_of_sim);
     repeat (1000) @(posedge clk);
     $display("Simulation stopped as all Masters transferred their data, Success.",);
-    $stop();
+    $finish();
   end
 
 endmodule

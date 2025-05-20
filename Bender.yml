@@ -10,7 +10,7 @@ package:
 dependencies:
   common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.38.0 }
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.3 }
-  redundancy_cells: { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: 6b179fa05f40a9a3e1ca3d027e54f724d50e26e0 }
+  redundancy_cells: { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: 08d98b51cbc63bdcebf329b3791995c01b9b646a }
 
 export_include_dirs:
   - include
@@ -31,7 +31,7 @@ sources:
   - src/obi_sram_shim.sv
   # Level 4
   - src/obi_xbar.sv
-  - target: test
+  - target: any(test, obi_test)
     files:
       - src/test/obi_asserter.sv
       - src/test/obi_test.sv
@@ -59,6 +59,6 @@ sources:
       - src/relobi_mux.sv
       # Level 5
       - src/relobi_xbar.sv
-      - target: test
+      - target: any(test, obi_test)
         files:
           - src/test/tb_relobi_xbar.sv

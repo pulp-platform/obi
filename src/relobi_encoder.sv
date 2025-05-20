@@ -21,7 +21,7 @@ module relobi_encoder #(
   output relobi_req_t rel_req_o,
   input  relobi_rsp_t rel_rsp_i,
 
-  logic  [1:0]        fault_o
+  output logic [1:0]  fault_o
 );
 
   logic [1:0][2:0] voter_errs;

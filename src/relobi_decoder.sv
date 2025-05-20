@@ -31,7 +31,7 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
 
   for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs
     for (genvar j = 0; j < 3; j++) begin
-      assign hsiao_errs_transpose[i][j] = hsiao_errs_transpose[j][i];
+      assign hsiao_errs_transpose[i][j] = hsiao_errs[j][i];
     end
   end
 
