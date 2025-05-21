@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+## 0.1.7 - 2025-05-21
+### Fixed
+- `obi_cut`: Fix connection error
+- `obi_atop_resolver`: Add support for any-width OBI atomic transactions.
+- Replace `$clog2` with `idx_width` for widths to ensure non-zero widths.
+- Use `always_comb` blocks with default `='0` for structs to ensure non-assigned field are tied.
+### Added
+- Add `apb_to_obi` module.
+
+## 0.1.6 - 2025-03-26
+### Fixed
+- `obi_atop_resolver`: Fix assertion error output.
+- `obi_cut`: Fix synthesis error.
+
 ## 0.1.5 - 2024-08-15
 ### Fixed
 - `obi_cut`: Fix syntax error.
