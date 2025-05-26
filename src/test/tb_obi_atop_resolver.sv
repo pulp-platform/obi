@@ -169,7 +169,11 @@ module tb_obi_atop_resolver;
 
   obi_mux_intf #(
     .SbrPortObiCfg   ( MgrConfig      ),
+    .sbr_port_a_optional_t ( mgr_a_optional_t ),
+    .sbr_port_r_optional_t ( mgr_r_optional_t ),
     .MgrPortObiCfg   ( MgrMuxedConfig ),
+    .mgr_port_a_optional_t ( mgr_a_optional_t ),
+    .mgr_port_r_optional_t ( mgr_r_optional_t ),
     .NumSbrPorts     ( NumManagers    ),
     .NumMaxTrans     ( 2              ),
     .UseIdForRouting ( 1'b0           )
@@ -183,7 +187,11 @@ module tb_obi_atop_resolver;
 
   obi_atop_resolver_intf #(
     .SbrPortObiCfg ( MgrMuxedConfig ),
+    .sbr_port_a_optional_t ( mgr_a_optional_t ),
+    .sbr_port_r_optional_t ( mgr_r_optional_t ),
     .MgrPortObiCfg ( SbrConfig      ),
+    .mgr_port_a_optional_t ( sbr_a_optional_t ),
+    .mgr_port_r_optional_t ( sbr_r_optional_t ),
     .LrScEnable    ( 1              ),
     .RegisterAmo   ( 1'b0           )
   ) i_atop_resolver (
@@ -196,6 +204,8 @@ module tb_obi_atop_resolver;
 
   obi_sim_mem_intf #(
     .ObiCfg            ( SbrConfig ),
+    .a_optional_t  ( sbr_a_optional_t ),
+    .r_optional_t  ( sbr_r_optional_t ),
     .ClearErrOnAccess  ( 1'b0      ),
     .WarnUninitialized ( 1'b0      ),
     .ApplDelay         ( ApplTime  ),

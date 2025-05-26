@@ -201,11 +201,11 @@ module tb_obi_xbar;
   // DUT
   obi_xbar_intf #(
     .SbrPortObiCfg   ( MgrConfig       ),
-    .sbr_port_obi_a_optional_t (sbr_a_optional_t),
-    .sbr_port_obi_r_optional_t (sbr_r_optional_t),
+    .sbr_port_a_optional_t (mgr_a_optional_t),
+    .sbr_port_r_optional_t (mgr_r_optional_t),
     .MgrPortObiCfg   ( SbrConfig       ),
-    .mgr_port_obi_a_optional_t (mgr_a_optional_t),
-    .mgr_port_obi_r_optional_t (mgr_r_optional_t),
+    .mgr_port_a_optional_t (sbr_a_optional_t),
+    .mgr_port_r_optional_t (sbr_r_optional_t),
     .NumSbrPorts     ( NumManagers     ),
     .NumMgrPorts     ( NumSubordinates ),
     .NumMaxTrans     ( NumMaxTrans     ),
