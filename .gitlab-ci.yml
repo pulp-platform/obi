@@ -3,20 +3,19 @@
 # SPDX-License-Identifier: SHL-0.51
 
 stages:
-  - build
   - sim
 
 variables:
   VSIM: "questa-2022.3 vsim"
-
-build:
-  stage: build
-  script:
-    - make build
+  VCS: "vcs-2024.09-zr vcs"
+  VLOGAN: "vcs-2024.09-zr vlogan"
 
 sim:
   stage: sim
-  dependencies:
-    - build
   script:
-    - make all
+    - make all_vsim
+
+sim-vcs:
+  stage: sim
+  script:
+    - make all_vcs

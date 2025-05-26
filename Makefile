@@ -12,25 +12,28 @@ BENDER_TARGETS += -t relOBI
 
 AVAILABLE_TESTBENCHES = tb_obi_xbar tb_obi_atop_resolver tb_relobi_xbar
 
+TBS_VSIM = $(addsuffix _vsim, $(AVAILABLE_TESTBENCHES))
+TBS_VCS = $(addsuffix _vcs, $(AVAILABLE_TESTBENCHES))
+
 # QuestaSim Flow
-scripts/compile.tcl: Bender.yml Bender.lock
+scripts/compile_vsim.tcl: Bender.yml Bender.lock
 	mkdir -p scripts
 	$(BENDER) script vsim $(BENDER_TARGETS) --vlog-arg="-svinputport=compat" > $@
 
-.PHONY: build
-build: scripts/compile.tcl
-	$(VSIM) -c -do 'exit -code [source scripts/compile.tcl]'
+.PHONY: build_vsim
+build_vsim: scripts/compile_vsim.tcl
+	$(VSIM) -c -do 'exit -code [source scripts/compile_vsim.tcl]'
 
-.PHONY: $(AVAILABLE_TESTBENCHES)
-$(AVAILABLE_TESTBENCHES): build
+.PHONY: $(TBS_VSIM)
+$(TBS_VSIM): build_vsim
 ifdef gui
-	$(VSIM) $@ -voptargs="+acc"
+	$(VSIM) $(patsubst %_vsim, %, $@) -voptargs="+acc"
 else
-	$(VSIM) -c $@ -do "run -all; quit -f"
+	$(VSIM) -c $(patsubst %_vsim, %, $@) -do "run -all; quit -f"
 endif
 
-.PHONY: all
-all: $(AVAILABLE_TESTBENCHES)
+.PHONY: all_vsim
+all_vsim: $(TBS_VSIM)
 
 # VCS Flow
 VCS_COMPILE_ARGS += -debug_access+all -override_timescale=10ns/10ps
@@ -55,9 +58,18 @@ build/%.sim: build_vcs
 	cd build && \
 	$(VCS) $(VCS_COMPILE_ARGS) -o $*.sim $*
 
+.PHONY: $(TBS_VCS)
+$(TBS_VCS):
+	@echo "Running VCS simulation for $@ as $(patsubst %_vcs,%,$@)"
+	$(MAKE) build/$(patsubst %_vcs,%,$@).sim
+	build/$(patsubst %_vcs,%,$@).sim $(VCS_RUNTIME_ARGS)
+
+.PHONY: all_vcs
+all_vcs: $(TBS_VCS)
+
 .PHONY: clean
 clean:
-	rm -f scripts/compile.tcl
+	rm -f scripts/compile_vsim.tcl
 	rm -rf work
 	rm -f modelsim.ini
 	rm -f transcript
