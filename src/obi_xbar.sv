@@ -161,8 +161,12 @@ endmodule
 module obi_xbar_intf #(
   /// The OBI configuration for the subordinate ports (input ports).
   parameter obi_pkg::obi_cfg_t SbrPortObiCfg      = obi_pkg::ObiDefaultConfig,
+  parameter type               sbr_port_obi_a_optional_t = logic,
+  parameter type               sbr_port_obi_r_optional_t = logic,
   /// The OBI configuration for the manager ports (ouput ports).
   parameter obi_pkg::obi_cfg_t MgrPortObiCfg      = SbrPortObiCfg,
+  parameter type               mgr_port_obi_a_optional_t = logic,
+  parameter type               mgr_port_obi_r_optional_t = logic,
   /// The number of subordinate ports (input ports).
   parameter int unsigned       NumSbrPorts        = 32'd0,
   /// The number of manager ports (output ports).
@@ -191,8 +195,8 @@ module obi_xbar_intf #(
   input  logic [NumSbrPorts-1:0][cf_math_pkg::idx_width(NumMgrPorts)-1:0] default_idx_i
 );
 
-  `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
-  `OBI_TYPEDEF_ALL(mgr_port_obi, MgrPortObiCfg)
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(sbr_port_obi, SbrPortObiCfg, sbr_port_obi_a_optional_t, sbr_port_obi_r_optional_t)
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(mgr_port_obi, MgrPortObiCfg, mgr_port_obi_a_optional_t, mgr_port_obi_r_optional_t)
 
   sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req;
   sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp;
