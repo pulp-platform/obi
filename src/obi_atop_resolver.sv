@@ -378,6 +378,7 @@ module obi_atop_resolver
         mgr_port_req_o.a.be   = '0;
         // serve from register if we cut the path
         if (RegisterAmo) begin
+          mgr_port_req_o.req = (state_q == WriteBackAMO);
           mgr_port_req_o.a.wdata = amo_result_q;
           mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
           (amo_operand_addr_q * RiscvWordWidth/8);
