@@ -27,11 +27,12 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
 
   logic [1:0] voter_errs;
   logic [2:0][1:0] hsiao_errs;
+  logic [2:0][1:0] hsiao_errs_gated;
   logic [1:0][2:0] hsiao_errs_transpose;
 
-  for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs
-    for (genvar j = 0; j < 3; j++) begin
-      assign hsiao_errs_transpose[i][j] = hsiao_errs[j][i];
+  for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs_transpose
+    for (genvar j = 0; j < 3; j++) begin : gen_hsiao_errs_transpose_inner
+      assign hsiao_errs_transpose[i][j] = hsiao_errs_gated[j][i];
     end
   end
 
@@ -70,6 +71,7 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .syndrome_o(),
     .err_o     (hsiao_errs[0])
   );
+  assign hsiao_errs_gated[0] = rel_req_i.req[0] ? hsiao_errs[0] : '0;
 
   hsiao_ecc_dec #(
     .DataWidth ( Cfg.DataWidth )
@@ -79,6 +81,7 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .syndrome_o(),
     .err_o     (hsiao_errs[1])
   );
+  assign hsiao_errs_gated[1] = rel_req_i.req[0] ? hsiao_errs[1] : '0;
 
   relobi_a_other_decoder #(
     .Cfg          (Cfg),
@@ -95,6 +98,7 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .a_optional_o(req_o.a.a_optional),
     .fault_o     (hsiao_errs[2])
   );
+  assign hsiao_errs_gated[2] = rel_req_i.req[0] ? hsiao_errs[2] : '0;
 
   hsiao_ecc_enc #(
     .DataWidth ( Cfg.DataWidth )

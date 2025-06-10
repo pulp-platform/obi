@@ -68,12 +68,13 @@ module relobi_mux #(
 
   localparam int unsigned RequiredExtraIdWidth = $clog2(NumSbrPorts);
 
-  logic [5:0][1:0] hsiao_faults;
-  logic [1:0][5:0] hsiao_faults_transpose;
-  logic [3:0] voter_faults;
-  for (genvar i = 0; i < 6; i++) begin : gen_hsiao_faults
-    for (genvar j = 0; j < 2; j++) begin
-      assign hsiao_faults_transpose[j][i] = hsiao_faults[i][j];
+  logic [6:0][1:0] hsiao_faults;
+  logic [6:0][1:0] hsiao_faults_gated;
+  logic [1:0][6:0] hsiao_faults_transpose;
+  logic [4:0] voter_faults;
+  for (genvar i = 0; i < 7; i++) begin : gen_hsiao_faults_transpose
+    for (genvar j = 0; j < 2; j++) begin : gen_hsiao_faults_transpose_inner
+      assign hsiao_faults_transpose[j][i] = hsiao_faults_gated[i][j];
     end
   end
   assign fault_o[0] = |voter_faults | |hsiao_faults_transpose[0];
@@ -134,6 +135,7 @@ module relobi_mux #(
         mgr_port_a_tmr[i].other_ecc = mgr_port_a_in_sbr.other_ecc;
       end
       assign hsiao_faults[i] = '0;
+      assign hsiao_faults_gated[i] = '0;
     end else begin : gen_aid_extend
       logic we;
       logic [MgrPortObiCfg.DataWidth/8-1:0] be;
@@ -157,13 +159,14 @@ module relobi_mux #(
 
         .fault_o (hsiao_faults[i])
       );
+      assign hsiao_faults_gated[i] = mgr_port_req[i] ? hsiao_faults[i] : '0;
       if (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth +
-                                   RequiredExtraIdWidth   ) begin
+                                   RequiredExtraIdWidth   ) begin : gen_aid_extend
         always_comb begin
           mgr_aid = '0;
           mgr_aid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0] = {selected_id[i], sbr_aid};
         end
-      end else begin
+      end else begin : gen_aid_noextend
         always_comb begin
           mgr_aid = '0;
           mgr_aid[SbrPortObiCfg.IdWidth-1:0] = sbr_aid;
@@ -216,6 +219,7 @@ module relobi_mux #(
         .r_optional_o(),
         .fault_o (hsiao_faults[3+i])
       );
+      assign hsiao_faults_gated[3+i] = mgr_port_rsp_i.rvalid[i] ? hsiao_faults[3+i] : '0;
 
       assign {response_id[i], rsp_rid[i]} =
         mgr_port_rsp_i.r.rid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0];
@@ -244,6 +248,7 @@ module relobi_mux #(
         .syndrome_o(),
         .err_o     (hsiao_faults[3+i])
       );
+      assign hsiao_faults_gated[3+i] = fifo_pop[i] ? hsiao_faults[3+i] : '0;
     end
 
     `VOTE31F(selected_id_tmr_three, selected_id_tmr, voter_faults[2])

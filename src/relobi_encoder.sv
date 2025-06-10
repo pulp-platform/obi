@@ -25,17 +25,24 @@ module relobi_encoder #(
 );
 
   logic [1:0][2:0] voter_errs;
+  logic [1:0]      voter_errs_red;
+  logic            voter_errs_red_red;
   logic [1:0][1:0] hsiao_errs;
+  logic [2:0][1:0] hsiao_errs_gated;
   logic [1:0][1:0] hsiao_errs_transpose;
+  logic [1:0]      hsiao_errs_transpose_red;
 
-  for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs
-    for (genvar j = 0; j < 2; j++) begin
-      assign hsiao_errs_transpose[i][j] = hsiao_errs_transpose[j][i];
+  for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs_transpose
+    assign voter_errs_red[i] = |voter_errs[i];
+    assign hsiao_errs_transpose_red[i] = |hsiao_errs_transpose[i];
+    for (genvar j = 0; j < 2; j++) begin : gen_hsiao_errs_transpose_inner
+      assign hsiao_errs_transpose[i][j] = hsiao_errs_gated[j][i];
     end
   end
 
-  assign fault_o[0] = |voter_errs | |(hsiao_errs_transpose[0]);
-  assign fault_o[1] = |(hsiao_errs_transpose[1]);
+  assign voter_errs_red_red = |voter_errs_red;
+  assign fault_o[0] = voter_errs_red_red | hsiao_errs_transpose_red[0];
+  assign fault_o[1] = hsiao_errs_transpose_red[1];
 
   assign rel_req_o.req = {3{req_i.req}};
 
@@ -96,6 +103,7 @@ module relobi_encoder #(
     .syndrome_o(),
     .err_o     (hsiao_errs[0])
   );
+  assign hsiao_errs_gated[0] = rel_rsp_i.rvalid[0] ? hsiao_errs[0] : '0;
 
   relobi_r_other_decoder #(
     .Cfg          (Cfg),
@@ -110,5 +118,6 @@ module relobi_encoder #(
     .r_optional_o(rsp_o.r.r_optional),
     .fault_o    (hsiao_errs[1])
   );
+  assign hsiao_errs_gated[1] = rel_rsp_i.rvalid[0] ? hsiao_errs[1] : '0;
 
 endmodule
