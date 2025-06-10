@@ -68,11 +68,11 @@ module relobi_mux #(
 
   localparam int unsigned RequiredExtraIdWidth = $clog2(NumSbrPorts);
 
-  logic [6:0][1:0] hsiao_faults;
-  logic [6:0][1:0] hsiao_faults_gated;
-  logic [1:0][6:0] hsiao_faults_transpose;
+  logic [8:0][1:0] hsiao_faults;
+  logic [8:0][1:0] hsiao_faults_gated;
+  logic [1:0][8:0] hsiao_faults_transpose;
   logic [4:0] voter_faults;
-  for (genvar i = 0; i < 7; i++) begin : gen_hsiao_faults_transpose
+  for (genvar i = 0; i < 9; i++) begin : gen_hsiao_faults_transpose
     for (genvar j = 0; j < 2; j++) begin : gen_hsiao_faults_transpose_inner
       assign hsiao_faults_transpose[j][i] = hsiao_faults_gated[i][j];
     end
@@ -286,15 +286,74 @@ module relobi_mux #(
   end
   logic [NumSbrPorts-1:0][2:0] sbr_rsp_rvalid;
   sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
-  always_comb begin : proc_sbr_rsp
-    for (int i = 0; i < NumSbrPorts; i++) begin
-      // Always assign r struct to avoid triplication overhead
-      `OBI_SET_R_STRUCT(sbr_rsp_r[i], mgr_port_rsp_i.r);
-      sbr_rsp_r[i].other_ecc = mgr_port_rsp_i.r.other_ecc;
-      sbr_rsp_rvalid[i] = '0;
+  if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_rid_identical
+    always_comb begin : proc_sbr_rsp
+      for (int i = 0; i < NumSbrPorts; i++) begin
+        // Always assign r struct to avoid triplication overhead
+        `OBI_SET_R_STRUCT(sbr_rsp_r[i], mgr_port_rsp_i.r);
+        sbr_rsp_r[i].other_ecc = mgr_port_rsp_i.r.other_ecc;
+        sbr_rsp_rvalid[i] = '0;
+      end
+      for (int i = 0; i < 3; i++) begin
+        sbr_rsp_rvalid[response_id[i]][i] = mgr_port_rsp_i.rvalid[i];
+      end
     end
-    for (int i = 0; i < 3; i++) begin
-      sbr_rsp_rvalid[response_id[i]][i] = mgr_port_rsp_i.rvalid[i];
+    assign hsiao_faults[8:6] = '0;
+    assign hsiao_faults_gated[8:6] = '0;
+    assign voter_faults[4] = '0;
+  end else begin : gen_rid_decrease
+    logic [2:0][MgrPortObiCfg.IdWidth-1:0] mgr_rid_tmr;
+    sbr_port_r_chan_t [2:0] sbr_r_tmr;
+    sbr_port_r_chan_t sbr_r;
+
+    for (genvar i = 0; i < 3; i++) begin : gen_tmr_rid
+      relobi_r_other_decoder #(
+        .Cfg          (MgrPortObiCfg),
+        .r_optional_t (r_optional_t)
+      ) i_r_other_decode (
+        .rid_i       (mgr_port_rsp_i.r.rid),
+        .err_i       (mgr_port_rsp_i.r.err),
+        .r_optional_i(mgr_port_rsp_i.r.r_optional),
+        .other_ecc_i (mgr_port_rsp_i.r.other_ecc),
+        .rid_o       (mgr_rid_tmr[i]),
+        .err_o       (sbr_r_tmr[i].err),
+        .r_optional_o(sbr_r_tmr[i].r_optional),
+        .fault_o (hsiao_faults[6+i])
+      );
+      assign sbr_r_tmr[i].rid = mgr_rid_tmr[i][SbrPortObiCfg.IdWidth-1:0];
+      relobi_r_other_encoder #(
+        .Cfg          (SbrPortObiCfg),
+        .r_optional_t (r_optional_t)
+      ) i_r_other_encode (
+        .rid_i       (sbr_r_tmr[i].rid),
+        .err_i       (sbr_r_tmr[i].err),
+        .r_optional_i(sbr_r_tmr[i].r_optional),
+        .other_ecc_o (sbr_r_tmr[i].other_ecc)
+      );
+      assign sbr_r_tmr[i].rdata = mgr_port_rsp_i.r.rdata;
+    end
+    assign hsiao_faults_gated[8:6] = fifo_pop[0] ? hsiao_faults[8:6] : '0;
+    always_comb begin
+      sbr_rsp_rvalid = '0;
+      for (int i = 0; i < 3; i++) begin
+        sbr_rsp_rvalid[response_id[i]][i] = mgr_port_rsp_i.rvalid[i];
+      end
+    end
+    relobi_tmr_r #(
+      .ObiCfg (SbrPortObiCfg),
+      .obi_r_chan_t (sbr_port_r_chan_t),
+      .r_optional_t (r_optional_t)
+    ) tmr_r_vote (
+      .three_r_i(sbr_r_tmr),
+      .voted_r_o(sbr_r),
+      .fault_o (voter_faults[4])
+    );
+    for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_r_assign
+      assign sbr_rsp_r[i].rdata = sbr_r.rdata;
+      assign sbr_rsp_r[i].rid = sbr_r.rid;
+      assign sbr_rsp_r[i].err = sbr_r.err;
+      assign sbr_rsp_r[i].r_optional = sbr_r.r_optional;
+      assign sbr_rsp_r[i].other_ecc = sbr_r.other_ecc;
     end
   end
 
