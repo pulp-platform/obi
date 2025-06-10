@@ -42,7 +42,7 @@ module relobi_demux #(
     $fatal(1, "unimplemented");
   end
 
-  logic [7:0] faults;
+  logic [6:0] faults;
   assign fault_o[0] = |faults;
   assign fault_o[1] = 1'b0; // reserved for future use
 

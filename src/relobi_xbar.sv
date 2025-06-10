@@ -66,7 +66,7 @@ module relobi_xbar #(
   logic [4*NumSbrPorts+NumMgrPorts-1:0][1:0] faults;
   logic [1:0][4*NumSbrPorts+NumMgrPorts-1:0] faults_transpose;
   for (genvar i = 0; i < 4*NumSbrPorts+NumMgrPorts; i++) begin : gen_faults_transpose
-    for (genvar j = 0; j < 2; j++) begin
+    for (genvar j = 0; j < 2; j++) begin : gen_faults_transpose_inner
       assign faults_transpose[j][i] = faults[i][j];
     end
   end

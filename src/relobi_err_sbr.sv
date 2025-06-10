@@ -4,7 +4,7 @@
 
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
-module obi_err_sbr #(
+module relobi_err_sbr #(
   /// The OBI configuration for all ports.
   parameter obi_pkg::obi_cfg_t           ObiCfg      = obi_pkg::ObiDefaultConfig,
   /// The request struct.
@@ -66,7 +66,7 @@ endmodule
 `include "obi/typedef.svh"
 `include "obi/assign.svh"
 
-module obi_err_sbr_intf #(
+module relobi_err_sbr_intf #(
   /// The OBI configuration for all ports.
   parameter obi_pkg::obi_cfg_t           ObiCfg      = obi_pkg::ObiDefaultConfig,
   /// Numper of transactions accepted before stalling if UseRReady

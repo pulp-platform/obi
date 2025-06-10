@@ -36,12 +36,13 @@ endif
 all_vsim: $(TBS_VSIM)
 
 # VCS Flow
+VCS_SCRIPT_ARGS += -assert svaext +v2k -override_timescale=10ns/10ps -kdb
 VCS_COMPILE_ARGS += -debug_access+all -override_timescale=10ns/10ps
 VCS_RUNTIME_ARGS =
 
 scripts/compile_vcs.sh: Bender.yml Bender.lock
 	mkdir -p scripts
-	$(BENDER) script vcs --vlogan-bin="$(VLOGAN)" $(BENDER_TARGETS) --vlog-arg="-assert svaext +v2k -override_timescale=10ns10ps -kdb" > $@
+	$(BENDER) script vcs --vlogan-bin="$(VLOGAN)" $(BENDER_TARGETS) --vlog-arg="$(VCS_SCRIPT_ARGS)" > $@
 
 .PHONY: build_vcs
 build_vcs: scripts/compile_vcs.sh
