@@ -6,7 +6,7 @@ stages:
   - sim
 
 variables:
-  VSIM: "questa-2022.3 vsim"
+  VSIM: "questa-2025.1-dz vsim"
   VCS: "vcs-2024.09-zr vcs"
   VLOGAN: "vcs-2024.09-zr vlogan"
 
