@@ -393,8 +393,8 @@ module obi_atop_resolver
   end
 
   if (RegisterAmo) begin : gen_amo_slice
-    `FFLNR(amo_result_q, amo_result, (state_q == DoAMO), clk_i)
-    `FFLNR(amo_operand_addr_q, amo_operand_addr, (state_q == DoAMO), clk_i)
+    `FFL(amo_result_q, amo_result, (state_q == DoAMO), '0, clk_i, rst_ni)
+    `FFL(amo_operand_addr_q, amo_operand_addr, (state_q == DoAMO), '0, clk_i, rst_ni)
   end else begin : gen_amo_slice
     assign amo_result_q = '0;
     assign amo_operand_addr_q = '0;
