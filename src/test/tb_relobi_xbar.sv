@@ -321,16 +321,17 @@ module tb_relobi_xbar;
     uncorrectable_fault = xbar_fault[1];
 
     for (int unsigned i = 0; i < NumManagers; i++) begin
-      corrected_fault = corrected_fault || encoder_faults[i][0];
-      uncorrectable_fault = uncorrectable_fault || encoder_faults[i][1];
+      corrected_fault |= encoder_faults[i][0];
+      uncorrectable_fault |= encoder_faults[i][1];
     end
     for (int unsigned i = 0; i < NumSubordinates; i++) begin
-      corrected_fault = corrected_fault || decoder_faults[i][0];
-      uncorrectable_fault = uncorrectable_fault || decoder_faults[i][1];
+      corrected_fault |= decoder_faults[i][0];
+      uncorrectable_fault |= decoder_faults[i][1];
     end
   end
 
   always @(posedge clk) begin
+    #(TestTime);
     if (rst_n == 1'b1) begin
       if (uncorrectable_fault) begin
         $display("Uncorrectable fault detected in the crossbar at %t.", $time);
