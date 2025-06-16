@@ -7,6 +7,186 @@
 `include "obi/typedef.svh"
 `include "obi/assign.svh"
 
+module relobi_xbar_dut_wrapper #(
+  parameter int unsigned NumManagers = 32'd6,
+  parameter int unsigned NumSubordinates = 32'd8,
+  parameter obi_pkg::obi_cfg_t MgrConfig = obi_pkg::ObiDefaultConfig,
+  parameter obi_pkg::obi_cfg_t SbrConfig = obi_pkg::ObiDefaultConfig,
+  parameter type rel_mgr_bus_req_t = logic,
+  parameter type rel_mgr_bus_rsp_t = logic,
+  parameter type rel_mgr_bus_a_chan_t = logic,
+  parameter type rel_mgr_bus_r_chan_t = logic,
+  parameter type rel_sbr_bus_req_t = logic,
+  parameter type rel_sbr_bus_rsp_t = logic,
+  parameter type rel_sbr_bus_a_chan_t = logic,
+  parameter type rel_sbr_bus_r_chan_t = logic,
+  parameter type mgr_bus_req_t = logic,
+  parameter type mgr_bus_rsp_t = logic,
+  parameter type sbr_bus_req_t = logic,
+  parameter type sbr_bus_rsp_t = logic,
+  parameter type mgr_a_optional_t = logic,
+  parameter type mgr_r_optional_t = logic,
+  parameter type sbr_a_optional_t = logic,
+  parameter type sbr_r_optional_t = logic,
+  parameter int unsigned NumMaxTrans = 32'd8,
+  parameter int unsigned NumRules = 8,
+  parameter type rule_t = struct packed {
+    int unsigned idx;
+    logic [31:0] start_addr;
+    logic [31:0] end_addr;
+  },
+  parameter rule_t [NumRules-1:0] AddrMap = '0,
+  parameter bit UseIdForRouting = 1'b0,
+  parameter time TestTime = 8ns
+) (
+  input  logic clk,
+  input  logic rst_n,
+
+  // Manager ports
+  input  mgr_bus_req_t [NumManagers-1:0] mgr_bus_req,
+  output mgr_bus_rsp_t [NumManagers-1:0] mgr_bus_rsp,
+
+  // Subordinate ports
+  output sbr_bus_req_t [NumSubordinates-1:0] sbr_bus_req,
+  input  sbr_bus_rsp_t [NumSubordinates-1:0] sbr_bus_rsp
+);
+
+  localparam int unsigned MgrBusReqBits = $bits(mgr_bus_req_t);
+  localparam int unsigned MgrBusRspBits = $bits(mgr_bus_rsp_t);
+  localparam int unsigned SbrBusReqBits = $bits(sbr_bus_req_t);
+  localparam int unsigned SbrBusRspBits = $bits(sbr_bus_rsp_t);
+
+  rel_mgr_bus_req_t [NumManagers-1:0] rel_mgr_bus_req;
+  rel_mgr_bus_rsp_t [NumManagers-1:0] rel_mgr_bus_rsp;
+  rel_sbr_bus_req_t [NumSubordinates-1:0] rel_sbr_bus_req;
+  rel_sbr_bus_rsp_t [NumSubordinates-1:0] rel_sbr_bus_rsp;
+
+  logic [1:0] xbar_fault;
+  logic [NumManagers-1:0][1:0] encoder_faults;
+  logic [NumSubordinates-1:0][1:0] decoder_faults;
+
+  logic [NumManagers-1:0][MgrBusRspBits-1:0] mgr_bus_rsp_flat;
+  for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_bus_rsp
+    assign mgr_bus_rsp_flat[i] = mgr_bus_rsp[i];
+  end
+
+  logic [NumSubordinates-1:0][SbrBusReqBits-1:0] sbr_bus_req_flat;
+  for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_bus_req
+    assign sbr_bus_req_flat[i] = sbr_bus_req[i];
+  end
+
+
+  for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_encode
+    relobi_encoder #(
+      .Cfg          ( MgrConfig         ),
+      .relobi_req_t ( rel_mgr_bus_req_t ),
+      .relobi_rsp_t ( rel_mgr_bus_rsp_t ),
+      .obi_req_t    ( mgr_bus_req_t     ),
+      .obi_rsp_t    ( mgr_bus_rsp_t     ),
+      .a_optional_t ( mgr_a_optional_t  ),
+      .r_optional_t ( mgr_r_optional_t  )
+    ) i_enc_mgr (
+      .req_i (mgr_bus_req[i]),
+      .rsp_o (mgr_bus_rsp[i]),
+
+      .rel_req_o (rel_mgr_bus_req[i]),
+      .rel_rsp_i (rel_mgr_bus_rsp[i]),
+
+      .fault_o (encoder_faults[i]  )
+    );
+  end
+
+  relobi_xbar #(
+    .SbrPortObiCfg   ( MgrConfig       ),
+    .MgrPortObiCfg   ( SbrConfig       ),
+    .sbr_port_obi_req_t ( rel_mgr_bus_req_t     ),
+    .sbr_port_a_chan_t  ( rel_mgr_bus_a_chan_t  ),
+    .sbr_port_obi_rsp_t ( rel_mgr_bus_rsp_t     ),
+    .sbr_port_r_chan_t  ( rel_mgr_bus_r_chan_t  ),
+    .mgr_port_obi_req_t ( rel_sbr_bus_req_t     ),
+    .mgr_port_obi_rsp_t ( rel_sbr_bus_rsp_t     ),
+    .mgr_port_a_chan_t  ( rel_sbr_bus_a_chan_t  ),
+    .a_optional_t       ( mgr_a_optional_t  ),
+    .r_optional_t       ( mgr_r_optional_t  ),
+    .NumSbrPorts     ( NumManagers     ),
+    .NumMgrPorts     ( NumSubordinates ),
+    .NumMaxTrans     ( NumMaxTrans     ),
+    .NumAddrRules    ( NumRules        ),
+    .addr_map_rule_t ( rule_t          ),
+    .UseIdForRouting ( UseIdForRouting ),
+    .TmrMap (1'b1)
+  ) i_dut (
+    .clk_i            ( clk     ),
+    .rst_ni           ( rst_n   ),
+    .testmode_i       ( 1'b0    ),
+
+    .sbr_ports_req_i  ( rel_mgr_bus_req ),
+    .sbr_ports_rsp_o  ( rel_mgr_bus_rsp ),
+
+    .mgr_ports_req_o  ( rel_sbr_bus_req ),
+    .mgr_ports_rsp_i  ( rel_sbr_bus_rsp ),
+
+    .addr_map_i       ( {3{AddrMap}} ),
+    .en_default_idx_i ( '0 ),
+    .default_idx_i    ( '0 ),
+
+    .fault_o          ( xbar_fault         )
+  );
+
+  for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_decode
+    relobi_decoder #(
+      .Cfg          ( SbrConfig         ),
+      .relobi_req_t ( rel_sbr_bus_req_t ),
+      .relobi_rsp_t ( rel_sbr_bus_rsp_t ),
+      .obi_req_t    ( sbr_bus_req_t     ),
+      .obi_rsp_t    ( sbr_bus_rsp_t     ),
+      .a_optional_t ( sbr_a_optional_t  ),
+      .r_optional_t ( sbr_r_optional_t  )
+    ) i_dec_sbr (
+      .req_o (sbr_bus_req[i]),
+      .rsp_i (sbr_bus_rsp[i]),
+
+      .rel_req_i (rel_sbr_bus_req[i]),
+      .rel_rsp_o (rel_sbr_bus_rsp[i]),
+
+      .fault_o ( decoder_faults[i]  )
+    );
+  end
+
+  // Fault indication
+  logic corrected_fault;
+  logic uncorrectable_fault;
+  always_comb begin
+    corrected_fault = xbar_fault[0];
+    uncorrectable_fault = xbar_fault[1];
+
+    for (int unsigned i = 0; i < NumManagers; i++) begin
+      corrected_fault |= encoder_faults[i][0];
+      uncorrectable_fault |= encoder_faults[i][1];
+    end
+    for (int unsigned i = 0; i < NumSubordinates; i++) begin
+      corrected_fault |= decoder_faults[i][0];
+      uncorrectable_fault |= decoder_faults[i][1];
+    end
+  end
+
+  always @(posedge clk) begin
+    #(TestTime);
+    if (rst_n == 1'b1) begin
+      if (uncorrectable_fault) begin
+        $display("Uncorrectable fault detected in the crossbar at %t.", $time);
+      end else if (corrected_fault) begin
+        $display("Corrected fault detected in the crossbar at %t.", $time);
+      end
+    end
+  end
+
+  `ifdef TARGET_ZOIX
+  `include "strobe.sv"
+  `endif
+
+endmodule
+
 module tb_relobi_xbar;
   import obi_pkg::*;
 
@@ -212,133 +392,59 @@ module tb_relobi_xbar;
   `OBI_TYPEDEF_ALL_DEFAULT_WITH_OPTIONAL(sbr_bus, SbrConfig, sbr_a_optional_t, sbr_r_optional_t)
   `RELOBI_TYPEDEF_ALL_WITH_OPTIONAL(rel_mgr_bus, MgrConfig, mgr_a_optional_t, mgr_r_optional_t)
   `RELOBI_TYPEDEF_ALL_WITH_OPTIONAL(rel_sbr_bus, SbrConfig, sbr_a_optional_t, sbr_r_optional_t)
-  localparam int unsigned MgrBusReqBits = $bits(mgr_bus_req_t);
-  localparam int unsigned MgrBusRspBits = $bits(mgr_bus_rsp_t);
-  localparam int unsigned SbrBusReqBits = $bits(sbr_bus_req_t);
-  localparam int unsigned SbrBusRspBits = $bits(sbr_bus_rsp_t);
   mgr_bus_req_t [NumManagers-1:0] mgr_bus_req;
   mgr_bus_rsp_t [NumManagers-1:0] mgr_bus_rsp;
   sbr_bus_req_t [NumSubordinates-1:0] sbr_bus_req;
   sbr_bus_rsp_t [NumSubordinates-1:0] sbr_bus_rsp;
-  rel_mgr_bus_req_t [NumManagers-1:0] rel_mgr_bus_req;
-  rel_mgr_bus_rsp_t [NumManagers-1:0] rel_mgr_bus_rsp;
-  rel_sbr_bus_req_t [NumSubordinates-1:0] rel_sbr_bus_req;
-  rel_sbr_bus_rsp_t [NumSubordinates-1:0] rel_sbr_bus_rsp;
-  logic [1:0] xbar_fault;
-  logic [NumManagers-1:0][1:0] encoder_faults;
-  logic [NumSubordinates-1:0][1:0] decoder_faults;
 
   for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_encode
-
     `OBI_ASSIGN_TO_REQ(mgr_bus_req[i], mgr_bus[i], MgrConfig)
     `OBI_ASSIGN_FROM_RSP(mgr_bus[i], mgr_bus_rsp[i], MgrConfig)
-
-    relobi_encoder #(
-      .Cfg          ( MgrConfig         ),
-      .relobi_req_t ( rel_mgr_bus_req_t ),
-      .relobi_rsp_t ( rel_mgr_bus_rsp_t ),
-      .obi_req_t    ( mgr_bus_req_t     ),
-      .obi_rsp_t    ( mgr_bus_rsp_t     ),
-      .a_optional_t ( mgr_a_optional_t  ),
-      .r_optional_t ( mgr_r_optional_t  )
-    ) i_enc_mgr (
-      .req_i (mgr_bus_req[i]),
-      .rsp_o (mgr_bus_rsp[i]),
-
-      .rel_req_o (rel_mgr_bus_req[i]),
-      .rel_rsp_i (rel_mgr_bus_rsp[i]),
-
-      .fault_o (encoder_faults[i]  )
-    );
   end
 
-  relobi_xbar #(
-    .SbrPortObiCfg   ( MgrConfig       ),
-    .MgrPortObiCfg   ( SbrConfig       ),
-    .sbr_port_obi_req_t ( rel_mgr_bus_req_t     ),
-    .sbr_port_a_chan_t  ( rel_mgr_bus_a_chan_t  ),
-    .sbr_port_obi_rsp_t ( rel_mgr_bus_rsp_t     ),
-    .sbr_port_r_chan_t  ( rel_mgr_bus_r_chan_t  ),
-    .mgr_port_obi_req_t ( rel_sbr_bus_req_t     ),
-    .mgr_port_obi_rsp_t ( rel_sbr_bus_rsp_t     ),
-    .mgr_port_a_chan_t  ( rel_sbr_bus_a_chan_t  ),
-    .a_optional_t       ( mgr_a_optional_t  ),
-    .r_optional_t       ( mgr_r_optional_t  ),
-    .NumSbrPorts     ( NumManagers     ),
-    .NumMgrPorts     ( NumSubordinates ),
-    .NumMaxTrans     ( NumMaxTrans     ),
-    .NumAddrRules    ( NumRules        ),
-    .addr_map_rule_t ( rule_t          ),
-    .UseIdForRouting ( UseIdForRouting ),
-    .TmrMap (1'b1)
-  ) i_dut (
-    .clk_i            ( clk     ),
-    .rst_ni           ( rst_n   ),
-    .testmode_i       ( 1'b0    ),
+  relobi_xbar_dut_wrapper #(
+    .NumManagers(NumManagers),
+    .NumSubordinates(NumSubordinates),
+    .MgrConfig(MgrConfig),
+    .SbrConfig(SbrConfig),
+    .rel_mgr_bus_req_t(rel_mgr_bus_req_t),
+    .rel_mgr_bus_rsp_t(rel_mgr_bus_rsp_t),
+    .rel_mgr_bus_a_chan_t(rel_mgr_bus_a_chan_t),
+    .rel_mgr_bus_r_chan_t(rel_mgr_bus_r_chan_t),
+    .rel_sbr_bus_req_t(rel_sbr_bus_req_t),
+    .rel_sbr_bus_rsp_t(rel_sbr_bus_rsp_t),
+    .rel_sbr_bus_a_chan_t(rel_sbr_bus_a_chan_t),
+    .rel_sbr_bus_r_chan_t(rel_sbr_bus_r_chan_t),
+    .mgr_bus_req_t(mgr_bus_req_t),
+    .mgr_bus_rsp_t(mgr_bus_rsp_t),
+    .sbr_bus_req_t(sbr_bus_req_t),
+    .sbr_bus_rsp_t(sbr_bus_rsp_t),
+    .mgr_a_optional_t(mgr_a_optional_t),
+    .mgr_r_optional_t(mgr_r_optional_t),
+    .sbr_a_optional_t(sbr_a_optional_t),
+    .sbr_r_optional_t(sbr_r_optional_t),
+    .NumMaxTrans(NumMaxTrans),
+    .NumRules(NumRules),
+    .rule_t(rule_t),
+    .AddrMap(AddrMap),
+    .UseIdForRouting(UseIdForRouting),
+    .TestTime(TestTime)
+  ) i_dut_wrapper (
+    .clk,
+    .rst_n,
 
-    .sbr_ports_req_i  ( rel_mgr_bus_req ),
-    .sbr_ports_rsp_o  ( rel_mgr_bus_rsp ),
+    // Manager ports
+    .mgr_bus_req,
+    .mgr_bus_rsp,
 
-    .mgr_ports_req_o  ( rel_sbr_bus_req ),
-    .mgr_ports_rsp_i  ( rel_sbr_bus_rsp ),
-
-    .addr_map_i       ( {3{AddrMap}} ),
-    .en_default_idx_i ( '0 ),
-    .default_idx_i    ( '0 ),
-
-    .fault_o          ( xbar_fault         )
+    // Subordinate ports
+    .sbr_bus_req,
+    .sbr_bus_rsp
   );
 
   for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_decode
-    relobi_decoder #(
-      .Cfg          ( SbrConfig         ),
-      .relobi_req_t ( rel_sbr_bus_req_t ),
-      .relobi_rsp_t ( rel_sbr_bus_rsp_t ),
-      .obi_req_t    ( sbr_bus_req_t     ),
-      .obi_rsp_t    ( sbr_bus_rsp_t     ),
-      .a_optional_t ( sbr_a_optional_t  ),
-      .r_optional_t ( sbr_r_optional_t  )
-    ) i_dec_sbr (
-      .req_o (sbr_bus_req[i]),
-      .rsp_i (sbr_bus_rsp[i]),
-
-      .rel_req_i (rel_sbr_bus_req[i]),
-      .rel_rsp_o (rel_sbr_bus_rsp[i]),
-
-      .fault_o ( decoder_faults[i]  )
-    );
-
     `OBI_ASSIGN_FROM_REQ(sbr_bus[i], sbr_bus_req[i], SbrConfig)
     `OBI_ASSIGN_TO_RSP(sbr_bus_rsp[i], sbr_bus[i], SbrConfig)
-
-  end
-
-  // Fault indication
-  logic corrected_fault;
-  logic uncorrectable_fault;
-  always_comb begin
-    corrected_fault = xbar_fault[0];
-    uncorrectable_fault = xbar_fault[1];
-
-    for (int unsigned i = 0; i < NumManagers; i++) begin
-      corrected_fault |= encoder_faults[i][0];
-      uncorrectable_fault |= encoder_faults[i][1];
-    end
-    for (int unsigned i = 0; i < NumSubordinates; i++) begin
-      corrected_fault |= decoder_faults[i][0];
-      uncorrectable_fault |= decoder_faults[i][1];
-    end
-  end
-
-  always @(posedge clk) begin
-    #(TestTime);
-    if (rst_n == 1'b1) begin
-      if (uncorrectable_fault) begin
-        $display("Uncorrectable fault detected in the crossbar at %t.", $time);
-      end else if (corrected_fault) begin
-        $display("Corrected fault detected in the crossbar at %t.", $time);
-      end
-    end
   end
 
   initial begin

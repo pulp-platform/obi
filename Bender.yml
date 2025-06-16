@@ -61,4 +61,11 @@ sources:
       - src/relobi_xbar.sv
       - target: any(test, obi_test)
         files:
-          - src/test/tb_relobi_xbar.sv
+        - target: ZOIX
+          files:
+            - src/test/tb_relobi_xbar.sv
+          include_dirs:
+            - fault_sim
+        - target: not(ZOIX)
+          files:
+            - src/test/tb_relobi_xbar.sv
