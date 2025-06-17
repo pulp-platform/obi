@@ -130,9 +130,9 @@ module relobi_demux #(
     always_comb begin
       counter_d[i] = counter_q[i];
 
-      if (cnt_up & ~cnt_down) begin
+      if (cnt_up[i] & ~cnt_down[i]) begin
         counter_d[i] = counter_q[i] + {{CounterWidth-1{1'b0}}, 1'b1};
-      end else if (cnt_down & ~cnt_up) begin
+      end else if (cnt_down[i] & ~cnt_up[i]) begin
         counter_d[i] = counter_q[i] - {{CounterWidth-1{1'b0}}, 1'b1};
       end
     end
