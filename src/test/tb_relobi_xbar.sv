@@ -30,11 +30,7 @@ module relobi_xbar_dut_wrapper #(
   parameter type sbr_r_optional_t = logic,
   parameter int unsigned NumMaxTrans = 32'd8,
   parameter int unsigned NumRules = 8,
-  parameter type rule_t = struct packed {
-    int unsigned idx;
-    logic [31:0] start_addr;
-    logic [31:0] end_addr;
-  },
+  parameter type rule_t = logic,
   parameter rule_t [NumRules-1:0] AddrMap = '0,
   parameter bit UseIdForRouting = 1'b0,
   parameter time TestTime = 8ns

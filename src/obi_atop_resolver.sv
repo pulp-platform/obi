@@ -546,13 +546,8 @@ module obi_atop_resolver_intf
       .sbr_port_obi_rsp_t       (sbr_port_obi_rsp_t),
       .mgr_port_obi_req_t       (mgr_port_obi_req_t),
       .mgr_port_obi_rsp_t       (mgr_port_obi_rsp_t),
-`ifdef TARGET_VSIM
-      .mgr_port_obi_a_optional_t(mgr_port_obi_a_optional_t),
-      .mgr_port_obi_r_optional_t(mgr_port_obi_r_optional_t),
-`else
       .mgr_port_obi_a_optional_t(mgr_port_a_optional_t),
       .mgr_port_obi_r_optional_t(mgr_port_r_optional_t),
-`endif
       .LrScEnable               (LrScEnable),
       .RegisterAmo              (RegisterAmo)
   ) i_obi_atop_resolver (
