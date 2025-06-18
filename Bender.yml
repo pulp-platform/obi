@@ -10,7 +10,7 @@ package:
 dependencies:
   common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.38.0 }
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.3 }
-  redundancy_cells: { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: 08d98b51cbc63bdcebf329b3791995c01b9b646a }
+  redundancy_cells: { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: 14899dfd0ea0aa0be3be74e00c1979802d5832b1 }
 
 export_include_dirs:
   - include
