@@ -195,8 +195,10 @@ module obi_xbar_intf #(
   input  logic [NumSbrPorts-1:0][cf_math_pkg::idx_width(NumMgrPorts)-1:0] default_idx_i
 );
 
-  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(sbr_port_obi, SbrPortObiCfg, sbr_port_a_optional_t, sbr_port_r_optional_t)
-  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(mgr_port_obi, MgrPortObiCfg, mgr_port_a_optional_t, mgr_port_r_optional_t)
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(sbr_port_obi, SbrPortObiCfg,
+    sbr_port_a_optional_t, sbr_port_r_optional_t)
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(mgr_port_obi, MgrPortObiCfg,
+    mgr_port_a_optional_t, mgr_port_r_optional_t)
 
   sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req;
   sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp;

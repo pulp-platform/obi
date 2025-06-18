@@ -72,7 +72,9 @@ module relobi_demux #(
       sbr_port_gnt[i] = 1'b0;
 
       if (!overflow[i]) begin
-        if (select_i_tmr[i] == select_q[i] || in_flight[i] == '0 || (in_flight[i] == 1 && cnt_down[i])) begin
+        if (select_i_tmr[i] == select_q[i] ||
+            in_flight[i] == '0 ||
+            (in_flight[i] == 1 && cnt_down[i])) begin
           mgr_ports_req[select_i_tmr[i]][i] = sbr_port_req_i.req[i];
           sbr_port_gnt[i]                   = mgr_ports_rsp_i[select_i_tmr[i]].gnt[i];
         end

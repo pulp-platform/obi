@@ -229,8 +229,10 @@ module relobi_mux #(
     assign voter_faults[3:2] = '0;
 
   end else begin : gen_no_id_assign
-    logic [2:0][RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr_three;
-    logic [RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr, response_id_encoded;
+    logic [2:0][RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0]
+      selected_id_tmr_three;
+    logic [RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0]
+      selected_id_tmr, response_id_encoded;
 
     for (genvar i = 0; i < 3; i++) begin : gen_extra_id_tmr
       hsiao_ecc_enc #(

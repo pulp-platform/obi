@@ -522,13 +522,10 @@ module obi_atop_resolver_intf
     OBI_BUS.Manager mgr_port
 );
 
-  `ifdef TARGET_VSIM
-    `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
-    `OBI_TYPEDEF_ALL(mgr_port_obi, MgrPortObiCfg)
-  `else
-    `OBI_TYPEDEF_ALL_WITH_OPTIONAL(sbr_port_obi, SbrPortObiCfg, sbr_port_a_optional_t, sbr_port_r_optional_t)
-    `OBI_TYPEDEF_ALL_WITH_OPTIONAL(mgr_port_obi, MgrPortObiCfg, mgr_port_a_optional_t, mgr_port_r_optional_t)
-  `endif
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(sbr_port_obi, SbrPortObiCfg,
+    sbr_port_a_optional_t, sbr_port_r_optional_t)
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(mgr_port_obi, MgrPortObiCfg,
+    mgr_port_a_optional_t, mgr_port_r_optional_t)
 
   sbr_port_obi_req_t sbr_port_req;
   sbr_port_obi_rsp_t sbr_port_rsp;
