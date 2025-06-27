@@ -34,7 +34,9 @@ module obi_atop_resolver
     // Word width of the widest RISC-V processor that can issue requests to this module.
     // 32 for RV32; 64 for RV64, where both 32-bit (.W suffix) and 64-bit (.D suffix) AMOs are
     // supported if `aw_strb` is set correctly.
-    parameter int unsigned       RiscvWordWidth            = 32
+    parameter int unsigned       RiscvWordWidth            = 32,
+    /// Number of outstanding transactions. Only relevant if downstream interface is cut
+    parameter int unsigned       NumTxns                   = 1
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -70,8 +72,9 @@ module obi_atop_resolver
   amo_state_e state_q, state_d;
 
   logic                                    load_amo;
-  obi_atop_e                               amo_op_q;
+  obi_atop_e                               amo_op_d, amo_op_q;
   logic                                    amo_wb;
+  logic                                    amo_available, amo_last;
   logic      [SbrPortObiCfg.AddrWidth-1:0] addr_q;
 
   logic      [  SbrPortObiCfg.IdWidth-1:0] aid_q;
@@ -334,8 +337,8 @@ module obi_atop_resolver
 
   always_comb begin
     // feed-through
-    sbr_port_rsp_o.gnt = rdata_ready & mgr_port_rsp_i.gnt;
-    mgr_port_req_o.req = sbr_port_req_i.req & rdata_ready;
+    sbr_port_rsp_o.gnt = rdata_ready & mgr_port_rsp_i.gnt & amo_available;
+    mgr_port_req_o.req = sbr_port_req_i.req & rdata_ready & amo_available;
     mgr_port_req_o.a.addr = sbr_port_req_i.a.addr;
     mgr_port_req_o.a.we         = obi_atop_e'(sbr_port_req_i.a.a_optional.atop) != ATOPSC ?
                                   sbr_port_req_i.a.we : sc_successful_or_lr_d;
@@ -347,6 +350,7 @@ module obi_atop_resolver
     state_d = state_q;
     load_amo = 1'b0;
     amo_wb = 1'b0;
+    amo_op_d = amo_op_q;
 
     unique case (state_q)
       Idle: begin
@@ -355,6 +359,7 @@ module obi_atop_resolver
             !((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {ATOPLR, ATOPSC}) ||
               !sbr_port_req_i.a.a_optional.atop[5])) begin
           load_amo = 1'b1;
+          amo_op_d = obi_atop_e'(sbr_port_req_i.a.a_optional.atop);
           state_d  = DoAMO;
           if (obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {AMOSWAP, AMOADD, AMOXOR,
                                                                     AMOAND, AMOOR, AMOMIN, AMOMAX,
@@ -362,43 +367,68 @@ module obi_atop_resolver
             mgr_port_req_o.a.we = 1'b0;
           end
         end
+
       end
-      // Claim the memory interface
       DoAMO, WriteBackAMO: begin
         sbr_port_rsp_o.gnt = 1'b0;
-        if (mgr_port_rsp_i.gnt) begin
-          state_d = (RegisterAmo && state_q != WriteBackAMO) ? WriteBackAMO : Idle;
-        end
-        // Commit AMO
-        amo_wb                = 1'b1;
-        mgr_port_req_o.req    = 1'b1;
-        mgr_port_req_o.a.we   = 1'b1;
-        mgr_port_req_o.a.addr = addr_q;
-        mgr_port_req_o.a.aid  = aid_q;
-        mgr_port_req_o.a.be   = '0;
-        // serve from register if we cut the path
-        if (RegisterAmo) begin
-          mgr_port_req_o.req = (state_q == WriteBackAMO);
-          mgr_port_req_o.a.wdata = amo_result_q;
-          mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
-          (amo_operand_addr_q * RiscvWordWidth/8);
-        end else begin
-          mgr_port_req_o.a.wdata = amo_result;
-          mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
-          (amo_operand_addr * RiscvWordWidth/8);
+        mgr_port_req_o.req = 1'b0;
+        if (amo_last && mgr_port_rsp_i.rvalid) begin
+          if (mgr_port_rsp_i.gnt) begin
+            state_d = (RegisterAmo && state_q != WriteBackAMO) ? WriteBackAMO : Idle;
+          end
+          // Commit AMO
+          amo_op_d = ATOPNONE;
+          amo_wb                = 1'b1;
+          mgr_port_req_o.req    = 1'b1;
+          mgr_port_req_o.a.we   = 1'b1;
+          mgr_port_req_o.a.addr = addr_q;
+          mgr_port_req_o.a.aid  = aid_q;
+          mgr_port_req_o.a.be   = '0;
+          // serve from register if we cut the path
+          if (RegisterAmo) begin
+            mgr_port_req_o.req = (state_q == WriteBackAMO);
+            mgr_port_req_o.a.wdata = amo_result_q;
+            mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
+            (amo_operand_addr_q * RiscvWordWidth/8);
+          end else begin
+            mgr_port_req_o.a.wdata = amo_result;
+            mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
+            (amo_operand_addr * RiscvWordWidth/8);
+          end
         end
       end
-      default: ;
+      default:;
     endcase
   end
 
   if (RegisterAmo) begin : gen_amo_slice
-    `FFL(amo_result_q, amo_result, (state_q == DoAMO), '0, clk_i, rst_ni)
-    `FFL(amo_operand_addr_q, amo_operand_addr, (state_q == DoAMO), '0, clk_i, rst_ni)
+    `FFLNR(amo_result_q, amo_result, (state_q == DoAMO), clk_i)
+    `FFLNR(amo_operand_addr_q, amo_operand_addr, (state_q == DoAMO), clk_i)
   end else begin : gen_amo_slice
     assign amo_result_q = '0;
     assign amo_operand_addr_q = '0;
   end
+
+  logic rsp_happening;
+  if (SbrPortObiCfg.UseRReady) begin : gen_rsp_happening
+    assign rsp_happening = mgr_port_rsp_i.rvalid & mgr_port_req_o.rready;
+  end else begin : gen_rsp_norready
+    assign rsp_happening = mgr_port_rsp_i.rvalid;
+  end
+
+  credit_counter #(
+    .NumCredits     (NumTxns)
+  ) i_credit_counter (
+    .clk_i,
+    .rst_ni,
+    .credit_o     (),
+    .credit_give_i(rsp_happening),
+    .credit_take_i(mgr_port_req_o.req & mgr_port_rsp_i.gnt),
+    .credit_init_i('0),
+    .credit_left_o(amo_available),
+    .credit_crit_o(amo_last),
+    .credit_full_o()
+  );
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -410,14 +440,15 @@ module obi_atop_resolver
       aid_q           <= '0;
     end else begin
       state_q <= state_d;
+      amo_op_q <= amo_op_d;
       if (load_amo) begin
-        amo_op_q        <= obi_atop_e'(sbr_port_req_i.a.a_optional.atop);
+        // amo_op_q        <= obi_atop_e'(sbr_port_req_i.a.a_optional.atop);
         addr_q          <= sbr_port_req_i.a.addr;
         be_q            <= sbr_port_req_i.a.be;
         aid_q           <= sbr_port_req_i.a.aid;
         amo_operand_b_q <= sbr_port_req_i.a.wdata;
       end else begin
-        amo_op_q <= ATOPNONE;
+        // amo_op_q <= ATOPNONE;
       end
     end
   end
