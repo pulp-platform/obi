@@ -27,6 +27,8 @@ module relobi_mux #(
   parameter type               mgr_port_obi_rsp_t = sbr_port_obi_rsp_t,
   /// The A channel struct for the manager port (output port).
   parameter type               mgr_port_a_chan_t  = logic,
+  /// The R channel struct for the manager port (output port).
+  parameter type               mgr_port_r_chan_t  = logic,
   /// The A channel optionals struct for all ports.
   parameter type               a_optional_t = logic,
   /// The R channel optionals struct for all ports.
@@ -85,10 +87,22 @@ module relobi_mux #(
 
   sbr_port_a_chan_t       mgr_port_a_in_sbr;
   mgr_port_a_chan_t [2:0] mgr_port_a_tmr;
-  logic [2:0][RequiredExtraIdWidth-1:0] selected_id, response_id;
+  logic [2:0][RequiredExtraIdWidth-1:0] selected_id;
   logic [2:0] mgr_port_req, fifo_full, fifo_pop;
 
   logic [2:0] rr_arb_mgr_port_gnt;
+
+  logic [2:0][RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0]
+    selected_id_tmr_three;
+  logic [RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0]
+    selected_id_tmr, response_id_encoded;
+
+  logic [2:0][NumSbrPorts-1:0] sbr_rsp_rvalid;
+  logic [2:0][NumSbrPorts-1:0] sbr_req_rready;
+  logic [2:0] mgr_req_rready;
+
+  sbr_port_r_chan_t [2:0] sbr_r_tmr;
+
 
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_assign
     assign sbr_ports_req[i] = sbr_ports_req_i[i].req;
@@ -97,9 +111,47 @@ module relobi_mux #(
   end
 
   assign mgr_port_req_o.req = mgr_port_req & ~fifo_full;
+  assign rr_arb_mgr_port_gnt = mgr_port_rsp_i.gnt & ~fifo_full;
 
-  for (genvar i = 0; i < 3; i++) begin : gen_mgr_port_gnt
-    assign rr_arb_mgr_port_gnt[i] = mgr_port_rsp_i.gnt[i] && ~fifo_full[i];
+  for (genvar i = 0; i < 3; i++) begin : gen_tmr_part
+    (* dont_touch *)
+    relobi_mux_tmr_part #(
+      .SbrPortObiCfg      ( SbrPortObiCfg      ),
+      .MgrPortObiCfg      ( MgrPortObiCfg      ),
+      .NumSbrPorts        ( NumSbrPorts        ),
+      .mgr_port_a_chan_t  ( mgr_port_a_chan_t  ),
+      .mgr_port_r_chan_t  ( mgr_port_r_chan_t  ),
+      .sbr_port_a_chan_t  ( sbr_port_a_chan_t  ),
+      .sbr_port_r_chan_t  ( sbr_port_r_chan_t  ),
+      .a_optional_t       ( a_optional_t       ),
+      .r_optional_t       ( r_optional_t       ),
+      .RequiredExtraIdWidth( RequiredExtraIdWidth ),
+      .UseIdForRouting    ( UseIdForRouting    )
+    ) i_tmr_part (
+      .clk_i,
+      .rst_ni,
+
+      .mgr_port_a_in_sbr ( mgr_port_a_in_sbr ),
+      .mgr_port_req      ( mgr_port_req[i]   ),
+      .selected_id       ( selected_id[i]    ),
+      .mgr_port_a_tmr    ( mgr_port_a_tmr[i] ),
+
+      .mgr_port_rsp_r    ( UseIdForRouting || MgrPortObiCfg.IdWidth != SbrPortObiCfg.IdWidth ? mgr_port_rsp_i.r : '0  ),
+      .mgr_port_rsp_rvalid( UseIdForRouting ? mgr_port_rsp_i.rvalid[i] : '0 ),
+      .selected_id_tmr_three ( selected_id_tmr_three[i] ),
+      .response_id_encoded( UseIdForRouting ? '0 : response_id_encoded ),
+      .fifo_pop          ( UseIdForRouting ? '0 : fifo_pop[i]          ),
+
+      .mgr_rsp_rvalid ( mgr_port_rsp_i.rvalid[i] ),
+      .sbr_rsp_rvalid ( sbr_rsp_rvalid[i] ),
+      .sbr_req_rready ( MgrPortObiCfg.UseRReady ? sbr_req_rready[i] : '1 ),
+      .mgr_req_rready ( mgr_req_rready[i] ),
+
+      .sbr_r_tmr      ( sbr_r_tmr[i]       ),
+
+      .hsiao_faults      ( hsiao_faults[3*i+2:3*i]   ),
+      .hsiao_faults_gated( hsiao_faults_gated[2*i+1:2*i] )
+    );
   end
 
   rel_rr_arb_tree #(
@@ -128,73 +180,16 @@ module relobi_mux #(
     .fault_o ( voter_faults[0] )
   );
 
-  for (genvar i = 0; i < 3; i++) begin : gen_tmr_aid
-    if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_aid_identical
-      always_comb begin
-        `OBI_SET_A_STRUCT(mgr_port_a_tmr[i], mgr_port_a_in_sbr)
-        mgr_port_a_tmr[i].other_ecc = mgr_port_a_in_sbr.other_ecc;
-      end
-      assign hsiao_faults[i] = '0;
-      assign hsiao_faults_gated[i] = '0;
-    end else begin : gen_aid_extend
-      logic we;
-      logic [MgrPortObiCfg.DataWidth/8-1:0] be;
-      logic [SbrPortObiCfg.IdWidth-1:0] sbr_aid;
-      logic [MgrPortObiCfg.IdWidth-1:0] mgr_aid;
-      a_optional_t a_optional;
-      logic [relobi_pkg::relobi_a_other_ecc_width(MgrPortObiCfg)-1:0] other_ecc;
-      relobi_a_other_decoder #(
-        .Cfg          (SbrPortObiCfg),
-        .a_optional_t (a_optional_t)
-      ) i_other_decode (
-        .we_i        (mgr_port_a_in_sbr.we),
-        .be_i        (mgr_port_a_in_sbr.be),
-        .aid_i       (mgr_port_a_in_sbr.aid),
-        .a_optional_i(mgr_port_a_in_sbr.a_optional),
-        .other_ecc_i (mgr_port_a_in_sbr.other_ecc),
-        .we_o        (we),
-        .be_o        (be),
-        .aid_o       (sbr_aid),
-        .a_optional_o(a_optional),
-
-        .fault_o (hsiao_faults[i])
-      );
-      assign hsiao_faults_gated[i] = mgr_port_req[i] ? hsiao_faults[i] : '0;
-      if (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth +
-                                   RequiredExtraIdWidth   ) begin : gen_aid_extend
-        always_comb begin
-          mgr_aid = '0;
-          mgr_aid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0] = {selected_id[i], sbr_aid};
-        end
-      end else begin : gen_aid_noextend
-        always_comb begin
-          mgr_aid = '0;
-          mgr_aid[SbrPortObiCfg.IdWidth-1:0] = sbr_aid;
-        end
-      end
-      relobi_a_other_encoder #(
-        .Cfg          (MgrPortObiCfg),
-        .a_optional_t (a_optional_t)
-      ) i_other_encode (
-        .we_i        (we),
-        .be_i        (be),
-        .aid_i       (mgr_aid),
-        .a_optional_i(a_optional),
-        .other_ecc_o (other_ecc)
-      );
-
-      assign mgr_port_a_tmr[i].addr       = mgr_port_a_in_sbr.addr;
-      assign mgr_port_a_tmr[i].wdata      = mgr_port_a_in_sbr.wdata;
-      assign mgr_port_a_tmr[i].we         = we;
-      assign mgr_port_a_tmr[i].be         = be;
-      assign mgr_port_a_tmr[i].aid        = mgr_aid;
-      assign mgr_port_a_tmr[i].a_optional = a_optional;
-      assign mgr_port_a_tmr[i].other_ecc  = other_ecc;
-
-    end
-  end
-
-  `VOTE31F(mgr_port_a_tmr, mgr_port_req_o.a, voter_faults[1])
+  bitwise_TMR_voter_fail #(
+    .DataWidth ( $bits(mgr_port_a_chan_t) ),
+    .VoterType ( 1 )
+  ) i_a_tmr (
+    .a_i              ( mgr_port_a_tmr[0] ),
+    .b_i              ( mgr_port_a_tmr[1] ),
+    .c_i              ( mgr_port_a_tmr[2] ),
+    .majority_o       ( mgr_port_req_o.a  ),
+    .fault_detected_o ( voter_faults[1]   )
+  );
 
   logic [2:0][SbrPortObiCfg.IdWidth-1:0] rsp_rid;
 
@@ -205,55 +200,23 @@ module relobi_mux #(
       $fatal(1, "UseIdForRouting requires MgrPort IdWidth to increase with log2(NumSbrPorts)");
     end
 
-    for (genvar i = 0; i < 3; i++) begin : gen_tmr_rid
-      relobi_r_other_decoder #(
-        .Cfg          (SbrPortObiCfg),
-        .r_optional_t (r_optional_t)
-      ) i_r_other_decode (
-        .rid_i       (mgr_port_rsp_i.r.rid[SbrPortObiCfg.IdWidth-1:0]),
-        .err_i       (mgr_port_rsp_i.r.err),
-        .r_optional_i(mgr_port_rsp_i.r.r_optional),
-        .other_ecc_i (mgr_port_rsp_i.r.other_ecc),
-        .rid_o       (rsp_rid[i]),
-        .err_o       (),
-        .r_optional_o(),
-        .fault_o (hsiao_faults[3+i])
-      );
-      assign hsiao_faults_gated[3+i] = mgr_port_rsp_i.rvalid[i] ? hsiao_faults[3+i] : '0;
-
-      assign {response_id[i], rsp_rid[i]} =
-        mgr_port_rsp_i.r.rid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0];
-      assign fifo_full[i] = 1'b0;
-    end
+    assign fifo_full = 3'b0;
 
     assign voter_faults[3:2] = '0;
+    assign selected_id_tmr = '0;
 
   end else begin : gen_no_id_assign
-    logic [2:0][RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0]
-      selected_id_tmr_three;
-    logic [RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0]
-      selected_id_tmr, response_id_encoded;
 
-    for (genvar i = 0; i < 3; i++) begin : gen_extra_id_tmr
-      hsiao_ecc_enc #(
-        .DataWidth (RequiredExtraIdWidth)
-      ) i_ecc (
-        .in        (selected_id[i]),
-        .out       (selected_id_tmr_three[i])
-      );
-
-      hsiao_ecc_dec #(
-        .DataWidth (RequiredExtraIdWidth)
-      ) i_ecc_dec (
-        .in        (response_id_encoded),
-        .out       (response_id[i]),
-        .syndrome_o(),
-        .err_o     (hsiao_faults[3+i])
-      );
-      assign hsiao_faults_gated[3+i] = fifo_pop[i] ? hsiao_faults[3+i] : '0;
-    end
-
-    `VOTE31F(selected_id_tmr_three, selected_id_tmr, voter_faults[2])
+    bitwise_TMR_voter_fail #(
+      .DataWidth ( RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth) ),
+      .VoterType ( 1 )
+    ) i_selected_id_tmr (
+      .a_i              ( selected_id_tmr_three[0] ),
+      .b_i              ( selected_id_tmr_three[1] ),
+      .c_i              ( selected_id_tmr_three[2] ),
+      .majority_o       ( selected_id_tmr           ),
+      .fault_detected_o ( voter_faults[2]           )
+    );
 
     rel_fifo #(
       .FallThrough( 1'b0                 ),
@@ -282,11 +245,15 @@ module relobi_mux #(
   end
 
   if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
-    for (genvar i = 0; i < 3; i++) begin : gen_rready_connect_tmr
-      assign mgr_port_req_o.rready[i] = sbr_ports_req_i[response_id[i]].rready[i];
-    end
+      assign mgr_port_req_o.rready = mgr_req_rready;
+      for (genvar i = 0; i < NumSbrPorts; i++) begin
+        for (genvar j = 0; j < 3; j++) begin : gen_sbr_req_rready
+          assign sbr_req_rready[j][i] = sbr_ports_req_i[i].rready[j];
+        end
+      end  
+  end else begin
+    assign sbr_req_rready = '1;
   end
-  logic [NumSbrPorts-1:0][2:0] sbr_rsp_rvalid;
   sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
   if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_rid_identical
     always_comb begin : proc_sbr_rsp
@@ -294,53 +261,16 @@ module relobi_mux #(
         // Always assign r struct to avoid triplication overhead
         `OBI_SET_R_STRUCT(sbr_rsp_r[i], mgr_port_rsp_i.r);
         sbr_rsp_r[i].other_ecc = mgr_port_rsp_i.r.other_ecc;
-        sbr_rsp_rvalid[i] = '0;
-      end
-      for (int i = 0; i < 3; i++) begin
-        sbr_rsp_rvalid[response_id[i]][i] = mgr_port_rsp_i.rvalid[i];
       end
     end
-    assign hsiao_faults[8:6] = '0;
     assign hsiao_faults_gated[8:6] = '0;
     assign voter_faults[4] = '0;
   end else begin : gen_rid_decrease
-    logic [2:0][MgrPortObiCfg.IdWidth-1:0] mgr_rid_tmr;
-    sbr_port_r_chan_t [2:0] sbr_r_tmr;
     sbr_port_r_chan_t sbr_r;
 
-    for (genvar i = 0; i < 3; i++) begin : gen_tmr_rid
-      relobi_r_other_decoder #(
-        .Cfg          (MgrPortObiCfg),
-        .r_optional_t (r_optional_t)
-      ) i_r_other_decode (
-        .rid_i       (mgr_port_rsp_i.r.rid),
-        .err_i       (mgr_port_rsp_i.r.err),
-        .r_optional_i(mgr_port_rsp_i.r.r_optional),
-        .other_ecc_i (mgr_port_rsp_i.r.other_ecc),
-        .rid_o       (mgr_rid_tmr[i]),
-        .err_o       (sbr_r_tmr[i].err),
-        .r_optional_o(sbr_r_tmr[i].r_optional),
-        .fault_o (hsiao_faults[6+i])
-      );
-      assign sbr_r_tmr[i].rid = mgr_rid_tmr[i][SbrPortObiCfg.IdWidth-1:0];
-      relobi_r_other_encoder #(
-        .Cfg          (SbrPortObiCfg),
-        .r_optional_t (r_optional_t)
-      ) i_r_other_encode (
-        .rid_i       (sbr_r_tmr[i].rid),
-        .err_i       (sbr_r_tmr[i].err),
-        .r_optional_i(sbr_r_tmr[i].r_optional),
-        .other_ecc_o (sbr_r_tmr[i].other_ecc)
-      );
-      assign sbr_r_tmr[i].rdata = mgr_port_rsp_i.r.rdata;
-    end
-    assign hsiao_faults_gated[8:6] = fifo_pop[0] ? hsiao_faults[8:6] : '0;
-    always_comb begin
-      sbr_rsp_rvalid = '0;
-      for (int i = 0; i < 3; i++) begin
-        sbr_rsp_rvalid[response_id[i]][i] = mgr_port_rsp_i.rvalid[i];
-      end
-    end
+    assign hsiao_faults_gated[6] = fifo_pop[0] ? hsiao_faults[2] : '0;
+    assign hsiao_faults_gated[7] = fifo_pop[1] ? hsiao_faults[5] : '0;
+    assign hsiao_faults_gated[8] = fifo_pop[2] ? hsiao_faults[8] : '0;
     relobi_tmr_r #(
       .ObiCfg (SbrPortObiCfg),
       .obi_r_chan_t (sbr_port_r_chan_t),
@@ -361,13 +291,210 @@ module relobi_mux #(
 
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_rsp_assign
     assign sbr_ports_rsp_o[i].r = sbr_rsp_r[i];
-    assign sbr_ports_rsp_o[i].rvalid = sbr_rsp_rvalid[i];
+    assign sbr_ports_rsp_o[i].rvalid = {sbr_rsp_rvalid[2][i],
+                                        sbr_rsp_rvalid[1][i],
+                                        sbr_rsp_rvalid[0][i]};
   end
 
   if (MgrPortObiCfg.UseRReady) begin : gen_fifo_pop
     assign fifo_pop = mgr_port_rsp_i.rvalid & mgr_port_req_o.rready;
   end else begin : gen_fifo_pop
     assign fifo_pop = mgr_port_rsp_i.rvalid;
+  end
+
+endmodule
+
+(* no_ungroup *)
+(* no_boundary_optimization *)
+module relobi_mux_tmr_part #(
+  parameter obi_pkg::obi_cfg_t SbrPortObiCfg      = obi_pkg::ObiDefaultConfig,
+  parameter obi_pkg::obi_cfg_t MgrPortObiCfg      = SbrPortObiCfg,
+  parameter int unsigned NumSbrPorts = 32'd0,
+  parameter type               mgr_port_a_chan_t  = logic,
+  parameter type               mgr_port_r_chan_t  = logic,
+  parameter type               sbr_port_a_chan_t   = logic,
+  parameter type               sbr_port_r_chan_t   = logic,
+  parameter type               a_optional_t       = logic,
+  parameter type               r_optional_t       = logic,
+  parameter int unsigned       RequiredExtraIdWidth = 0,
+  parameter bit UseIdForRouting = 1'b0
+
+) (
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  sbr_port_a_chan_t mgr_port_a_in_sbr,
+  input  logic             mgr_port_req,
+  input  logic [RequiredExtraIdWidth-1:0] selected_id,
+  output mgr_port_a_chan_t mgr_port_a_tmr,
+
+  // Only if UseIdForRouting is true or Id width increases
+  input  mgr_port_r_chan_t mgr_port_rsp_r,
+  // Only if UseIdForRouting is true
+  input  logic             mgr_port_rsp_rvalid,
+  // Only if UseIdForRouting is false
+  output logic [RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr_three,
+  input  logic [RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] response_id_encoded,
+  input  logic fifo_pop,
+
+  output sbr_port_r_chan_t sbr_r_tmr,
+
+  input  logic                   mgr_rsp_rvalid,
+  output logic [NumSbrPorts-1:0] sbr_rsp_rvalid,
+  input  logic [NumSbrPorts-1:0] sbr_req_rready,
+  output logic                   mgr_req_rready,
+
+  output logic [2:0][1:0] hsiao_faults,
+  output logic [1:0][1:0] hsiao_faults_gated
+);
+
+  logic [RequiredExtraIdWidth-1:0] response_id;
+
+  if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_aid_identical
+    always_comb begin
+      `OBI_SET_A_STRUCT(mgr_port_a_tmr, mgr_port_a_in_sbr)
+      mgr_port_a_tmr.other_ecc = mgr_port_a_in_sbr.other_ecc;
+    end
+    assign hsiao_faults[0] = '0;
+    assign hsiao_faults_gated[0] = '0;
+  end else begin : gen_aid_extend
+    logic we;
+    logic [MgrPortObiCfg.DataWidth/8-1:0] be;
+    logic [SbrPortObiCfg.IdWidth-1:0] sbr_aid;
+    logic [MgrPortObiCfg.IdWidth-1:0] mgr_aid;
+    a_optional_t a_optional;
+    logic [relobi_pkg::relobi_a_other_ecc_width(MgrPortObiCfg)-1:0] other_ecc;
+    relobi_a_other_decoder #(
+      .Cfg          (SbrPortObiCfg),
+      .a_optional_t (a_optional_t)
+    ) i_other_decode (
+      .we_i        (mgr_port_a_in_sbr.we),
+      .be_i        (mgr_port_a_in_sbr.be),
+      .aid_i       (mgr_port_a_in_sbr.aid),
+      .a_optional_i(mgr_port_a_in_sbr.a_optional),
+      .other_ecc_i (mgr_port_a_in_sbr.other_ecc),
+      .we_o        (we),
+      .be_o        (be),
+      .aid_o       (sbr_aid),
+      .a_optional_o(a_optional),
+
+      .fault_o (hsiao_faults[0])
+    );
+    assign hsiao_faults_gated[0] = mgr_port_req ? hsiao_faults[0] : '0;
+    if (MgrPortObiCfg.IdWidth >= SbrPortObiCfg.IdWidth +
+                                  RequiredExtraIdWidth   ) begin : gen_aid_extend
+      always_comb begin
+        mgr_aid = '0;
+        mgr_aid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0] = {selected_id, sbr_aid};
+      end
+    end else begin : gen_aid_noextend
+      always_comb begin
+        mgr_aid = '0;
+        mgr_aid[SbrPortObiCfg.IdWidth-1:0] = sbr_aid;
+      end
+    end
+    relobi_a_other_encoder #(
+      .Cfg          (MgrPortObiCfg),
+      .a_optional_t (a_optional_t)
+    ) i_other_encode (
+      .we_i        (we),
+      .be_i        (be),
+      .aid_i       (mgr_aid),
+      .a_optional_i(a_optional),
+      .other_ecc_o (other_ecc)
+    );
+
+    assign mgr_port_a_tmr.addr       = mgr_port_a_in_sbr.addr;
+    assign mgr_port_a_tmr.wdata      = mgr_port_a_in_sbr.wdata;
+    assign mgr_port_a_tmr.we         = we;
+    assign mgr_port_a_tmr.be         = be;
+    assign mgr_port_a_tmr.aid        = mgr_aid;
+    assign mgr_port_a_tmr.a_optional = a_optional;
+    assign mgr_port_a_tmr.other_ecc  = other_ecc;
+
+  end
+
+  if (UseIdForRouting) begin : gen_id_assign
+    logic [MgrPortObiCfg.IdWidth-1:0] corr_rsp_rid;
+    logic [SbrPortObiCfg.IdWidth-1:0] rsp_rid;
+    relobi_r_other_decoder #(
+      .Cfg          (MgrPortObiCfg),
+      .r_optional_t (r_optional_t)
+    ) i_r_other_decode (
+      .rid_i       (mgr_port_rsp_r.rid),
+      .err_i       (mgr_port_rsp_r.err),
+      .r_optional_i(mgr_port_rsp_r.r_optional),
+      .other_ecc_i (mgr_port_rsp_r.other_ecc),
+      .rid_o       (corr_rsp_rid),
+      .err_o       (),
+      .r_optional_o(),
+      .fault_o (hsiao_faults[1])
+    );
+    assign hsiao_faults_gated[1] = mgr_port_rsp_rvalid ? hsiao_faults[1] : '0;
+
+    assign {response_id, rsp_rid} =
+      corr_rsp_rid[SbrPortObiCfg.IdWidth + RequiredExtraIdWidth-1:0];
+
+    // TODO encode rsp_rid packet for sbrs?
+  end else begin : gen_no_id_assign
+    hsiao_ecc_enc #(
+      .DataWidth (RequiredExtraIdWidth)
+    ) i_ecc (
+      .in        (selected_id),
+      .out       (selected_id_tmr_three)
+    );
+
+    hsiao_ecc_dec #(
+      .DataWidth (RequiredExtraIdWidth)
+    ) i_ecc_dec (
+      .in        (response_id_encoded),
+      .out       (response_id),
+      .syndrome_o(),
+      .err_o     (hsiao_faults[1])
+    );
+    assign hsiao_faults_gated[1] = fifo_pop ? hsiao_faults[1] : '0;
+  end
+
+  always_comb begin
+    sbr_rsp_rvalid = '0;
+    sbr_rsp_rvalid[response_id] = mgr_rsp_rvalid;
+  end
+  if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
+    assign mgr_req_rready = sbr_req_rready[response_id];
+  end else begin
+    assign mgr_req_rready = '1;
+  end
+
+
+  if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_rid_identical
+    assign hsiao_faults[2] = '0;
+    assign sbr_r_tmr = '0;
+  end else begin : gen_rid_decrease
+    logic [MgrPortObiCfg.IdWidth-1:0] mgr_rid_tmr;
+    relobi_r_other_decoder #(
+      .Cfg          (MgrPortObiCfg),
+      .r_optional_t (r_optional_t)
+    ) i_r_other_decode (
+      .rid_i       (mgr_port_rsp_r.rid),
+      .err_i       (mgr_port_rsp_r.err),
+      .r_optional_i(mgr_port_rsp_r.r_optional),
+      .other_ecc_i (mgr_port_rsp_r.other_ecc),
+      .rid_o       (mgr_rid_tmr),
+      .err_o       (sbr_r_tmr.err),
+      .r_optional_o(sbr_r_tmr.r_optional),
+      .fault_o (hsiao_faults[2])
+    );
+    assign sbr_r_tmr.rid = mgr_rid_tmr[SbrPortObiCfg.IdWidth-1:0];
+    relobi_r_other_encoder #(
+      .Cfg          (SbrPortObiCfg),
+      .r_optional_t (r_optional_t)
+    ) i_r_other_encode (
+      .rid_i       (sbr_r_tmr.rid),
+      .err_i       (sbr_r_tmr.err),
+      .r_optional_i(sbr_r_tmr.r_optional),
+      .other_ecc_o (sbr_r_tmr.other_ecc)
+    );
+    assign sbr_r_tmr.rdata = mgr_port_rsp_r.rdata;
+
   end
 
 endmodule

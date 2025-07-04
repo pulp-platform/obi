@@ -126,6 +126,7 @@ module relobi_xbar_dut_wrapper #(
     .mgr_port_obi_req_t ( rel_sbr_bus_req_t     ),
     .mgr_port_obi_rsp_t ( rel_sbr_bus_rsp_t     ),
     .mgr_port_a_chan_t  ( rel_sbr_bus_a_chan_t  ),
+    .mgr_port_r_chan_t  ( rel_sbr_bus_r_chan_t  ),
     .a_optional_t       ( mgr_a_optional_t  ),
     .r_optional_t       ( mgr_r_optional_t  ),
     .NumSbrPorts     ( NumManagers     ),

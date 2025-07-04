@@ -24,6 +24,8 @@ module relobi_xbar #(
   parameter type               mgr_port_obi_rsp_t = sbr_port_obi_rsp_t,
   /// The A channel struct for the manager port (output port).
   parameter type               mgr_port_a_chan_t  = logic,
+  /// The R channel struct for the manager port (output port).
+  parameter type               mgr_port_r_chan_t  = logic,
   /// The A channel optionals struct for all ports.
   parameter type               a_optional_t = logic,
   /// The R channel optionals struct for all ports.
@@ -73,7 +75,8 @@ module relobi_xbar #(
   assign fault_o[0] = |faults_transpose[0];
   assign fault_o[1] = |faults_transpose[1];
 
-  logic [NumSbrPorts-1:0][2:0][$clog2(NumMgrPorts)-1:0] sbr_port_select;
+  logic [2:0][NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] sbr_port_select;
+  logic [NumSbrPorts-1:0][ MgrPortObiCfg.AddrWidth + hsiao_ecc_pkg::min_ecc(MgrPortObiCfg.AddrWidth) - 1:0] addr_input;
 
   // Signals from the demuxes
   sbr_port_obi_req_t [NumSbrPorts-1:0][NumMgrPorts-1:0] sbr_reqs;
@@ -83,35 +86,28 @@ module relobi_xbar #(
   sbr_port_obi_req_t [NumMgrPorts-1:0][NumSbrPorts-1:0] mgr_reqs;
   sbr_port_obi_rsp_t [NumMgrPorts-1:0][NumSbrPorts-1:0] mgr_rsps;
 
+  for (genvar i = 0; i < 3; i++) begin : gen_tmr_part
+    (* dont_touch *)
+    relobi_xbar_tmr_part #(
+      .NumSbrPorts ( NumSbrPorts                         ),
+      .NumMgrPorts ( NumMgrPorts                         ),
+      .AddrWidth   ( MgrPortObiCfg.AddrWidth             ),
+      .EccAddrWidth( MgrPortObiCfg.AddrWidth + hsiao_ecc_pkg::min_ecc(MgrPortObiCfg.AddrWidth) ),
+      .NumAddrRules( NumAddrRules                        ),
+      .addr_map_rule_t( addr_map_rule_t                  )
+    ) i_tmr_part (
+      .addr_i             ( addr_input ),
+      .addr_map_i         ( TmrMap ? addr_map_i[i] : addr_map_i[0] ),
+      .en_default_idx_i   ( TmrMap ? en_default_idx_i[i] : en_default_idx_i[0] ),
+      .default_idx_i      ( TmrMap ? default_idx_i[i] : default_idx_i[0] ),
+      .sbr_port_select    ( sbr_port_select[i]          ),
+      .faults             ( faults[i*NumSbrPorts +: NumSbrPorts] )
+    );
+  end
+
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_demux
-    for (genvar j = 0; j < 3; j++) begin : gen_tmr
-
-      logic [MgrPortObiCfg.AddrWidth-1:0] addr;
-
-      hsiao_ecc_dec #(
-        .DataWidth ( MgrPortObiCfg.AddrWidth )
-      ) i_addr_dec (
-        .in        ( sbr_ports_req_i[i].a.addr ),
-        .out       ( addr     ),
-        .syndrome_o(),
-        .err_o     (faults[4*i+j])
-      );
-
-      addr_decode #(
-        .NoIndices ( NumMgrPorts                         ),
-        .NoRules   ( NumAddrRules                        ),
-        .addr_t    ( logic [MgrPortObiCfg.AddrWidth-1:0] ),
-        .rule_t    ( addr_map_rule_t                     )
-      ) i_addr_decode (
-        .addr_i          ( addr ),
-        .addr_map_i      ( TmrMap ? addr_map_i[j] : addr_map_i[0] ),
-        .idx_o           ( sbr_port_select[i][j]        ),
-        .dec_valid_o     (),
-        .dec_error_o     (),
-        .en_default_idx_i( TmrMap ? en_default_idx_i[j][i] : en_default_idx_i[0][i]      ),
-        .default_idx_i   ( TmrMap ? default_idx_i[j][i] : default_idx_i[0][i]        )
-      );
-    end
+    
+    assign addr_input[i] = sbr_ports_req_i[i].a.addr;
 
     relobi_demux #(
       .ObiCfg      ( SbrPortObiCfg      ),
@@ -125,12 +121,12 @@ module relobi_xbar #(
     ) i_demux (
       .clk_i,
       .rst_ni,
-      .sbr_port_select_i ( sbr_port_select[i] ),
+      .sbr_port_select_i ( {sbr_port_select[2][i], sbr_port_select[1][i], sbr_port_select[0][i] } ),
       .sbr_port_req_i    ( sbr_ports_req_i[i] ),
       .sbr_port_rsp_o    ( sbr_ports_rsp_o[i] ),
       .mgr_ports_req_o   ( sbr_reqs[i]        ),
       .mgr_ports_rsp_i   ( sbr_rsps[i]        ),
-      .fault_o           ( faults[4*i+3] )
+      .fault_o           ( faults[3*NumSbrPorts+i] )
     );
   end
 
@@ -179,6 +175,7 @@ module relobi_xbar #(
       .mgr_port_obi_req_t ( mgr_port_obi_req_t ),
       .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t ),
       .mgr_port_a_chan_t  ( mgr_port_a_chan_t  ),
+      .mgr_port_r_chan_t  ( mgr_port_r_chan_t  ),
       .a_optional_t       ( a_optional_t       ),
       .r_optional_t       ( r_optional_t       ),
       .NumSbrPorts        ( NumSbrPorts        ),
@@ -193,6 +190,54 @@ module relobi_xbar #(
       .mgr_port_req_o  ( mgr_ports_req_o[i] ),
       .mgr_port_rsp_i  ( mgr_ports_rsp_i[i] ),
       .fault_o ( faults[4*NumSbrPorts+i] )
+    );
+  end
+
+endmodule
+
+(* no_ungroup *)
+(* no_boundary_optimization *)
+module relobi_xbar_tmr_part #(
+  parameter int unsigned NumSbrPorts = 32'd0,
+  parameter int unsigned NumMgrPorts = 32'd0,
+  parameter int unsigned AddrWidth = 32'd0,
+  parameter int unsigned EccAddrWidth = AddrWidth + hsiao_ecc_pkg::min_ecc(AddrWidth),
+  parameter int unsigned NumAddrRules = 32'd0,
+  parameter type addr_map_rule_t = logic
+) (
+  input logic [NumSbrPorts-1:0][EccAddrWidth-1:0] addr_i,
+  input addr_map_rule_t [NumAddrRules-1:0] addr_map_i,
+  input logic [NumSbrPorts-1:0] en_default_idx_i,
+  input logic [NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] default_idx_i,
+  output logic [NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] sbr_port_select,
+  output logic [NumSbrPorts-1:0][1:0] faults
+);
+
+  for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sel
+    logic [AddrWidth-1:0] addr;
+
+    hsiao_ecc_dec #(
+      .DataWidth ( AddrWidth )
+    ) i_addr_dec (
+      .in        ( addr_i[i] ),
+      .out       ( addr     ),
+      .syndrome_o(),
+      .err_o     (faults[i])
+    );
+
+    addr_decode #(
+      .NoIndices ( NumMgrPorts           ),
+      .NoRules   ( NumAddrRules          ),
+      .addr_t    ( logic [AddrWidth-1:0] ),
+      .rule_t    ( addr_map_rule_t       )
+    ) i_addr_decode (
+      .addr_i          ( addr                ),
+      .addr_map_i      ( addr_map_i          ),
+      .idx_o           ( sbr_port_select[i]  ),
+      .dec_valid_o     (),
+      .dec_error_o     (),
+      .en_default_idx_i( en_default_idx_i[i] ),
+      .default_idx_i   ( default_idx_i[i]    )
     );
   end
 
