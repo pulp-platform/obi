@@ -46,28 +46,30 @@ module obi_cut #(
     .data_o  ( mgr_port_req_o.a   )
   );
 
-  logic ready_o;
-  logic ready_i;
-
   if (ObiCfg.UseRReady) begin : gen_use_rready
-    assign mgr_port_req_o.rready = ready_o;
-    assign ready_i = sbr_port_req_i.rready;
+    spill_register #(
+      .T      ( obi_r_chan_t ),
+      .Bypass ( BypassRsp    )
+    ) i_req_r (
+      .clk_i,
+      .rst_ni,
+      .valid_i ( mgr_port_rsp_i.rvalid ),
+      .ready_o ( mgr_port_req_o.rready ),
+      .data_i  ( mgr_port_rsp_i.r      ),
+      .valid_o ( sbr_port_rsp_o.rvalid ),
+      .ready_i ( sbr_port_req_i.rready ),
+      .data_o  ( sbr_port_rsp_o.r      )
+    );
   end else begin : gen_no_use_rready
-    assign ready_i = 1'b1;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (!rst_ni) begin
+        sbr_port_rsp_o.rvalid <= 1'b0;
+        sbr_port_rsp_o.r      <= '0;
+      end else begin
+        sbr_port_rsp_o.rvalid <= mgr_port_rsp_i.rvalid;
+        sbr_port_rsp_o.r      <= mgr_port_rsp_i.r;
+      end
+    end
   end
-
-  spill_register #(
-    .T      ( obi_r_chan_t ),
-    .Bypass ( BypassRsp    )
-  ) i_req_r (
-    .clk_i,
-    .rst_ni,
-    .valid_i ( mgr_port_rsp_i.rvalid ),
-    .ready_o ( ready_o               ),
-    .data_i  ( mgr_port_rsp_i.r      ),
-    .valid_o ( sbr_port_rsp_o.rvalid ),
-    .ready_i ( ready_i               ),
-    .data_o  ( sbr_port_rsp_o.r      )
-  );
 
 endmodule
