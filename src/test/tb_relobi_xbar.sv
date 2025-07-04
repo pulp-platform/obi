@@ -52,14 +52,16 @@ module relobi_xbar_dut_wrapper #(
   localparam int unsigned SbrBusReqBits = $bits(sbr_bus_req_t);
   localparam int unsigned SbrBusRspBits = $bits(sbr_bus_rsp_t);
 
-  rel_mgr_bus_req_t [NumManagers-1:0] rel_mgr_bus_req;
-  rel_mgr_bus_rsp_t [NumManagers-1:0] rel_mgr_bus_rsp;
-  rel_sbr_bus_req_t [NumSubordinates-1:0] rel_sbr_bus_req;
-  rel_sbr_bus_rsp_t [NumSubordinates-1:0] rel_sbr_bus_rsp;
+  rel_mgr_bus_req_t [NumManagers-1:0] rel_mgr_bus_req, rel_mgr_bus_req_cut;
+  rel_mgr_bus_rsp_t [NumManagers-1:0] rel_mgr_bus_rsp, rel_mgr_bus_rsp_cut;
+  rel_sbr_bus_req_t [NumSubordinates-1:0] rel_sbr_bus_req, rel_sbr_bus_req_cut;
+  rel_sbr_bus_rsp_t [NumSubordinates-1:0] rel_sbr_bus_rsp, rel_sbr_bus_rsp_cut;
 
   logic [1:0] xbar_fault;
   logic [NumManagers-1:0][1:0] encoder_faults;
+  logic [NumManagers-1:0] enc_cut_faults;
   logic [NumSubordinates-1:0][1:0] decoder_faults;
+  logic [NumSubordinates-1:0] dec_cut_faults;
 
   logic [NumManagers-1:0][MgrBusRspBits-1:0] mgr_bus_rsp_flat;
   for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_bus_rsp
@@ -92,6 +94,28 @@ module relobi_xbar_dut_wrapper #(
     );
   end
 
+  for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_cut
+    relobi_cut #(
+      .ObiCfg        ( MgrConfig         ),
+      .obi_req_t     ( rel_mgr_bus_req_t ),
+      .obi_rsp_t     ( rel_mgr_bus_rsp_t ),
+      .obi_a_chan_t  ( rel_mgr_bus_a_chan_t  ),
+      .obi_r_chan_t  ( rel_mgr_bus_r_chan_t  ),
+      .Bypass        ( 1'b0              )
+    ) i_cut_mgr (
+      .clk_i          ( clk               ),
+      .rst_ni         ( rst_n             ),
+
+      .sbr_port_req_i ( rel_mgr_bus_req[i] ),
+      .sbr_port_rsp_o ( rel_mgr_bus_rsp[i] ),
+
+      .mgr_port_req_o ( rel_mgr_bus_req_cut[i] ),
+      .mgr_port_rsp_i ( rel_mgr_bus_rsp_cut[i] ),
+
+      .fault_o         ( enc_cut_faults[i] )
+    );
+  end
+
   relobi_xbar #(
     .SbrPortObiCfg   ( MgrConfig       ),
     .MgrPortObiCfg   ( SbrConfig       ),
@@ -116,11 +140,11 @@ module relobi_xbar_dut_wrapper #(
     .rst_ni           ( rst_n   ),
     .testmode_i       ( 1'b0    ),
 
-    .sbr_ports_req_i  ( rel_mgr_bus_req ),
-    .sbr_ports_rsp_o  ( rel_mgr_bus_rsp ),
+    .sbr_ports_req_i  ( rel_mgr_bus_req_cut ),
+    .sbr_ports_rsp_o  ( rel_mgr_bus_rsp_cut ),
 
-    .mgr_ports_req_o  ( rel_sbr_bus_req ),
-    .mgr_ports_rsp_i  ( rel_sbr_bus_rsp ),
+    .mgr_ports_req_o  ( rel_sbr_bus_req_cut ),
+    .mgr_ports_rsp_i  ( rel_sbr_bus_rsp_cut ),
 
     .addr_map_i       ( {3{AddrMap}} ),
     .en_default_idx_i ( '0 ),
@@ -128,6 +152,28 @@ module relobi_xbar_dut_wrapper #(
 
     .fault_o          ( xbar_fault         )
   );
+
+  for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_cut
+    relobi_cut #(
+      .ObiCfg        ( SbrConfig         ),
+      .obi_req_t     ( rel_sbr_bus_req_t ),
+      .obi_rsp_t     ( rel_sbr_bus_rsp_t ),
+      .obi_a_chan_t  ( rel_sbr_bus_a_chan_t  ),
+      .obi_r_chan_t  ( rel_sbr_bus_r_chan_t  ),
+      .Bypass        ( 1'b0              )
+    ) i_cut_sbr (
+      .clk_i          ( clk               ),
+      .rst_ni         ( rst_n             ),
+
+      .sbr_port_req_i ( rel_sbr_bus_req_cut[i] ),
+      .sbr_port_rsp_o ( rel_sbr_bus_rsp_cut[i] ),
+
+      .mgr_port_req_o ( rel_sbr_bus_req[i] ),
+      .mgr_port_rsp_i ( rel_sbr_bus_rsp[i] ),
+
+      .fault_o         ( dec_cut_faults[i] )
+    );
+  end
 
   for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_decode
     relobi_decoder #(
@@ -157,11 +203,11 @@ module relobi_xbar_dut_wrapper #(
     uncorrectable_fault = xbar_fault[1];
 
     for (int unsigned i = 0; i < NumManagers; i++) begin
-      corrected_fault |= encoder_faults[i][0];
+      corrected_fault |= encoder_faults[i][0] | enc_cut_faults[i];
       uncorrectable_fault |= encoder_faults[i][1];
     end
     for (int unsigned i = 0; i < NumSubordinates; i++) begin
-      corrected_fault |= decoder_faults[i][0];
+      corrected_fault |= decoder_faults[i][0] | dec_cut_faults[i];
       uncorrectable_fault |= decoder_faults[i][1];
     end
   end
