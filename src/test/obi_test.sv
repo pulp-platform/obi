@@ -176,9 +176,9 @@ package obi_test;
     parameter int unsigned MaxAddr          = 32'hffff_ffff,
     // Wait Parameters
     parameter int unsigned AMinWaitCycles   = 0,
-    parameter int unsigned AMaxWaitCycles   = 100,
+    parameter int unsigned AMaxWaitCycles   = 20,
     parameter int unsigned RMinWaitCycles   = 0,
-    parameter int unsigned RMaxWaitCycles   = 100
+    parameter int unsigned RMaxWaitCycles   = 20
   );
     typedef obi_test::obi_driver #(
       .ObiCfg           ( ObiCfg           ),
