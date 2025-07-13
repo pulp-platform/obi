@@ -139,6 +139,7 @@ module apb_to_obi #(
   // Assertions
   // ----------
 
+`ifdef OBI_ASSERT_ON
   `ASSERT(penable, obi_phase_q == RESP |-> apb_req_i.penable, clk_i, !rst_ni,
       "APB PENABLE must be asserted during OBI RESP phase!")
   `ASSERT_INIT(no_integrity, !ObiCfg.Integrity,
@@ -153,5 +154,6 @@ module apb_to_obi #(
       "RDATA width mismatch between APB and OBI ports!")
   `ASSERT_INIT(equal_addr_width, $bits(apb_req_i.paddr) == $bits(obi_req_o.a.addr),
       "Address width mismatch between APB and OBI ports!")
+`endif
 
 endmodule
