@@ -46,7 +46,8 @@ module relobi_xbar #(
   parameter bit [NumSbrPorts-1:0][NumMgrPorts-1:0] Connectivity = '1,
   /// Use TMR for addr map signal
   parameter bit                TmrMap          = 1'b1,
-  parameter int unsigned       MapWidth    = TmrMap ? 3 : 1
+  parameter int unsigned       MapWidth    = TmrMap ? 3 : 1,
+  parameter bit                DecodeAbort = 1'b0
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -77,31 +78,34 @@ module relobi_xbar #(
 
   logic [2:0][NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] sbr_port_select;
   logic [NumSbrPorts-1:0][ MgrPortObiCfg.AddrWidth + hsiao_ecc_pkg::min_ecc(MgrPortObiCfg.AddrWidth) - 1:0] addr_input;
+  logic [2:0][NumSbrPorts-1:0] decode_abort;
+
 
   // Signals from the demuxes
-  sbr_port_obi_req_t [NumSbrPorts-1:0][NumMgrPorts-1:0] sbr_reqs;
-  sbr_port_obi_rsp_t [NumSbrPorts-1:0][NumMgrPorts-1:0] sbr_rsps;
+  sbr_port_obi_req_t [NumSbrPorts-1:0][NumMgrPorts-1:0] sbr_reqs, sbr_reqs_aborted;
+  sbr_port_obi_rsp_t [NumSbrPorts-1:0][NumMgrPorts-1:0] sbr_rsps, sbr_rsps_aborted;
 
   // Signals to the muxes
   sbr_port_obi_req_t [NumMgrPorts-1:0][NumSbrPorts-1:0] mgr_reqs;
   sbr_port_obi_rsp_t [NumMgrPorts-1:0][NumSbrPorts-1:0] mgr_rsps;
 
   for (genvar i = 0; i < 3; i++) begin : gen_tmr_part
-    (* dont_touch *)
     relobi_xbar_tmr_part #(
       .NumSbrPorts ( NumSbrPorts                         ),
       .NumMgrPorts ( NumMgrPorts                         ),
       .AddrWidth   ( MgrPortObiCfg.AddrWidth             ),
       .EccAddrWidth( MgrPortObiCfg.AddrWidth + hsiao_ecc_pkg::min_ecc(MgrPortObiCfg.AddrWidth) ),
       .NumAddrRules( NumAddrRules                        ),
-      .addr_map_rule_t( addr_map_rule_t                  )
+      .addr_map_rule_t( addr_map_rule_t                  ),
+      .DecodeAbort( DecodeAbort )
     ) i_tmr_part (
       .addr_i             ( addr_input ),
       .addr_map_i         ( TmrMap ? addr_map_i[i] : addr_map_i[0] ),
       .en_default_idx_i   ( TmrMap ? en_default_idx_i[i] : en_default_idx_i[0] ),
       .default_idx_i      ( TmrMap ? default_idx_i[i] : default_idx_i[0] ),
       .sbr_port_select    ( sbr_port_select[i]          ),
-      .faults             ( faults[i*NumSbrPorts +: NumSbrPorts] )
+      .faults             ( faults[i*NumSbrPorts +: NumSbrPorts] ),
+      .decode_abort_o     ( decode_abort[i]          )
     );
   end
 
@@ -128,12 +132,24 @@ module relobi_xbar #(
       .mgr_ports_rsp_i   ( sbr_rsps[i]        ),
       .fault_o           ( faults[3*NumSbrPorts+i] )
     );
+    always_comb begin : sbr_reqs_abort
+      sbr_reqs_aborted[i] = sbr_reqs[i];
+      sbr_rsps_aborted[i] = sbr_rsps[i];
+      for (int j = 0; j < NumMgrPorts; j++) begin : sbr_reqs_abort_inner
+        sbr_reqs_aborted[i][j].req[0] = sbr_reqs[i][j].req[0] & ~decode_abort[0][i];
+        sbr_reqs_aborted[i][j].req[1] = sbr_reqs[i][j].req[1] & ~decode_abort[1][i];
+        sbr_reqs_aborted[i][j].req[2] = sbr_reqs[i][j].req[2] & ~decode_abort[2][i];
+        sbr_rsps_aborted[i][j].gnt[0] = sbr_rsps[i][j].gnt[0] & ~decode_abort[0][i];
+        sbr_rsps_aborted[i][j].gnt[1] = sbr_rsps[i][j].gnt[1] & ~decode_abort[1][i];
+        sbr_rsps_aborted[i][j].gnt[2] = sbr_rsps[i][j].gnt[2] & ~decode_abort[2][i];
+      end
+    end
   end
 
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_interco_sbr
     for (genvar j = 0; j < NumMgrPorts; j++) begin : gen_interco_mgr
       if (Connectivity[i][j]) begin : gen_connected
-        assign mgr_reqs[j][i] = sbr_reqs[i][j];
+        assign mgr_reqs[j][i] = sbr_reqs_aborted[i][j];
         assign sbr_rsps[i][j] = mgr_rsps[j][i];
       end else begin : gen_err_sbr
         assign mgr_reqs[j][i].req = '0;
@@ -157,7 +173,7 @@ module relobi_xbar #(
           .clk_i,
           .rst_ni,
           .testmode_i,
-          .obi_req_i (sbr_reqs[i][j]),
+          .obi_req_i (sbr_reqs_aborted[i][j]),
           .obi_rsp_o (sbr_rsps[i][j])
         );
       end
@@ -184,7 +200,7 @@ module relobi_xbar #(
     ) i_mux (
       .clk_i,
       .rst_ni,
-      .testmode_i,
+      .testmode_i ( testmode_i ),
       .sbr_ports_req_i ( mgr_reqs[i]        ),
       .sbr_ports_rsp_o ( mgr_rsps[i]        ),
       .mgr_port_req_o  ( mgr_ports_req_o[i] ),
@@ -203,35 +219,48 @@ module relobi_xbar_tmr_part #(
   parameter int unsigned AddrWidth = 32'd0,
   parameter int unsigned EccAddrWidth = AddrWidth + hsiao_ecc_pkg::min_ecc(AddrWidth),
   parameter int unsigned NumAddrRules = 32'd0,
-  parameter type addr_map_rule_t = logic
+  parameter type addr_map_rule_t = logic,
+  parameter bit DecodeAbort = 1'b1
 ) (
   input logic [NumSbrPorts-1:0][EccAddrWidth-1:0] addr_i,
   input addr_map_rule_t [NumAddrRules-1:0] addr_map_i,
   input logic [NumSbrPorts-1:0] en_default_idx_i,
   input logic [NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] default_idx_i,
   output logic [NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] sbr_port_select,
-  output logic [NumSbrPorts-1:0][1:0] faults
+  output logic [NumSbrPorts-1:0][1:0] faults,
+  output logic [NumSbrPorts-1:0] decode_abort_o
 );
+  logic [NumSbrPorts-1:0][AddrWidth-1:0] addr, addr_dec;
 
-  for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sel
-    logic [AddrWidth-1:0] addr;
-
+  for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_ecc_dec
     hsiao_ecc_dec #(
       .DataWidth ( AddrWidth )
     ) i_addr_dec (
       .in        ( addr_i[i] ),
-      .out       ( addr     ),
+      .out       ( addr_dec [i]    ),
       .syndrome_o(),
       .err_o     (faults[i])
     );
+  end
+  if (DecodeAbort) begin : gen_decode_abort
+    for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_addr
+      assign addr[i] = addr_i[i][AddrWidth-1:0];
+      assign decode_abort_o[i] = faults[i][0] | faults[i][1];
+    end
+  end else begin : gen_no_decode_abort
+    assign addr = addr_dec;
+    assign decode_abort_o = '0;
+  end
 
+
+  for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sel
     addr_decode #(
       .NoIndices ( NumMgrPorts           ),
       .NoRules   ( NumAddrRules          ),
       .addr_t    ( logic [AddrWidth-1:0] ),
       .rule_t    ( addr_map_rule_t       )
     ) i_addr_decode (
-      .addr_i          ( addr                ),
+      .addr_i          ( addr  [i]           ),
       .addr_map_i      ( addr_map_i          ),
       .idx_o           ( sbr_port_select[i]  ),
       .dec_valid_o     (),

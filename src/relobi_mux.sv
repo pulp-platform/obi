@@ -114,7 +114,6 @@ module relobi_mux #(
   assign rr_arb_mgr_port_gnt = mgr_port_rsp_i.gnt & ~fifo_full;
 
   for (genvar i = 0; i < 3; i++) begin : gen_tmr_part
-    (* dont_touch *)
     relobi_mux_tmr_part #(
       .SbrPortObiCfg      ( SbrPortObiCfg      ),
       .MgrPortObiCfg      ( MgrPortObiCfg      ),
@@ -180,16 +179,21 @@ module relobi_mux #(
     .fault_o ( voter_faults[0] )
   );
 
-  bitwise_TMR_voter_fail #(
-    .DataWidth ( $bits(mgr_port_a_chan_t) ),
-    .VoterType ( 1 )
-  ) i_a_tmr (
-    .a_i              ( mgr_port_a_tmr[0] ),
-    .b_i              ( mgr_port_a_tmr[1] ),
-    .c_i              ( mgr_port_a_tmr[2] ),
-    .majority_o       ( mgr_port_req_o.a  ),
-    .fault_detected_o ( voter_faults[1]   )
-  );
+  if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_aid_identical
+    assign mgr_port_req_o.a = mgr_port_a_in_sbr;
+    assign voter_faults[1] = '0;
+  end else begin
+    bitwise_TMR_voter_fail #(
+      .DataWidth ( $bits(mgr_port_a_chan_t) ),
+      .VoterType ( 1 )
+    ) i_a_tmr (
+      .a_i              ( mgr_port_a_tmr[0] ),
+      .b_i              ( mgr_port_a_tmr[1] ),
+      .c_i              ( mgr_port_a_tmr[2] ),
+      .majority_o       ( mgr_port_req_o.a  ),
+      .fault_detected_o ( voter_faults[1]   )
+    );
+  end
 
   logic [2:0][SbrPortObiCfg.IdWidth-1:0] rsp_rid;
 

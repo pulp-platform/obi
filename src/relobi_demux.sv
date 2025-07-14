@@ -76,13 +76,12 @@ module relobi_demux #(
       assign alt_select_d_sync[i][j] = select_d_sync[(i+j+1) % 3];
       assign alt_counter_d_sync[i][j] = counter_d_sync[(i+j+1) % 3];
     end
-    (* dont_touch *)
     relobi_demux_tmr_part #(
       .NumMgrPorts   (NumMgrPorts),
       .CounterWidth  (CounterWidth),
       .select_t      (select_t),
       .obi_r_chan_t  (obi_r_chan_t),
-      .TmrBeforeReg  (1'b1)
+      .TmrBeforeReg  (1'b0)
     ) i_tmr_part (
       .clk_i                (clk_i),
       .rst_ni               (rst_ni),
@@ -139,7 +138,7 @@ module relobi_demux_tmr_part #(
   parameter int unsigned CounterWidth = 7,
   parameter type select_t = logic [$clog2(NumMgrPorts)-1:0],
   parameter type obi_r_chan_t = logic,
-  parameter bit TmrBeforeReg = 1'b1
+  parameter bit TmrBeforeReg = 1'b0
 ) (
   input  logic                          clk_i,
   input  logic                          rst_ni,
@@ -176,8 +175,7 @@ module relobi_demux_tmr_part #(
     sbr_port_gnt = 1'b0;
     if (!overflow) begin
       if (select_i == select_q ||
-          in_flight == '0 ||
-          (in_flight == 1 && cnt_down)) begin
+          in_flight == '0) begin
         mgr_ports_req[select_i] = sbr_port_req;
         sbr_port_gnt             = mgr_ports_gnt[select_i];
       end

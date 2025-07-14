@@ -59,9 +59,9 @@ module relobi_xbar_dut_wrapper #(
 
   logic [1:0] xbar_fault;
   logic [NumManagers-1:0][1:0] encoder_faults;
-  logic [NumManagers-1:0] enc_cut_faults;
+  logic [NumManagers-1:0][1:0] enc_cut_faults;
   logic [NumSubordinates-1:0][1:0] decoder_faults;
-  logic [NumSubordinates-1:0] dec_cut_faults;
+  logic [NumSubordinates-1:0][1:0] dec_cut_faults;
 
   logic [NumManagers-1:0][MgrBusRspBits-1:0] mgr_bus_rsp_flat;
   for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_bus_rsp
@@ -101,6 +101,8 @@ module relobi_xbar_dut_wrapper #(
       .obi_rsp_t     ( rel_mgr_bus_rsp_t ),
       .obi_a_chan_t  ( rel_mgr_bus_a_chan_t  ),
       .obi_r_chan_t  ( rel_mgr_bus_r_chan_t  ),
+      .a_optional_t ( mgr_a_optional_t  ),
+      .r_optional_t ( mgr_r_optional_t  ),
       .Bypass        ( 1'b0              )
     ) i_cut_mgr (
       .clk_i          ( clk               ),
@@ -135,7 +137,8 @@ module relobi_xbar_dut_wrapper #(
     .NumAddrRules    ( NumRules        ),
     .addr_map_rule_t ( rule_t          ),
     .UseIdForRouting ( UseIdForRouting ),
-    .TmrMap (1'b1)
+    .TmrMap (1'b1),
+    .DecodeAbort (1'b1)
   ) i_dut (
     .clk_i            ( clk     ),
     .rst_ni           ( rst_n   ),
@@ -161,6 +164,8 @@ module relobi_xbar_dut_wrapper #(
       .obi_rsp_t     ( rel_sbr_bus_rsp_t ),
       .obi_a_chan_t  ( rel_sbr_bus_a_chan_t  ),
       .obi_r_chan_t  ( rel_sbr_bus_r_chan_t  ),
+      .a_optional_t ( sbr_a_optional_t  ),
+      .r_optional_t ( sbr_r_optional_t  ),
       .Bypass        ( 1'b0              )
     ) i_cut_sbr (
       .clk_i          ( clk               ),
@@ -204,12 +209,12 @@ module relobi_xbar_dut_wrapper #(
     uncorrectable_fault = xbar_fault[1];
 
     for (int unsigned i = 0; i < NumManagers; i++) begin
-      corrected_fault |= encoder_faults[i][0] | enc_cut_faults[i];
-      uncorrectable_fault |= encoder_faults[i][1];
+      corrected_fault |= encoder_faults[i][0] | enc_cut_faults[i][0];
+      uncorrectable_fault |= encoder_faults[i][1] | enc_cut_faults[i][1];
     end
     for (int unsigned i = 0; i < NumSubordinates; i++) begin
-      corrected_fault |= decoder_faults[i][0] | dec_cut_faults[i];
-      uncorrectable_fault |= decoder_faults[i][1];
+      corrected_fault |= decoder_faults[i][0] | dec_cut_faults[i][0];
+      uncorrectable_fault |= decoder_faults[i][1]  | dec_cut_faults[i][1];
     end
   end
 
@@ -241,7 +246,7 @@ module tb_relobi_xbar;
   localparam int unsigned AddrWidth = 32;
   localparam int unsigned DataWidth = 32;
   localparam int unsigned MgrIdWidth = 5;
-  localparam int unsigned SbrIdWidth = MgrIdWidth+$clog2(NumManagers);
+  localparam int unsigned SbrIdWidth = MgrIdWidth;
   localparam int unsigned AUserWidth = 4;
   localparam int unsigned WUserWidth = 2;
   localparam int unsigned RUserWidth = 3;
