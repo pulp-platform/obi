@@ -48,11 +48,14 @@ sources:
       # Level 2
       - src/relobi_a_other_decoder.sv
       - src/relobi_a_other_encoder.sv
+      - src/relobi_a_other_corrector.sv
       - src/relobi_r_other_decoder.sv
       - src/relobi_r_other_encoder.sv
+      - src/relobi_r_other_corrector.sv
       # Level 3
       - src/relobi_decoder.sv
       - src/relobi_encoder.sv
+      - src/relobi_corrector.sv
       # Level 4
       - src/relobi_cut.sv
       - src/relobi_demux.sv
