@@ -102,13 +102,17 @@ module obi_atop_resolver
   );
 
   // Store the metadata at handshake
-  spill_register #(
-      .T     (logic [SbrPortObiCfg.IdWidth-1:0]),
-      .Bypass(1'b0)
+  stream_fifo #(
+      .T            (logic [SbrPortObiCfg.IdWidth-1:0]),
+      .DEPTH        (NumTxns),
+      .FALL_THROUGH (1'b0)
   ) i_metadata_register (
       .clk_i,
       .rst_ni,
-      .valid_i(sbr_port_req_i.req && sbr_port_rsp_o.gnt),
+      .flush_i    ('0),
+      .testmode_i ('0),
+      .usage_o    (),
+      .valid_i (sbr_port_req_i.req && sbr_port_rsp_o.gnt),
       .ready_o(meta_ready),
       .data_i (sbr_port_req_i.a.aid),
       .valid_o(meta_valid),
