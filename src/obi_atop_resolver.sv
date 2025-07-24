@@ -74,6 +74,7 @@ module obi_atop_resolver
   logic                                    load_amo;
   obi_atop_e                               amo_op_d, amo_op_q;
   logic                                    amo_wb;
+  logic                                    rsp_happening;
   logic                                    amo_available, amo_last;
   logic      [SbrPortObiCfg.AddrWidth-1:0] addr_q;
 
@@ -124,7 +125,7 @@ module obi_atop_resolver
   logic rdata_full, rdata_empty;
   logic rdata_usage;
 
-  assign rdata_ready = !rdata_usage && !rdata_full;
+  assign rdata_ready = !rdata_full;
   assign rdata_valid = !rdata_empty;
 
   logic sc_successful_or_lr_d, sc_successful_or_lr_q;
@@ -170,11 +171,11 @@ module obi_atop_resolver
       .flush_i(1'b0),
       .full_o (rdata_full),
       .empty_o(rdata_empty),
-      .usage_o(rdata_usage),
+      .usage_o( ),
       .data_i (out_buf_fifo_in),
-      .push_i (~last_amo_wb & mgr_port_rsp_i.rvalid),
+      .push_i (~last_amo_wb & rsp_happening),
       .data_o (out_buf_fifo_out),
-      .pop_i  (pop_resp & ~rdata_empty)
+      .pop_i  (pop_resp)
   );
 
   // In case of a SC we must forward SC result from the cycle earlier.
@@ -184,16 +185,16 @@ module obi_atop_resolver
 
   // Ready to output data if both meta and read data
   // are available (the read data will always be last)
-  assign sbr_port_rsp_o.rvalid = meta_valid & rdata_valid;
+  assign sbr_port_rsp_o.rvalid = meta_valid & rdata_valid & ~amo_wb;
   // Only pop the data from the registers once both registers are ready
   if (SbrPortObiCfg.UseRReady) begin : gen_pop_rready
     assign pop_resp = sbr_port_rsp_o.rvalid & sbr_port_req_i.rready;
   end else begin : gen_pop_norready
-    assign pop_resp = sbr_port_rsp_o.rvalid;
+    assign pop_resp = sbr_port_rsp_o.rvalid; // TODO (lleone): Rvalid in case of AMO must be asserted only after the read?
   end
 
   // Buffer amo_wb signal to ensure wb rdata is not used
-  `FFL(last_amo_wb, amo_wb, mgr_port_req_o.req, 1'b0, clk_i, rst_ni);
+  `FF(last_amo_wb, amo_wb, 1'b0, clk_i, rst_ni);
 
   // ----------------
   // LR/SC
@@ -339,6 +340,12 @@ module obi_atop_resolver
     assign a_optional = '0;
   end
 
+  if (SbrPortObiCfg.UseRReady) begin : gen_rsp_happening
+    assign rsp_happening = mgr_port_rsp_i.rvalid & mgr_port_req_o.rready;
+  end else begin : gen_rsp_norready
+    assign rsp_happening = mgr_port_rsp_i.rvalid;
+  end
+
   always_comb begin
     // feed-through
     sbr_port_rsp_o.gnt = rdata_ready & mgr_port_rsp_i.gnt & amo_available;
@@ -353,7 +360,7 @@ module obi_atop_resolver
 
     state_d = state_q;
     load_amo = 1'b0;
-    amo_wb = 1'b0;
+    amo_wb = last_amo_wb & ~rsp_happening;
     amo_op_d = amo_op_q;
 
     unique case (state_q)
@@ -376,7 +383,7 @@ module obi_atop_resolver
       DoAMO, WriteBackAMO: begin
         sbr_port_rsp_o.gnt = 1'b0;
         mgr_port_req_o.req = 1'b0;
-        if (amo_last && mgr_port_rsp_i.rvalid) begin
+        if (amo_last && rsp_happening) begin
           if (mgr_port_rsp_i.gnt) begin
             state_d = (RegisterAmo && state_q != WriteBackAMO) ? WriteBackAMO : Idle;
           end
@@ -411,13 +418,6 @@ module obi_atop_resolver
   end else begin : gen_amo_slice
     assign amo_result_q = '0;
     assign amo_operand_addr_q = '0;
-  end
-
-  logic rsp_happening;
-  if (SbrPortObiCfg.UseRReady) begin : gen_rsp_happening
-    assign rsp_happening = mgr_port_rsp_i.rvalid & mgr_port_req_o.rready;
-  end else begin : gen_rsp_norready
-    assign rsp_happening = mgr_port_rsp_i.rvalid;
   end
 
   credit_counter #(
