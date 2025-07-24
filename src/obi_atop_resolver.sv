@@ -190,7 +190,7 @@ module obi_atop_resolver
   if (SbrPortObiCfg.UseRReady) begin : gen_pop_rready
     assign pop_resp = sbr_port_rsp_o.rvalid & sbr_port_req_i.rready;
   end else begin : gen_pop_norready
-    assign pop_resp = sbr_port_rsp_o.rvalid; // TODO (lleone): Rvalid in case of AMO must be asserted only after the read?
+    assign pop_resp = sbr_port_rsp_o.rvalid;
   end
 
   // Buffer amo_wb signal to ensure wb rdata is not used
