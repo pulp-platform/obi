@@ -6,6 +6,7 @@
 // Author: Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
 `include "common_cells/registers.svh"
+`include "common_cells/assertions.svh"
 
 /// Handles atomics. Hence, it needs to be instantiated in front of a memory region over which the
 /// bus has exclusive access.
@@ -49,11 +50,6 @@ module obi_atop_resolver
     input  mgr_port_obi_rsp_t mgr_port_rsp_i
 );
 
-  if (!SbrPortObiCfg.OptionalCfg.UseAtop) $fatal(1, "Atomics require atop to be enabled");
-  if (MgrPortObiCfg.OptionalCfg.UseAtop)
-    $fatal(1, "Filter requires atop to be disabled on manager port");
-  if (SbrPortObiCfg.Integrity || MgrPortObiCfg.Integrity) $error("Integrity not supported");
-
   logic meta_valid, meta_ready;
   logic rdata_valid, rdata_ready;
 
@@ -84,25 +80,40 @@ module obi_atop_resolver
   logic [AxiAluRatio-1:0][RiscvWordWidth-1:0] amo_operand_a;
   logic [AxiAluRatio-1:0][RiscvWordWidth-1:0] amo_operand_a_q;
   logic [AxiAluRatio-1:0][RiscvWordWidth-1:0] amo_operand_b_q;
-  logic [$clog2(SbrPortObiCfg.DataWidth/8)-$clog2(RiscvWordWidth/8)-1:0]
-      amo_operand_addr, amo_operand_addr_q;
+  logic [$clog2(AxiAluRatio)-1:0]             amo_operand_addr, amo_operand_addr_q;
   logic [AxiAluRatio-1:0][RiscvWordWidth-1:0] amo_result, amo_result_q;
 
-  // Selection of the RiscvWordWidth word within the wide atomic request.
+  // ---------------
+  // Word selection
+  // ---------------
+  // Atomics are performed on words of size `RiscvWordWidth`, but the bus width
+  // may be larger. In such cases, we need to select the word to operate on
+  // within the wide request, based on the byte enable signal.
+
   logic [SbrPortObiCfg.DataWidth/8-1:0] be_q;
   logic [$clog2(SbrPortObiCfg.DataWidth/8)-1:0] lz_cnt;
-  assign amo_operand_addr = lz_cnt >> $clog2(RiscvWordWidth / 8);
 
+  // Count trailing zeros in the byte enable vector, to get the starting byte
+  // of the selected word within the wide atomic request.
   lzc #(
       .WIDTH(SbrPortObiCfg.DataWidth / 8),
-      .MODE (1'b0)
+      .MODE (lzc_pkg::TRAILING_ZERO_CNT)
   ) i_count_addr (
       .in_i   (be_q),
       .cnt_o  (lz_cnt),
-      .empty_o(  /*Unused*/)
+      .empty_o(/*Unused*/)
   );
 
-  // Store the metadata at handshake
+  // Divide `lz_cnt` by the number of bytes in a word, to get the index of the
+  // selected word within the wide atomic request.
+  assign amo_operand_addr = lz_cnt >> $clog2(RiscvWordWidth / 8);
+
+  // -------------------
+  // Response handling
+  // -------------------
+
+  // We save the ID of every accepted request to be able to return it with the
+  // respective response, when it arrives.
   stream_fifo #(
       .T            (logic [SbrPortObiCfg.IdWidth-1:0]),
       .DEPTH        (NumTxns),
@@ -183,10 +194,11 @@ module obi_atop_resolver
       !sc_successful_or_lr_q
   ) : mgr_port_rsp_i.r.rdata;
 
-  // Ready to output data if both meta and read data
-  // are available (the read data will always be last)
+  // We can forward a response to the manager if both metadata and response
+  // are available (the response data will always be last)
   assign sbr_port_rsp_o.rvalid = meta_valid & rdata_valid & ~amo_wb;
-  // Only pop the data from the registers once both registers are ready
+
+  // Only pop a response from the FIFO when the manager is ready to accept it.
   if (SbrPortObiCfg.UseRReady) begin : gen_pop_rready
     assign pop_resp = sbr_port_rsp_o.rvalid & sbr_port_req_i.rready;
   end else begin : gen_pop_norready
@@ -514,18 +526,40 @@ module obi_atop_resolver
     endcase
   end
 
-  // pragma translate_off
-  // Check for unsupported parameters
-  if (RiscvWordWidth != 32) begin : gen_datawidth_err
-    $error($sformatf({"Module currently only supports RiscvWordWidth = 32 (Currently %0d)."
-    }, RiscvWordWidth));
-  end
+  // ----------------
+  // Assertions
+  // ----------------
 
-`ifndef VERILATOR
-  assert_rdata_full :
-  assert property (@(posedge clk_i) disable iff (~rst_ni) (sbr_port_rsp_o.gnt |-> !rdata_full))
-  else $fatal(1, "Trying to push new data although the i_rdata_register is not ready.");
-`endif
+  // pragma translate_off
+
+  `ASSERT_INIT(InvalidSbrPortObiCfg,
+    SbrPortObiCfg.OptionalCfg.UseAtop,
+    "Atomics require atop to be enabled");
+
+  `ASSERT_INIT(InvalidMgrPortObiCfg,
+    !MgrPortObiCfg.OptionalCfg.UseAtop,
+    "Resolver requires atop to be disabled on manager port");
+
+  `ASSERT_INIT(ObiIntegrityUnsupported,
+    !SbrPortObiCfg.Integrity && !MgrPortObiCfg.Integrity,
+    "Integrity not supported");
+
+  `ASSERT_INIT(InvalidRiscvWordWidth,
+    RiscvWordWidth == 32,
+    $sformatf({"Module currently only supports RiscvWordWidth = 32 (Currently %0d)."
+    }, RiscvWordWidth))
+
+  `ASSERT(InvalidByteEnable,
+    load_amo |=> be_q == ({RiscvWordWidth/8{1'b1}} << (amo_operand_addr * (RiscvWordWidth / 8))),
+    clk_i, !rst_ni,
+    $sformatf("Invalid byte enable (%b). Must enable a single, aligned %0d-bit word.",
+    be_q, RiscvWordWidth))
+
+  `ASSERT(RdataFull,
+    sbr_port_rsp_o.gnt |-> !rdata_full,
+    clk_i, !rst_ni,
+    $sformatf("Trying to push new data although the i_rdata_register is not ready."))
+
   // pragma translate_on
 
 endmodule
