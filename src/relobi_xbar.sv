@@ -132,18 +132,22 @@ module relobi_xbar #(
       .mgr_ports_rsp_i   ( sbr_rsps[i]        ),
       .fault_o           ( faults[3*NumSbrPorts+i] )
     );
-    always_comb begin : sbr_reqs_abort
-      sbr_reqs_aborted[i] = sbr_reqs[i];
-      sbr_rsps_aborted[i] = sbr_rsps[i];
-      for (int j = 0; j < NumMgrPorts; j++) begin : sbr_reqs_abort_inner
-        sbr_reqs_aborted[i][j].req[0] = sbr_reqs[i][j].req[0] & ~decode_abort[0][i];
-        sbr_reqs_aborted[i][j].req[1] = sbr_reqs[i][j].req[1] & ~decode_abort[1][i];
-        sbr_reqs_aborted[i][j].req[2] = sbr_reqs[i][j].req[2] & ~decode_abort[2][i];
-        sbr_rsps_aborted[i][j].gnt[0] = sbr_rsps[i][j].gnt[0] & ~decode_abort[0][i];
-        sbr_rsps_aborted[i][j].gnt[1] = sbr_rsps[i][j].gnt[1] & ~decode_abort[1][i];
-        sbr_rsps_aborted[i][j].gnt[2] = sbr_rsps[i][j].gnt[2] & ~decode_abort[2][i];
+
+    for (genvar j = 0; j < NumMgrPorts; j++) begin : sbr_reqs_abort_inner
+      assign sbr_reqs_aborted[i][j].a = sbr_reqs[i][j].a;
+      assign sbr_rsps_aborted[i][j].r = sbr_rsps[i][j].r;
+      assign sbr_rsps_aborted[i][j].rvalid = sbr_rsps[i][j].rvalid;
+      if (SbrPortObiCfg.UseRReady) begin : gen_rready
+        assign sbr_reqs_aborted[i][j].rready = sbr_reqs[i][j].rready;
       end
-    end
+      assign sbr_reqs_aborted[i][j].req[0] = sbr_reqs[i][j].req[0] & ~decode_abort[0][i];
+      assign sbr_reqs_aborted[i][j].req[1] = sbr_reqs[i][j].req[1] & ~decode_abort[1][i];
+      assign sbr_reqs_aborted[i][j].req[2] = sbr_reqs[i][j].req[2] & ~decode_abort[2][i];
+      assign sbr_rsps_aborted[i][j].gnt[0] = sbr_rsps[i][j].gnt[0] & ~decode_abort[0][i];
+      assign sbr_rsps_aborted[i][j].gnt[1] = sbr_rsps[i][j].gnt[1] & ~decode_abort[1][i];
+      assign sbr_rsps_aborted[i][j].gnt[2] = sbr_rsps[i][j].gnt[2] & ~decode_abort[2][i];
+      end
+
   end
 
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_interco_sbr

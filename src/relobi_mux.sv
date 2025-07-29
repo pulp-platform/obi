@@ -354,10 +354,7 @@ module relobi_mux_tmr_part #(
   logic [RequiredExtraIdWidth-1:0] response_id;
 
   if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_aid_identical
-    always_comb begin
-      `OBI_SET_A_STRUCT(mgr_port_a_tmr, mgr_port_a_in_sbr)
-      mgr_port_a_tmr.other_ecc = mgr_port_a_in_sbr.other_ecc;
-    end
+    assign mgr_port_a_tmr = mgr_port_a_in_sbr;
     assign hsiao_faults[0] = '0;
     assign hsiao_faults_gated[0] = '0;
   end else begin : gen_aid_extend

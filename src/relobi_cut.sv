@@ -107,6 +107,7 @@ module relobi_cut #(
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
         sbr_port_rsp_o.rvalid <= 1'b0;
+        sbr_port_rsp_o.r      <= '0;
       end else begin
         sbr_port_rsp_o.rvalid <= mgr_port_rsp_i.rvalid;
         sbr_port_rsp_o.r      <= mgr_port_rsp_i.r;

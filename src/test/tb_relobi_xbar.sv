@@ -24,6 +24,10 @@ module relobi_xbar_dut_wrapper #(
   parameter type mgr_bus_rsp_t = logic,
   parameter type sbr_bus_req_t = logic,
   parameter type sbr_bus_rsp_t = logic,
+  parameter type mgr_bus_a_chan_t = logic,
+  parameter type mgr_bus_r_chan_t = logic,
+  parameter type sbr_bus_a_chan_t = logic,
+  parameter type sbr_bus_r_chan_t = logic,
   parameter type mgr_a_optional_t = logic,
   parameter type mgr_r_optional_t = logic,
   parameter type sbr_a_optional_t = logic,
@@ -33,7 +37,8 @@ module relobi_xbar_dut_wrapper #(
   parameter type rule_t = logic,
   parameter rule_t [NumRules-1:0] AddrMap = '0,
   parameter bit UseIdForRouting = 1'b0,
-  parameter time TestTime = 8ns
+  parameter time TestTime = 8ns,
+  parameter int unsigned NumRequests = 1
 ) (
   input  logic clk,
   input  logic rst_n,
@@ -44,7 +49,9 @@ module relobi_xbar_dut_wrapper #(
 
   // Subordinate ports
   output sbr_bus_req_t [NumSubordinates-1:0] sbr_bus_req,
-  input  sbr_bus_rsp_t [NumSubordinates-1:0] sbr_bus_rsp
+  input  sbr_bus_rsp_t [NumSubordinates-1:0] sbr_bus_rsp,
+
+  input  logic [NumManagers-1:0] end_of_sim
 );
 
   localparam int unsigned MgrBusReqBits = $bits(mgr_bus_req_t);
@@ -201,6 +208,101 @@ module relobi_xbar_dut_wrapper #(
     );
   end
 
+  logic interface_error;
+  logic [NumSubordinates-1:0] sbr_error;
+  logic [NumManagers-1:0] mgr_error;
+  assign interface_error = |sbr_error | |mgr_error;
+
+  // Collect sent requests and responses
+  localparam int unsigned NumMABits = $bits(mgr_bus_a_chan_t);
+  localparam int unsigned NumMRBits = $bits(mgr_bus_r_chan_t);
+  localparam int unsigned NumSABits = $bits(sbr_bus_a_chan_t);
+  localparam int unsigned NumSRBits = $bits(sbr_bus_r_chan_t);
+  logic [NumMABits-1:0] mgr_bus_a_chan_flat [NumManagers][NumSubordinates][$];
+  logic mgr_bus_a_chan_flat_empty [NumManagers][NumSubordinates];
+  logic [NumMABits-1:0] mgr_bus_a_chan_flat_front [NumManagers][NumSubordinates];
+  logic [$clog2(NumSubordinates)-1:0] mgr_bus_rsp_idx [NumManagers][$];
+  logic [$clog2(NumSubordinates)-1:0] mgr_bus_rsp_idx_front [NumManagers];
+  logic [NumSRBits-1:0] sbr_bus_r_chan_flat [NumSubordinates][$];
+  logic [NumSRBits-1:0] sbr_bus_r_chan_flat_front [NumSubordinates];
+  logic [NumSubordinates-1:0][NumManagers-1:0] sbr_mgr_match;
+  logic [NumManagers-1:0][NumSubordinates-1:0] mgr_sbr_match;
+
+  logic [NumSubordinates-1:0] sbr_data_valid;
+  logic [NumManagers-1:0] mgr_data_valid;
+  for (genvar i = 0; i < NumSubordinates; i++) begin
+    assign sbr_data_valid[i] = sbr_bus_req[i].req & sbr_bus_rsp[i].gnt;
+    assign sbr_error[i] = sbr_bus_req[i].req & sbr_bus_rsp[i].gnt & ~(|sbr_mgr_match[i]);
+  end
+  for (genvar i = 0; i < NumManagers; i++) begin
+    assign mgr_data_valid[i] = mgr_bus_rsp[i].rvalid;
+    assign mgr_error[i] = mgr_bus_rsp[i].rvalid & ~(|mgr_sbr_match[i]);
+  end
+
+  always_comb begin
+    for (int unsigned i = 0; i < NumSubordinates; i++) begin
+      for (int unsigned j = 0; j < NumManagers; j++) begin
+        if (sbr_bus_req[i].req && sbr_bus_rsp[i].gnt) begin
+          if (mgr_bus_a_chan_flat_empty[j][i]) begin
+            sbr_mgr_match[i][j] = 1'b0;
+          end else begin
+            sbr_mgr_match[i][j] = mgr_bus_a_chan_flat_front[j][i] == sbr_bus_req[i].a;
+          end
+        end else begin
+          sbr_mgr_match[i][j] = 1'b0;
+        end
+      end
+    end
+    for (int unsigned i = 0; i < NumManagers; i++) begin
+      if (mgr_bus_rsp[i].rvalid) begin
+        mgr_sbr_match[i] = sbr_bus_r_chan_flat_front[mgr_bus_rsp_idx_front[i]] == mgr_bus_rsp[i].r;
+      end else begin
+        mgr_sbr_match[i] = '0;
+      end
+    end
+  end
+
+  always @(posedge clk) begin
+    for (int unsigned i = 0; i < NumManagers; i++) begin
+      for (int unsigned j = 0; j < NumSubordinates; j++) begin
+        if (mgr_bus_req[i].req && mgr_bus_rsp[i].gnt &&
+            mgr_bus_req[i].a.addr >= AddrMap[j].start_addr &&
+            mgr_bus_req[i].a.addr < AddrMap[j].end_addr) begin
+          mgr_bus_a_chan_flat[i][j].push_back(mgr_bus_req[i].a);
+          mgr_bus_rsp_idx[i].push_back(j);
+        end
+      end
+      if (mgr_bus_rsp[i].rvalid) begin
+        sbr_bus_r_chan_flat[mgr_bus_rsp_idx[i][0]].pop_front();
+        mgr_bus_rsp_idx[i].pop_front();
+      end
+    end
+    for (int unsigned i = 0; i < NumSubordinates; i++) begin
+      if (sbr_bus_req[i].req && sbr_bus_rsp[i].gnt) begin
+        for (int unsigned j = 0; j < NumManagers; j++) begin
+          if (mgr_bus_a_chan_flat[j][i][0] == sbr_bus_req[i].a) begin
+            mgr_bus_a_chan_flat[j][i].pop_front();
+            break;
+          end
+        end
+      end
+      if (sbr_bus_rsp[i].rvalid) begin
+        sbr_bus_r_chan_flat[i].push_back(sbr_bus_rsp[i].r);
+      end
+    end
+
+    for (int unsigned i = 0; i < NumManagers; i++) begin
+      mgr_bus_rsp_idx_front[i] = mgr_bus_rsp_idx[i][0];
+      for (int unsigned j = 0; j < NumSubordinates; j++) begin
+        mgr_bus_a_chan_flat_empty[i][j] = (mgr_bus_a_chan_flat[i][j].size() == 0);
+        mgr_bus_a_chan_flat_front[i][j] = mgr_bus_a_chan_flat[i][j][0];
+      end
+    end
+    for (int unsigned i = 0; i < NumSubordinates; i++) begin
+      sbr_bus_r_chan_flat_front[i] = sbr_bus_r_chan_flat[i][0];
+    end
+  end
+
   // Fault indication
   logic corrected_fault;
   logic uncorrectable_fault;
@@ -300,7 +402,7 @@ module tb_relobi_xbar;
     .TA ( ApplTime ),
     .TT ( TestTime ),
     .MinAddr (32'h0000_0000),
-    .MaxAddr (32'h0001_3000)
+    .MaxAddr (32'h0001_1000)
   ) rand_manager_t;
 
   localparam obi_pkg::obi_cfg_t SbrConfig = '{
@@ -467,6 +569,10 @@ module tb_relobi_xbar;
     .mgr_bus_rsp_t(mgr_bus_rsp_t),
     .sbr_bus_req_t(sbr_bus_req_t),
     .sbr_bus_rsp_t(sbr_bus_rsp_t),
+    .mgr_bus_a_chan_t(mgr_bus_a_chan_t),
+    .mgr_bus_r_chan_t(mgr_bus_r_chan_t),
+    .sbr_bus_a_chan_t(sbr_bus_a_chan_t),
+    .sbr_bus_r_chan_t(sbr_bus_r_chan_t),
     .mgr_a_optional_t(mgr_a_optional_t),
     .mgr_r_optional_t(mgr_r_optional_t),
     .sbr_a_optional_t(sbr_a_optional_t),
@@ -476,7 +582,8 @@ module tb_relobi_xbar;
     .rule_t(rule_t),
     .AddrMap(AddrMap),
     .UseIdForRouting(UseIdForRouting),
-    .TestTime(TestTime)
+    .TestTime(TestTime),
+    .NumRequests(NumRequests)
   ) i_dut_wrapper (
     .clk,
     .rst_n,
@@ -487,7 +594,9 @@ module tb_relobi_xbar;
 
     // Subordinate ports
     .sbr_bus_req,
-    .sbr_bus_rsp
+    .sbr_bus_rsp,
+
+    .end_of_sim(end_of_sim)
   );
 
   for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_decode
