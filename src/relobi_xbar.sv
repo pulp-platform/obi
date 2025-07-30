@@ -171,6 +171,8 @@ module relobi_xbar #(
           .ObiCfg      ( SbrPortObiCfg      ),
           .obi_req_t   ( sbr_port_obi_req_t ),
           .obi_rsp_t   ( sbr_port_obi_rsp_t ),
+          .a_optional_t ( a_optional_t       ),
+          .r_optional_t ( r_optional_t       ),
           .NumMaxTrans ( NumMaxTrans        ),
           .RspData     ( 32'hBADCAB1E       )
         ) i_err_sbr (
@@ -178,7 +180,8 @@ module relobi_xbar #(
           .rst_ni,
           .testmode_i,
           .obi_req_i (sbr_reqs_aborted[i][j]),
-          .obi_rsp_o (sbr_rsps[i][j])
+          .obi_rsp_o (sbr_rsps[i][j]),
+          .fault_o   () // TODO
         );
       end
     end
