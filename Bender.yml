@@ -61,6 +61,7 @@ sources:
       - src/relobi_demux.sv
       - src/relobi_err_sbr.sv
       - src/relobi_mux.sv
+      - src/relobi_sram_shim.sv
       # Level 5
       - src/relobi_xbar.sv
       - target: any(test, obi_test)
