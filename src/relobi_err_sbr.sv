@@ -126,14 +126,14 @@ module relobi_err_sbr #(
       .fault_o (hsiao_errs[3])
     );
   end else begin : gen_no_rready_fifo
-    assign fifo_full  = 1'b0;
-    assign fifo_pop = 1'b0;
+    assign fifo_full  = '0;
+    assign fifo_pop = '0;
     assign hsiao_errs[3] = '0;
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
         rid_q <= '0;
         other_ecc_q <= '0;
-        fifo_empty <= 1'b1;
+        fifo_empty <= '1;
       end else begin
         rid_q <= rid_d;
         other_ecc_q <= other_ecc_d;
