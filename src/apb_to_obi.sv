@@ -139,7 +139,7 @@ module apb_to_obi #(
   // Assertions
   // ----------
 
-`ifdef OBI_ASSERT_ON
+`ifndef OBI_ASSERTS_OFF
   `ASSERT(penable, obi_phase_q == RESP |-> apb_req_i.penable, clk_i, !rst_ni,
       "APB PENABLE must be asserted during OBI RESP phase!")
   `ASSERT_INIT(no_integrity, !ObiCfg.Integrity,
