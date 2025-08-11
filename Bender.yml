@@ -10,6 +10,7 @@ package:
 dependencies:
   common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.38.0 }
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.3 }
+  redundancy_cells: { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: 3c7c57e80fe2f65812db092182ce68ee810943df }
 
 export_include_dirs:
   - include
@@ -21,6 +22,7 @@ sources:
   - src/obi_intf.sv
   - src/obi_rready_converter.sv
   - src/apb_to_obi.sv
+  - src/obi_to_apb.sv
   # Level 3
   - src/obi_atop_resolver.sv
   - src/obi_cut.sv
@@ -30,7 +32,7 @@ sources:
   - src/obi_sram_shim.sv
   # Level 4
   - src/obi_xbar.sv
-  - target: test
+  - target: any(test, obi_test)
     files:
       - src/test/obi_asserter.sv
       - src/test/obi_test.sv
@@ -38,3 +40,38 @@ sources:
       - src/test/tb_obi_xbar.sv
       - src/test/atop_golden_mem_pkg.sv
       - src/test/tb_obi_atop_resolver.sv
+
+  - target: relOBI
+    files:
+      # Level 1
+      - src/relobi_pkg.sv
+      - src/relobi_tmr_r.sv
+      # Level 2
+      - src/relobi_a_other_decoder.sv
+      - src/relobi_a_other_encoder.sv
+      - src/relobi_a_other_corrector.sv
+      - src/relobi_r_other_decoder.sv
+      - src/relobi_r_other_encoder.sv
+      - src/relobi_r_other_corrector.sv
+      # Level 3
+      - src/relobi_decoder.sv
+      - src/relobi_encoder.sv
+      - src/relobi_corrector.sv
+      # Level 4
+      - src/relobi_cut.sv
+      - src/relobi_demux.sv
+      - src/relobi_err_sbr.sv
+      - src/relobi_mux.sv
+      - src/relobi_sram_shim.sv
+      # Level 5
+      - src/relobi_xbar.sv
+      - target: any(test, obi_test)
+        files:
+        - target: ZOIX
+          files:
+            - src/test/tb_relobi_xbar.sv
+          include_dirs:
+            - fault_sim
+        - target: not(ZOIX)
+          files:
+            - src/test/tb_relobi_xbar.sv

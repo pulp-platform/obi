@@ -31,7 +31,7 @@ module tb_obi_xbar;
   localparam time TestTime =  8ns;
 
   localparam obi_pkg::obi_cfg_t MgrConfig = '{
-    UseRReady:      1'b1,
+    UseRReady:      1'b0,
     CombGnt:        1'b0,
     AddrWidth: AddrWidth,
     DataWidth: DataWidth,
@@ -64,7 +64,7 @@ module tb_obi_xbar;
   ) rand_manager_t;
 
   localparam obi_pkg::obi_cfg_t SbrConfig = '{
-    UseRReady:      1'b1,
+    UseRReady:      1'b0,
     CombGnt:        1'b0,
     AddrWidth: AddrWidth,
     DataWidth: DataWidth,
@@ -201,7 +201,11 @@ module tb_obi_xbar;
   // DUT
   obi_xbar_intf #(
     .SbrPortObiCfg   ( MgrConfig       ),
+    .sbr_port_a_optional_t (mgr_a_optional_t),
+    .sbr_port_r_optional_t (mgr_r_optional_t),
     .MgrPortObiCfg   ( SbrConfig       ),
+    .mgr_port_a_optional_t (sbr_a_optional_t),
+    .mgr_port_r_optional_t (sbr_r_optional_t),
     .NumSbrPorts     ( NumManagers     ),
     .NumMgrPorts     ( NumSubordinates ),
     .NumMaxTrans     ( NumMaxTrans     ),
@@ -223,7 +227,7 @@ module tb_obi_xbar;
     wait(&end_of_sim);
     repeat (1000) @(posedge clk);
     $display("Simulation stopped as all Masters transferred their data, Success.",);
-    $stop();
+    $finish();
   end
 
 endmodule

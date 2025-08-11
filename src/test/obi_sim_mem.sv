@@ -150,6 +150,8 @@ endmodule
 
 module obi_sim_mem_intf import obi_pkg::*; #(
   parameter obi_pkg::obi_cfg_t ObiCfg = obi_pkg::ObiDefaultConfig,
+  parameter type a_optional_t = logic,
+  parameter type r_optional_t = logic,
   parameter bit WarnUninitialized = 1'b0,
   parameter bit ClearErrOnAccess = 1'b0,
   parameter time ApplDelay = 0ps,
@@ -167,7 +169,11 @@ module obi_sim_mem_intf import obi_pkg::*; #(
   output logic [    ObiCfg.IdWidth-1:0] mon_id_o
 );
 
+  `ifdef TARGET_VSIM
   `OBI_TYPEDEF_ALL(obi, ObiCfg)
+  `else
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(obi, ObiCfg, a_optional_t, r_optional_t)
+  `endif
 
   obi_req_t obi_req;
   obi_rsp_t obi_rsp;

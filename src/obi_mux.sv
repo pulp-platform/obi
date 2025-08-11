@@ -35,9 +35,11 @@ module obi_mux #(
   input  logic rst_ni,
   input  logic testmode_i,
 
+  /// Subordinate ports (input)
   input  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req_i,
   output sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp_o,
 
+  /// Manager ports (output)
   output mgr_port_obi_req_t                   mgr_port_req_o,
   input  mgr_port_obi_rsp_t                   mgr_port_rsp_i
 );
@@ -166,8 +168,12 @@ endmodule
 module obi_mux_intf #(
   /// The configuration of the subordinate ports (input ports).
   parameter obi_pkg::obi_cfg_t SbrPortObiCfg      = obi_pkg::ObiDefaultConfig,
+  parameter type               sbr_port_a_optional_t = logic,
+  parameter type               sbr_port_r_optional_t = logic,
   /// The configuration of the manager port (output port).
   parameter obi_pkg::obi_cfg_t MgrPortObiCfg      = SbrPortObiCfg,
+  parameter type               mgr_port_a_optional_t = logic,
+  parameter type               mgr_port_r_optional_t = logic,
   /// The number of subordinate ports (input ports).
   parameter int unsigned       NumSbrPorts        = 32'd0,
   /// The maximum number of outstanding transactions.
@@ -184,8 +190,10 @@ module obi_mux_intf #(
   OBI_BUS.Manager     mgr_port
 );
 
-  `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
-  `OBI_TYPEDEF_ALL(mgr_port_obi, MgrPortObiCfg)
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(sbr_port_obi, SbrPortObiCfg,
+    sbr_port_a_optional_t, sbr_port_r_optional_t)
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(mgr_port_obi, MgrPortObiCfg,
+    mgr_port_a_optional_t, mgr_port_r_optional_t)
 
   sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req;
   sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp;

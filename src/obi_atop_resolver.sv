@@ -538,8 +538,12 @@ module obi_atop_resolver_intf
 #(
     /// The configuration of the subordinate ports (input ports).
     parameter obi_pkg::obi_cfg_t SbrPortObiCfg = obi_pkg::ObiDefaultConfig,
+    parameter type               sbr_port_a_optional_t = logic,
+    parameter type               sbr_port_r_optional_t = logic,
     /// The configuration of the manager port (output port).
     parameter obi_pkg::obi_cfg_t MgrPortObiCfg = SbrPortObiCfg,
+    parameter type               mgr_port_a_optional_t = logic,
+    parameter type               mgr_port_r_optional_t = logic,
     /// Enable LR & SC AMOS
     parameter bit                LrScEnable    = 1,
     /// Cut path between request and response at the cost of increased AMO latency
@@ -554,8 +558,10 @@ module obi_atop_resolver_intf
     OBI_BUS.Manager mgr_port
 );
 
-  `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
-  `OBI_TYPEDEF_ALL(mgr_port_obi, MgrPortObiCfg)
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(sbr_port_obi, SbrPortObiCfg,
+    sbr_port_a_optional_t, sbr_port_r_optional_t)
+  `OBI_TYPEDEF_ALL_WITH_OPTIONAL(mgr_port_obi, MgrPortObiCfg,
+    mgr_port_a_optional_t, mgr_port_r_optional_t)
 
   sbr_port_obi_req_t sbr_port_req;
   sbr_port_obi_rsp_t sbr_port_rsp;
@@ -576,8 +582,8 @@ module obi_atop_resolver_intf
       .sbr_port_obi_rsp_t       (sbr_port_obi_rsp_t),
       .mgr_port_obi_req_t       (mgr_port_obi_req_t),
       .mgr_port_obi_rsp_t       (mgr_port_obi_rsp_t),
-      .mgr_port_obi_a_optional_t(mgr_port_obi_a_optional_t),
-      .mgr_port_obi_r_optional_t(mgr_port_obi_r_optional_t),
+      .mgr_port_obi_a_optional_t(mgr_port_a_optional_t),
+      .mgr_port_obi_r_optional_t(mgr_port_r_optional_t),
       .LrScEnable               (LrScEnable),
       .RegisterAmo              (RegisterAmo)
   ) i_obi_atop_resolver (
