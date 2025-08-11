@@ -108,7 +108,7 @@ module relobi_sram_shim #(
     .err_o     (hsiao_errs[0])
   );
 
-  for (genvar i = 0; i < 3; i++) begin : tmr_part
+  for (genvar i = 0; i < 3; i++) begin : gen_tmr_part
     relobi_sram_shim_tmr_part #(
       .ObiCfg(ObiCfg),
       .relobi_req_t(relobi_req_t),

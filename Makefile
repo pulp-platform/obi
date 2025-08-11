@@ -29,7 +29,7 @@ $(TBS_VSIM): build_vsim
 ifdef gui
 	$(VSIM) $(patsubst %_vsim, %, $@) -voptargs="+acc"
 else
-	$(VSIM) -c $(patsubst %_vsim, %, $@) -do "run -all; quit -f"
+	$(VSIM) -c $(patsubst %_vsim, %, $@) -voptargs="+acc" -do "run -all; quit -f"
 endif
 
 .PHONY: all_vsim

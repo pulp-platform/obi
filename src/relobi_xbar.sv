@@ -77,7 +77,8 @@ module relobi_xbar #(
   assign fault_o[1] = |faults_transpose[1];
 
   logic [2:0][NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] sbr_port_select;
-  logic [NumSbrPorts-1:0][ MgrPortObiCfg.AddrWidth + hsiao_ecc_pkg::min_ecc(MgrPortObiCfg.AddrWidth) - 1:0] addr_input;
+  logic [NumSbrPorts-1:0][MgrPortObiCfg.AddrWidth+
+                          hsiao_ecc_pkg::min_ecc(MgrPortObiCfg.AddrWidth)-1:0] addr_input;
   logic [2:0][NumSbrPorts-1:0] decode_abort;
 
 
@@ -110,7 +111,7 @@ module relobi_xbar #(
   end
 
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_demux
-    
+
     assign addr_input[i] = sbr_ports_req_i[i].a.addr;
 
     relobi_demux #(
@@ -133,7 +134,7 @@ module relobi_xbar #(
       .fault_o           ( faults[3*NumSbrPorts+i] )
     );
 
-    for (genvar j = 0; j < NumMgrPorts; j++) begin : sbr_reqs_abort_inner
+    for (genvar j = 0; j < NumMgrPorts; j++) begin : gen_sbr_reqs_abort_inner
       assign sbr_reqs_aborted[i][j].a = sbr_reqs[i][j].a;
       assign sbr_rsps_aborted[i][j].r = sbr_rsps[i][j].r;
       assign sbr_rsps_aborted[i][j].rvalid = sbr_rsps[i][j].rvalid;

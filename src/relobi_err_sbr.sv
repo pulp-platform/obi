@@ -68,7 +68,7 @@ module relobi_err_sbr #(
 
       .rid_o(rid_tmr[i]),
       .other_ecc_o(other_ecc_tmr[i]),
-      
+
       .fault_o(hsiao_errs[i])
     );
   end
@@ -158,7 +158,7 @@ module relobi_err_sbr_tmr_part #(
 
   output logic [ObiCfg.IdWidth    -1:0] rid_o,
   output logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_o,
-  
+
   output logic [1:0] fault_o
 );
 

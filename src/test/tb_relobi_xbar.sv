@@ -230,11 +230,11 @@ module relobi_xbar_dut_wrapper #(
 
   logic [NumSubordinates-1:0] sbr_data_valid;
   logic [NumManagers-1:0] mgr_data_valid;
-  for (genvar i = 0; i < NumSubordinates; i++) begin
+  for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_data_valid
     assign sbr_data_valid[i] = sbr_bus_req[i].req & sbr_bus_rsp[i].gnt;
     assign sbr_error[i] = sbr_bus_req[i].req & sbr_bus_rsp[i].gnt & ~(|sbr_mgr_match[i]);
   end
-  for (genvar i = 0; i < NumManagers; i++) begin
+  for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_data_valid
     assign mgr_data_valid[i] = mgr_bus_rsp[i].rvalid;
     assign mgr_error[i] = mgr_bus_rsp[i].rvalid & ~(|mgr_sbr_match[i]);
   end

@@ -135,7 +135,8 @@ module relobi_mux #(
       .selected_id       ( selected_id[i]    ),
       .mgr_port_a_tmr    ( mgr_port_a_tmr[i] ),
 
-      .mgr_port_rsp_r    ( UseIdForRouting || MgrPortObiCfg.IdWidth != SbrPortObiCfg.IdWidth ? mgr_port_rsp_i.r : '0  ),
+      .mgr_port_rsp_r    ( UseIdForRouting || MgrPortObiCfg.IdWidth != SbrPortObiCfg.IdWidth ?
+                           mgr_port_rsp_i.r : '0  ),
       .mgr_port_rsp_rvalid( UseIdForRouting ? mgr_port_rsp_i.rvalid[i] : '0 ),
       .selected_id_tmr_three ( selected_id_tmr_three[i] ),
       .response_id_encoded( UseIdForRouting ? '0 : response_id_encoded ),
@@ -182,7 +183,7 @@ module relobi_mux #(
   if (MgrPortObiCfg.IdWidth == SbrPortObiCfg.IdWidth) begin : gen_aid_identical
     assign mgr_port_req_o.a = mgr_port_a_in_sbr;
     assign voter_faults[1] = '0;
-  end else begin
+  end else begin : gen_aid_vote
     bitwise_TMR_voter_fail #(
       .DataWidth ( $bits(mgr_port_a_chan_t) ),
       .VoterType ( 1 )
@@ -250,12 +251,12 @@ module relobi_mux #(
 
   if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
       assign mgr_port_req_o.rready = mgr_req_rready;
-      for (genvar i = 0; i < NumSbrPorts; i++) begin
+      for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_ports_rready
         for (genvar j = 0; j < 3; j++) begin : gen_sbr_req_rready
           assign sbr_req_rready[j][i] = sbr_ports_req_i[i].rready[j];
         end
-      end  
-  end else begin
+      end
+  end else begin : gen_rready_tie
     assign sbr_req_rready = '1;
   end
   sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
@@ -336,8 +337,10 @@ module relobi_mux_tmr_part #(
   // Only if UseIdForRouting is true
   input  logic             mgr_port_rsp_rvalid,
   // Only if UseIdForRouting is false
-  output logic [RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr_three,
-  input  logic [RequiredExtraIdWidth + hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] response_id_encoded,
+  output logic [RequiredExtraIdWidth+
+                hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] selected_id_tmr_three,
+  input  logic [RequiredExtraIdWidth+
+                hsiao_ecc_pkg::min_ecc(RequiredExtraIdWidth)-1:0] response_id_encoded,
   input  logic fifo_pop,
 
   output sbr_port_r_chan_t sbr_r_tmr,
@@ -461,7 +464,7 @@ module relobi_mux_tmr_part #(
   end
   if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
     assign mgr_req_rready = sbr_req_rready[response_id];
-  end else begin
+  end else begin : gen_rready_tie
     assign mgr_req_rready = '1;
   end
 
