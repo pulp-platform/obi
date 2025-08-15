@@ -18,8 +18,8 @@ module obi_to_apb #(
   parameter type apb_req_t = logic, // APB request struct
   /// The APB response struct for the manager port (output port).
   parameter type apb_rsp_t = logic, // APB response struct
-  /// Disable gnt/rvalid in same cycle.
-  parameter bit DisableSameCycleRsp = 1'b1
+  /// Enable gnt/rvalid in same cycle.
+  parameter bit EnableSameCycleRsp = 1'b0
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -58,7 +58,7 @@ module obi_to_apb #(
   assign obi_rsp_o.r.err   = apb_rsp_i.pslverr;
   assign obi_rsp_o.r.r_optional = '0; // No optional R feature supported at the moment.
 
-  if (DisableSameCycleRsp) begin : gen_hs_buffers
+  if (!EnableSameCycleRsp) begin : gen_hs_buffers
     logic tsxn_in_progress;
     logic [ObiCfg.IdWidth-1:0] aid_q;
     logic [ObiCfg.AddrWidth-1:0] addr_q;
