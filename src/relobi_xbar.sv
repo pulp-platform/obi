@@ -253,7 +253,7 @@ module relobi_xbar_tmr_part #(
   if (DecodeAbort) begin : gen_decode_abort
     for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_addr
       assign addr[i] = addr_i[i][AddrWidth-1:0];
-      assign decode_abort_o[i] = faults[i][0] | faults[i][1];
+      assign decode_abort_o[i] = faults[i][0];// | faults[i][1];
     end
   end else begin : gen_no_decode_abort
     assign addr = addr_dec;

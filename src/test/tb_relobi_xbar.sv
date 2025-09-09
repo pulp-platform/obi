@@ -218,25 +218,89 @@ module relobi_xbar_dut_wrapper #(
   localparam int unsigned NumMRBits = $bits(mgr_bus_r_chan_t);
   localparam int unsigned NumSABits = $bits(sbr_bus_a_chan_t);
   localparam int unsigned NumSRBits = $bits(sbr_bus_r_chan_t);
-  logic [NumMABits-1:0] mgr_bus_a_chan_flat [NumManagers][NumSubordinates][$];
+  // logic [NumMABits-1:0] mgr_bus_a_chan_flat [NumManagers][NumSubordinates][$];
   logic mgr_bus_a_chan_flat_empty [NumManagers][NumSubordinates];
+  logic [NumManagers-1:0][NumSubordinates-1:0] mgr_bus_a_chan_flat_pop;
   logic [NumMABits-1:0] mgr_bus_a_chan_flat_front [NumManagers][NumSubordinates];
-  logic [$clog2(NumSubordinates)-1:0] mgr_bus_rsp_idx [NumManagers][$];
+  // logic [$clog2(NumSubordinates)-1:0] mgr_bus_rsp_idx [NumManagers][$];
   logic [$clog2(NumSubordinates)-1:0] mgr_bus_rsp_idx_front [NumManagers];
-  logic [NumSRBits-1:0] sbr_bus_r_chan_flat [NumSubordinates][$];
+  logic [$clog2(NumSubordinates)-1:0] mgr_bus_rsp_idx_next [NumManagers];
+  logic [NumManagers-1:0] mgr_bus_rsp_idx_push;
+  // logic [NumSRBits-1:0] sbr_bus_r_chan_flat [NumSubordinates][$];
   logic [NumSRBits-1:0] sbr_bus_r_chan_flat_front [NumSubordinates];
+  logic [NumSubordinates-1:0] sbr_bus_r_chan_flat_pop;
   logic [NumSubordinates-1:0][NumManagers-1:0] sbr_mgr_match;
   logic [NumManagers-1:0][NumSubordinates-1:0] mgr_sbr_match;
 
   logic [NumSubordinates-1:0] sbr_data_valid;
   logic [NumManagers-1:0] mgr_data_valid;
-  for (genvar i = 0; i < NumSubordinates; i++) begin : gen_sbr_data_valid
+  for (genvar i = 0; i < NumSubordinates; i++) begin
     assign sbr_data_valid[i] = sbr_bus_req[i].req & sbr_bus_rsp[i].gnt;
     assign sbr_error[i] = sbr_bus_req[i].req & sbr_bus_rsp[i].gnt & ~(|sbr_mgr_match[i]);
   end
-  for (genvar i = 0; i < NumManagers; i++) begin : gen_mgr_data_valid
+  for (genvar i = 0; i < NumManagers; i++) begin
     assign mgr_data_valid[i] = mgr_bus_rsp[i].rvalid;
     assign mgr_error[i] = mgr_bus_rsp[i].rvalid & ~(|mgr_sbr_match[i]);
+  end
+
+  for (genvar i = 0; i < NumManagers; i++) begin
+    for (genvar j = 0; j < NumSubordinates; j++) begin
+      fifo_v3 #(
+        .FALL_THROUGH (1'b0),
+        .DATA_WIDTH (NumMABits),
+        .DEPTH (NumMaxTrans)
+      ) i_fifo_mgr_a_chan (
+        .clk_i (clk),
+        .rst_ni (rst_n),
+        .flush_i (1'b0),
+        .testmode_i (1'b0),
+        .full_o (),
+        .empty_o (mgr_bus_a_chan_flat_empty[i][j]),
+        .usage_o (),
+        .data_i (mgr_bus_req[i].a),
+        .push_i (mgr_bus_req[i].req && mgr_bus_rsp[i].gnt &&
+                 mgr_bus_req[i].a.addr >= AddrMap[j].start_addr &&
+                 mgr_bus_req[i].a.addr < AddrMap[j].end_addr),
+        .data_o (mgr_bus_a_chan_flat_front[i][j]),
+        .pop_i (mgr_bus_a_chan_flat_pop[i][j])
+      );
+    end
+    fifo_v3 #(
+      .FALL_THROUGH (1'b0),
+      .DATA_WIDTH ($clog2(NumSubordinates)),
+      .DEPTH (NumMaxTrans)
+    ) i_fifo_mgr_idx (
+      .clk_i (clk),
+      .rst_ni (rst_n),
+      .flush_i (1'b0),
+      .testmode_i (1'b0),
+      .full_o (),
+      .empty_o (),
+      .usage_o (),
+      .data_i (mgr_bus_rsp_idx_next[i]),
+      .push_i (mgr_bus_rsp_idx_push[i]),
+      .data_o (mgr_bus_rsp_idx_front[i]),
+      .pop_i (mgr_bus_rsp[i].rvalid)
+    );
+  end
+  for (genvar i = 0; i < NumSubordinates; i++) begin
+    fifo_v3 #(
+      .FALL_THROUGH (1'b0),
+      .DATA_WIDTH (NumSRBits),
+      .DEPTH (NumMaxTrans*NumManagers)
+    ) i_fifo_sbr_r_chan (
+      .clk_i (clk),
+      .rst_ni (rst_n),
+      .flush_i (1'b0),
+      .testmode_i (1'b0),
+      .full_o (),
+      .empty_o (),
+      .usage_o (),
+      .data_i (sbr_bus_rsp[i].r),
+      .push_i (sbr_bus_rsp[i].rvalid),
+      .data_o (sbr_bus_r_chan_flat_front[i]),
+      .pop_i (sbr_bus_r_chan_flat_pop[i])
+    );
   end
 
   always_comb begin
@@ -262,45 +326,52 @@ module relobi_xbar_dut_wrapper #(
     end
   end
 
-  always @(posedge clk) begin
+  always_comb begin
+    mgr_bus_a_chan_flat_pop = '0;
+    mgr_bus_rsp_idx_push = '0;
+    sbr_bus_r_chan_flat_pop = '0;
     for (int unsigned i = 0; i < NumManagers; i++) begin
       for (int unsigned j = 0; j < NumSubordinates; j++) begin
         if (mgr_bus_req[i].req && mgr_bus_rsp[i].gnt &&
             mgr_bus_req[i].a.addr >= AddrMap[j].start_addr &&
             mgr_bus_req[i].a.addr < AddrMap[j].end_addr) begin
-          mgr_bus_a_chan_flat[i][j].push_back(mgr_bus_req[i].a);
-          mgr_bus_rsp_idx[i].push_back(j);
+          // mgr_bus_a_chan_flat[i][j].push_back(mgr_bus_req[i].a);
+          mgr_bus_rsp_idx_next[i] = j;
+          mgr_bus_rsp_idx_push[i] = 1'b1;
+          // mgr_bus_rsp_idx[i].push_back(j);
         end
       end
       if (mgr_bus_rsp[i].rvalid) begin
-        sbr_bus_r_chan_flat[mgr_bus_rsp_idx[i][0]].pop_front();
-        mgr_bus_rsp_idx[i].pop_front();
+        sbr_bus_r_chan_flat_pop[mgr_bus_rsp_idx_front[i]] = 1'b1;
+        // sbr_bus_r_chan_flat[mgr_bus_rsp_idx[i][0]].pop_front();
+        // mgr_bus_rsp_idx[i].pop_front();
       end
     end
     for (int unsigned i = 0; i < NumSubordinates; i++) begin
       if (sbr_bus_req[i].req && sbr_bus_rsp[i].gnt) begin
         for (int unsigned j = 0; j < NumManagers; j++) begin
-          if (mgr_bus_a_chan_flat[j][i][0] == sbr_bus_req[i].a) begin
-            mgr_bus_a_chan_flat[j][i].pop_front();
+          if (mgr_bus_a_chan_flat_front[j][i] == sbr_bus_req[i].a) begin
+            // mgr_bus_a_chan_flat[j][i].pop_front();
+            mgr_bus_a_chan_flat_pop[j][i] = 1'b1;
             break;
           end
         end
       end
-      if (sbr_bus_rsp[i].rvalid) begin
-        sbr_bus_r_chan_flat[i].push_back(sbr_bus_rsp[i].r);
-      end
+      // if (sbr_bus_rsp[i].rvalid) begin
+      //   sbr_bus_r_chan_flat[i].push_back(sbr_bus_rsp[i].r);
+      // end
     end
 
-    for (int unsigned i = 0; i < NumManagers; i++) begin
-      mgr_bus_rsp_idx_front[i] = mgr_bus_rsp_idx[i][0];
-      for (int unsigned j = 0; j < NumSubordinates; j++) begin
-        mgr_bus_a_chan_flat_empty[i][j] = (mgr_bus_a_chan_flat[i][j].size() == 0);
-        mgr_bus_a_chan_flat_front[i][j] = mgr_bus_a_chan_flat[i][j][0];
-      end
-    end
-    for (int unsigned i = 0; i < NumSubordinates; i++) begin
-      sbr_bus_r_chan_flat_front[i] = sbr_bus_r_chan_flat[i][0];
-    end
+    // for (int unsigned i = 0; i < NumManagers; i++) begin
+    //   mgr_bus_rsp_idx_front[i] = mgr_bus_rsp_idx[i][0];
+    //   for (int unsigned j = 0; j < NumSubordinates; j++) begin
+    //     mgr_bus_a_chan_flat_empty[i][j] = (mgr_bus_a_chan_flat[i][j].size() == 0);
+    //     mgr_bus_a_chan_flat_front[i][j] = mgr_bus_a_chan_flat[i][j][0];
+    //   end
+    // end
+    // for (int unsigned i = 0; i < NumSubordinates; i++) begin
+    //   sbr_bus_r_chan_flat_front[i] = sbr_bus_r_chan_flat[i][0];
+    // end
   end
 
   // Fault indication

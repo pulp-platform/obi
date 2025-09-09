@@ -68,7 +68,8 @@ module relobi_cut #(
   rel_spill_register #(
     .T      ( obi_a_chan_t ),
     .Bypass ( BypassReq    ),
-    .TmrHandshake ( 1'b1 )
+    .TmrHandshake ( 1'b1 ),
+    .DataCorrector ( 1'b1 )
   ) i_reg_a (
     .clk_i,
     .rst_ni,
@@ -87,7 +88,8 @@ module relobi_cut #(
     rel_spill_register #(
       .T      ( obi_r_chan_t ),
       .Bypass ( BypassRsp    ),
-      .TmrHandshake ( 1'b1 )
+      .TmrHandshake ( 1'b1 ),
+      .DataCorrector ( 1'b1 )
     ) i_reg_r (
       .clk_i,
       .rst_ni,
