@@ -14,7 +14,10 @@ module relobi_sram_shim #(
   parameter type               relobi_rsp_t = logic,
   parameter type               a_optional_t = logic,
   parameter type               r_optional_t = logic,
-  parameter bit                EnableScrubber = 1'b0 // Unimplemented, WIP
+  parameter bit                EnableScrubber = 1'b0,
+  parameter int unsigned       ScrubberMemWords = 256,
+  parameter bit                ScrubberCorrectRead = 1'b1,
+  parameter int unsigned       AddrWidth = EnableScrubber ? $clog2(ScrubberMemWords) : ObiCfg.AddrWidth
 ) (
   input  logic                          clk_i,
   input  logic                          rst_ni,
@@ -24,12 +27,15 @@ module relobi_sram_shim #(
 
   output logic                          req_o,
   output logic                          we_o,
-  output logic [ObiCfg.AddrWidth-1:0] addr_o,
+  output logic [AddrWidth-1:0] addr_o,
   output logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_o,
 
   input  logic                          gnt_i, // Should generally be 1'b1
   input  logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] rdata_i,
 
+  input  logic                          scrub_trigger_i, // Set to 1'b0 to disable
+  output logic                          scrub_bit_corrected_o,
+  output logic                          scrub_uncorrectable_o,
   output logic [1:0]                    fault_o
 );
 
@@ -39,12 +45,12 @@ module relobi_sram_shim #(
   if (ObiCfg.OptionalCfg.UseProt) $warning("Prot not checked!");
   if (ObiCfg.OptionalCfg.UseMemtype) $warning("Memtype not checked!");
 
-  logic [5:0] voter_errs;
-  logic [9:0][1:0] hsiao_errs;
-  logic [1:0][9:0] hsiao_errs_transpose;
+  logic [7:0] voter_errs;
+  logic [12:0][1:0] hsiao_errs;
+  logic [1:0][12:0] hsiao_errs_transpose;
 
   for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs_transpose
-    for (genvar j = 0; j < 10; j++) begin : gen_hsiao_errs_transpose_inner
+    for (genvar j = 0; j < 13; j++) begin : gen_hsiao_errs_transpose_inner
       assign hsiao_errs_transpose[i][j] = hsiao_errs[j][i];
     end
   end
@@ -57,27 +63,33 @@ module relobi_sram_shim #(
   logic [ObiCfg.IdWidth-1:0] id_d, id_q;
   logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_d, other_ecc_q;
 
-  logic use_buffered;
-  logic [2:0] use_buffered_tmr;
-  logic [2:0] req_o_tmr;
-  logic [2:0] we;
+  logic      [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] use_buffered;
+  logic [2:0][ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] use_buffered_tmr;
+  logic [2:0] req_o_tmr, req_o_scrubbed_tmr;
+  logic [2:0] we, we_scrubbed;
   logic [2:0][ObiCfg.DataWidth/8-1:0] be;
   logic [2:0][ObiCfg.IdWidth-1:0] aid;
   logic [2:0][relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc;
   logic [2:0][ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] rmw_wdata_tmr;
-  logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_buffer, rmw_wdata;
+  logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_buffer, rmw_wdata, scrub_wdata, scrub_rdata;
   logic [ObiCfg.AddrWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.AddrWidth)-1:0] addr_buffer;
   logic [2:0] r_gnt;
+  logic [2:0] scrub_gnt;
+  logic [2:0][ObiCfg.AddrWidth-1:0] addr_decoded;
+  logic [2:0][AddrWidth-1:0] addr_decoded_trimmed;
+  logic [2:0][AddrWidth-1:0] addr_scrubbed;
 
   TMR_voter_fail i_req_valid_vote (
-    .a_i        (req_o_tmr[0]),
-    .b_i        (req_o_tmr[1]),
-    .c_i        (req_o_tmr[2]),
+    .a_i        (req_o_scrubbed_tmr[0]),
+    .b_i        (req_o_scrubbed_tmr[1]),
+    .c_i        (req_o_scrubbed_tmr[2]),
     .majority_o (req_o),
     .fault_detected_o(voter_errs[0])
   );
 
-  TMR_voter_fail i_use_buffered_vote (
+  bitwise_TMR_voter_fail #(
+    .DataWidth( ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth) )
+  ) i_use_buffered_vote (
     .a_i        (use_buffered_tmr[0]),
     .b_i        (use_buffered_tmr[1]),
     .c_i        (use_buffered_tmr[2]),
@@ -85,13 +97,15 @@ module relobi_sram_shim #(
     .fault_detected_o(voter_errs[1])
   );
 
-  assign wdata_o = use_buffered ? rmw_wdata : obi_req_i.a.wdata;
+  for (genvar i = 0; i < ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth); i++) begin : gen_scrub_wdata
+    assign scrub_wdata[i] = use_buffered[i] ? rmw_wdata[i] : obi_req_i.a.wdata[i];
+  end
 
   always_comb begin
     obi_rsp_o         = '0;
     obi_rsp_o.gnt     = r_gnt;
     obi_rsp_o.rvalid  = rvalid_q;
-    obi_rsp_o.r.rdata = rdata_i;
+    obi_rsp_o.r.rdata = scrub_rdata;
     obi_rsp_o.r.rid   = id_q;
     obi_rsp_o.r.err   = 1'b0;
     obi_rsp_o.r.other_ecc = other_ecc_q;
@@ -99,14 +113,55 @@ module relobi_sram_shim #(
 
   assign rvalid_d = obi_req_i.req & obi_rsp_o.gnt;
 
-  hsiao_ecc_dec #(
-    .DataWidth ( ObiCfg.AddrWidth )
-  ) i_addr_dec (
-    .in        ( use_buffered ? addr_buffer : obi_req_i.a.addr ),
-    .out       ( addr_o     ),
-    .syndrome_o(),
-    .err_o     (hsiao_errs[0])
-  );
+  if (EnableScrubber) begin : gen_scrubber
+    ecc_scrubber #(
+      .BankSize       (ScrubberMemWords),
+      .UseExternalECC (1'b0),
+      .DataWidth      (ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)),
+      .ProtWidth      (hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)),
+      .CorrectRead    (ScrubberCorrectRead),
+      .TmrHs          (1'b1)
+    ) i_scrubber (
+      .clk_i  (clk_i),
+      .rst_ni (rst_ni),
+
+      .scrub_trigger_i  (scrub_trigger_i),
+      .bit_corrected_o  (scrub_bit_corrected_o),
+      .uncorrectable_o  (scrub_uncorrectable_o),
+
+      // Input signals from others accessing memory bank
+      .intc_req_i   (req_o_tmr),
+      .intc_gnt_o   (scrub_gnt),
+      .intc_we_i    (we),
+      .intc_add_i   (addr_decoded_trimmed),
+      .intc_wdata_i (scrub_wdata),
+      .intc_rdata_o (scrub_rdata),
+
+      // Output directly to bank
+      .bank_req_o   (req_o_scrubbed_tmr),
+      .bank_gnt_i   ({3{gnt_i}}),
+      .bank_we_o    (we_scrubbed),
+      .bank_add_o   (addr_scrubbed),
+      .bank_wdata_o (wdata_o),
+      .bank_rdata_i (rdata_i),
+
+      // If using external ECC
+      .ecc_out_o (),
+      .ecc_in_i  ('0),
+      .ecc_err_i ('0),
+
+      .fault_o (voter_errs[7])
+    );
+  end else begin : gen_no_scrubber
+    assign req_o_scrubbed_tmr = req_o_tmr;
+    assign scrub_gnt = {3{gnt_i}};
+    assign we_scrubbed = we;
+    assign addr_scrubbed = addr_decoded;
+    assign wdata_o = scrub_wdata;
+    assign scrub_bit_corrected_o = 1'b0;
+    assign scrub_uncorrectable_o  = 1'b0;
+    assign voter_errs[7] = 1'b0;
+  end
 
   for (genvar i = 0; i < 3; i++) begin : gen_tmr_part
     relobi_sram_shim_tmr_part #(
@@ -119,7 +174,7 @@ module relobi_sram_shim #(
       .clk_i(clk_i),
       .rst_ni(rst_ni),
       .req_i(obi_req_i.req[i]),
-      .gnt_i(gnt_i),
+      .gnt_i(scrub_gnt[i]),
       .gnt_o(r_gnt[i]),
       .a_we_i(obi_req_i.a.we),
       .a_be_i(obi_req_i.a.be),
@@ -127,23 +182,36 @@ module relobi_sram_shim #(
       .a_optional_i(obi_req_i.a.a_optional),
       .a_other_ecc_i(obi_req_i.a.other_ecc),
       .wdata_rmw(wdata_buffer),
-      .ldata_rmw(rdata_i),
+      .ldata_rmw(scrub_rdata),
       .wdata_modified(rmw_wdata_tmr[i]),
       .use_buffered(use_buffered_tmr[i]),
       .req_o(req_o_tmr[i]),
       .a_we_o(we[i]),
       .a_aid_o(aid[i]),
       .other_ecc_d(other_ecc[i]),
-      .hsiao_errs(hsiao_errs[1+3*i+:3])
+      .a_addr_i(obi_req_i.a.addr),
+      .addr_buffer(addr_buffer),
+      .addr_o(addr_decoded[i]),
+      .hsiao_errs(hsiao_errs[1+4*i+:4])
     );
+    assign addr_decoded_trimmed[i] = addr_decoded[i][AddrWidth-1+$clog2(ObiCfg.AddrWidth/8):$clog2(ObiCfg.AddrWidth/8)];
   end
 
   TMR_voter_fail i_we_vote (
-    .a_i        (we[0]),
-    .b_i        (we[1]),
-    .c_i        (we[2]),
+    .a_i        (we_scrubbed[0]),
+    .b_i        (we_scrubbed[1]),
+    .c_i        (we_scrubbed[2]),
     .majority_o (we_o),
     .fault_detected_o(voter_errs[2])
+  );
+  bitwise_TMR_voter_fail #(
+    .DataWidth(AddrWidth)
+  ) i_addr_vote (
+    .a_i        (addr_scrubbed[0]),
+    .b_i        (addr_scrubbed[1]),
+    .c_i        (addr_scrubbed[2]),
+    .majority_o (addr_o),
+    .fault_detected_o(voter_errs[3])
   );
   bitwise_TMR_voter_fail #(
     .DataWidth( ObiCfg.IdWidth )
@@ -152,7 +220,7 @@ module relobi_sram_shim #(
     .b_i        (aid[1]),
     .c_i        (aid[2]),
     .majority_o (id_d),
-    .fault_detected_o(voter_errs[3])
+    .fault_detected_o(voter_errs[4])
   );
   bitwise_TMR_voter_fail #(
     .DataWidth( relobi_pkg::relobi_r_other_ecc_width(ObiCfg) )
@@ -161,7 +229,7 @@ module relobi_sram_shim #(
     .b_i        (other_ecc[1]),
     .c_i        (other_ecc[2]),
     .majority_o (other_ecc_d),
-    .fault_detected_o(voter_errs[4])
+    .fault_detected_o(voter_errs[5])
   );
   bitwise_TMR_voter_fail #(
     .DataWidth( ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth) )
@@ -170,7 +238,7 @@ module relobi_sram_shim #(
     .b_i        (rmw_wdata_tmr[1]),
     .c_i        (rmw_wdata_tmr[2]),
     .majority_o (rmw_wdata),
-    .fault_detected_o(voter_errs[5])
+    .fault_detected_o(voter_errs[6])
   );
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -218,12 +286,15 @@ module relobi_sram_shim_tmr_part #(
   input logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_rmw,
   input logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] ldata_rmw,
   output logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_modified,
-  output logic use_buffered,
+  output logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] use_buffered,
   output logic req_o,
   output logic a_we_o,
   output logic [ObiCfg.IdWidth-1:0] a_aid_o,
   output logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_d,
-  output logic [2:0][1:0] hsiao_errs
+  input logic [ObiCfg.AddrWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.AddrWidth)-1:0] a_addr_i,
+  input logic [ObiCfg.AddrWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.AddrWidth)-1:0] addr_buffer,
+  output logic [ObiCfg.AddrWidth-1:0] addr_o,
+  output logic [3:0][1:0] hsiao_errs
 );
 
   typedef enum logic { NORMAL, READ_MODIFY_WRITE } store_state_e;
@@ -289,11 +360,21 @@ module relobi_sram_shim_tmr_part #(
     .out       ( wdata_modified )
   );
 
+  hsiao_ecc_dec #(
+    .DataWidth ( ObiCfg.AddrWidth )
+  ) i_addr_dec (
+    .in        ( use_buffered[0] ? addr_buffer : a_addr_i ),
+    .out       ( addr_o     ),
+    .syndrome_o(),
+    .err_o     (hsiao_errs[3])
+  );
+
+
   always_comb begin
     req_o = req_i;
     gnt_o = gnt_i;
     store_state_d = NORMAL;
-    use_buffered = 1'b0;
+    use_buffered = {ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth){1'b0}};
     a_we_o = a_we_int;
     if (store_state_q == NORMAL) begin
       if (req_i & (a_be_int != {ObiCfg.DataWidth/8{1'b1}}) & a_we_int) begin
@@ -304,7 +385,7 @@ module relobi_sram_shim_tmr_part #(
       req_o = 1'b1;
       gnt_o = 1'b0;
       a_we_o = 1'b1;
-      use_buffered = 1'b1;
+      use_buffered = {ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth){1'b1}};
     end
   end
 
