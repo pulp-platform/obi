@@ -31,6 +31,8 @@ sources:
   - src/obi_sram_shim.sv
   # Level 4
   - src/obi_xbar.sv
+  - src/obi_to_axi.sv
+  - src/axi_to_obi.sv
   - target: test
     files:
       - src/test/obi_asserter.sv
