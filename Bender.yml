@@ -65,6 +65,7 @@ sources:
       - src/relobi_mux.sv
       - src/relobi_sram_shim.sv
       # Level 5
+      - src/relobi_isolate.sv
       - src/relobi_xbar.sv
       - target: any(test, obi_test)
         files:
