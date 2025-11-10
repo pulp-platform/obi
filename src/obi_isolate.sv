@@ -30,7 +30,7 @@ module obi_isolate #(
   output logic     isolated_o
 );
   // plus 1 in clog for accouning no open transaction
-  localparam int unsigned CounterWidth = $clog2(NumPending + 32'd1);
+  localparam int unsigned CounterWidth = $clog2(MaxPending + 32'd1);
   typedef logic [CounterWidth-1:0] cnt_t;
 
 
