@@ -32,6 +32,11 @@ module obi_cut #(
   input  obi_rsp_t mgr_port_rsp_i
 );
 
+  // PATCH: Internal ready signal to fix OBI protocol violation
+  // BUG FIX: spill_register can assert ready_o even when valid_i=0,
+  // violating OBI protocol which requires gnt=0 when req=0
+  logic internal_ready;
+
   spill_register #(
     .T      ( obi_a_chan_t ),
     .Bypass ( BypassReq    )
@@ -39,12 +44,15 @@ module obi_cut #(
     .clk_i,
     .rst_ni,
     .valid_i ( sbr_port_req_i.req ),
-    .ready_o ( sbr_port_rsp_o.gnt ),
+    .ready_o ( internal_ready     ),  // Use internal signal
     .data_i  ( sbr_port_req_i.a   ),
     .valid_o ( mgr_port_req_o.req ),
     .ready_i ( mgr_port_rsp_i.gnt ),
     .data_o  ( mgr_port_req_o.a   )
   );
+
+  // PATCH: Ensure gnt=0 when req=0 to comply with OBI protocol
+  assign sbr_port_rsp_o.gnt = internal_ready & sbr_port_req_i.req;
 
   logic ready_o;
   logic ready_i;
