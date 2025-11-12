@@ -4,7 +4,7 @@
 
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
-module obi_isolate #(
+module relobi_isolate #(
     /// The OBI configuration.
   parameter obi_pkg::obi_cfg_t ObiCfg       = obi_pkg::ObiDefaultConfig,
   /// The request struct.
@@ -47,7 +47,7 @@ module obi_isolate #(
   localparam int unsigned CounterWidth = $clog2(MaxPending + 32'd1);
   typedef logic [CounterWidth-1:0] cnt_t;
 
-  logic faults[3:0];
+  logic [3:0] faults;
   assign fault_o = |faults;
 
   obi_req_t in_req, out_req;
@@ -182,16 +182,9 @@ module obi_isolate #(
       .majority_o (isolated_out_voted),
       .fault_detected_o(faults[4+i])
     );
-    if (isolated_out_voted) begin
-      assign out_req_a[i] = '0;
-      if (i < $bits(obi_r_chan_t)) begin
-        assign in_rsp_r[i] = '0;
-      end
-    end else begin
-      assign out_req_a[i] = in_req_a[i];
-      if (i < $bits(obi_r_chan_t)) begin
-        assign in_rsp_r[i] = out_rsp_r[i];
-      end
+    assign out_req_a[i] = isolated_out_voted ? '0 : in_req_a[i];
+    if (i < $bits(obi_r_chan_t)) begin
+      assign in_rsp_r[i] = isolated_out_voted ? '0 : in_rsp_r[i];
     end
   end
 

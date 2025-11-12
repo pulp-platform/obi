@@ -46,11 +46,11 @@ module relobi_sram_shim #(
   if (ObiCfg.OptionalCfg.UseMemtype) $warning("Memtype not checked!");
 
   logic [7:0] voter_errs;
-  logic [12:0][1:0] hsiao_errs;
-  logic [1:0][12:0] hsiao_errs_transpose;
+  logic [11:0][1:0] hsiao_errs;
+  logic [1:0][11:0] hsiao_errs_transpose;
 
   for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs_transpose
-    for (genvar j = 0; j < 13; j++) begin : gen_hsiao_errs_transpose_inner
+    for (genvar j = 0; j < 12; j++) begin : gen_hsiao_errs_transpose_inner
       assign hsiao_errs_transpose[i][j] = hsiao_errs[j][i];
     end
   end
@@ -192,7 +192,7 @@ module relobi_sram_shim #(
       .a_addr_i(obi_req_i.a.addr),
       .addr_buffer(addr_buffer),
       .addr_o(addr_decoded[i]),
-      .hsiao_errs(hsiao_errs[1+4*i+:4])
+      .hsiao_errs(hsiao_errs[4*i+:4])
     );
     assign addr_decoded_trimmed[i] = addr_decoded[i][AddrWidth-1+$clog2(ObiCfg.AddrWidth/8):$clog2(ObiCfg.AddrWidth/8)];
   end
