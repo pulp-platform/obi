@@ -24,54 +24,55 @@ module relobi_encoder #(
   output logic [1:0]  fault_o
 );
 
-  logic [1:0][2:0] voter_errs;
-  logic [1:0]      voter_errs_red;
-  logic            voter_errs_red_red;
+  logic [3:0] voter_errs;
+  logic       voter_errs_red;
   logic [1:0][1:0] hsiao_errs;
-  logic [2:0][1:0] hsiao_errs_gated;
+  logic [3:0][1:0] hsiao_errs_gated;
   logic [1:0][1:0] hsiao_errs_transpose;
   logic [1:0]      hsiao_errs_transpose_red;
 
+  assign voter_errs_red = |voter_errs;
   for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs_transpose
-    assign voter_errs_red[i] = |voter_errs[i];
     assign hsiao_errs_transpose_red[i] = |hsiao_errs_transpose[i];
     for (genvar j = 0; j < 2; j++) begin : gen_hsiao_errs_transpose_inner
       assign hsiao_errs_transpose[i][j] = hsiao_errs_gated[j][i];
     end
   end
 
-  assign voter_errs_red_red = |voter_errs_red;
-  assign fault_o[0] = voter_errs_red_red | hsiao_errs_transpose_red[0];
+  assign fault_o[0] = voter_errs_red | hsiao_errs_transpose_red[0];
   assign fault_o[1] = hsiao_errs_transpose_red[1];
 
   assign rel_req_o.req = {3{req_i.req}};
 
-  TMR_voter_detect i_req_gnt_vote (
+  TMR_voter_fail i_req_gnt_vote (
     .a_i        (rel_rsp_i.gnt[0]),
     .b_i        (rel_rsp_i.gnt[1]),
     .c_i        (rel_rsp_i.gnt[2]),
     .majority_o (rsp_o.gnt),
-    .error_cba_o(voter_errs[0])
+    .fault_detected_o(voter_errs[0])
   );
 
   if (Cfg.UseRReady) begin : gen_rready_multiply
     assign rel_req_o.rready = {3{req_i.rready}};
   end
 
-  TMR_voter_detect i_rsp_valid_vote (
+  TMR_voter_fail i_rsp_valid_vote (
     .a_i        (rel_rsp_i.rvalid[0]),
     .b_i        (rel_rsp_i.rvalid[1]),
     .c_i        (rel_rsp_i.rvalid[2]),
     .majority_o (rsp_o.rvalid),
-    .error_cba_o(voter_errs[1])
+    .fault_detected_o(voter_errs[1])
   );
 
-  hsiao_ecc_enc #(
-    .DataWidth ( Cfg.AddrWidth )
-  ) i_addr_enc (
-    .in ( req_i.a.addr ),
-    .out( rel_req_o.a.addr )
-  );
+  // hsiao_ecc_enc #(
+  //   .DataWidth ( Cfg.AddrWidth )
+  // ) i_addr_enc (
+  //   .in ( req_i.a.addr ),
+  //   .out( rel_req_o.a.addr )
+  // );
+  assign rel_req_o.a.addr[0] = req_i.a.addr;
+  assign rel_req_o.a.addr[1] = req_i.a.addr;
+  assign rel_req_o.a.addr[2] = req_i.a.addr;
 
   hsiao_ecc_enc #(
     .DataWidth ( Cfg.DataWidth )
@@ -86,13 +87,15 @@ module relobi_encoder #(
   ) i_a_remaining_enc (
     .we_i        (req_i.a.we),
     .be_i        (req_i.a.be),
-    .aid_i       (req_i.a.aid),
+    // .aid_i       (req_i.a.aid),
     .a_optional_i(req_i.a.a_optional),
     .other_ecc_o (rel_req_o.a.other_ecc)
   );
   assign rel_req_o.a.we = req_i.a.we;
   assign rel_req_o.a.be = req_i.a.be;
-  assign rel_req_o.a.aid = req_i.a.aid;
+  assign rel_req_o.a.aid[0] = req_i.a.aid;
+  assign rel_req_o.a.aid[1] = req_i.a.aid;
+  assign rel_req_o.a.aid[2] = req_i.a.aid;
   assign rel_req_o.a.a_optional = req_i.a.a_optional;
 
   hsiao_ecc_dec #(
@@ -109,15 +112,25 @@ module relobi_encoder #(
     .Cfg          (Cfg),
     .r_optional_t (r_optional_t)
   ) i_r_remaining_dec (
-    .rid_i       (rel_rsp_i.r.rid),
+    // .rid_i       (rel_rsp_i.r.rid),
     .err_i       (rel_rsp_i.r.err),
     .r_optional_i(rel_rsp_i.r.r_optional),
     .other_ecc_i (rel_rsp_i.r.other_ecc),
-    .rid_o       (rsp_o.r.rid),
+    // .rid_o       (rsp_o.r.rid),
     .err_o       (rsp_o.r.err),
     .r_optional_o(rsp_o.r.r_optional),
     .fault_o    (hsiao_errs[1])
   );
   assign hsiao_errs_gated[1] = rel_rsp_i.rvalid[0] ? hsiao_errs[1] : '0;
+
+  bitwise_TMR_voter_fail #(
+    .DataWidth (Cfg.IdWidth)
+  ) i_rid_vote (
+    .a_i        (rel_rsp_i.r.rid[0]),
+    .b_i        (rel_rsp_i.r.rid[1]),
+    .c_i        (rel_rsp_i.r.rid[2]),
+    .majority_o (rsp_o.r.rid),
+    .fault_detected_o(voter_errs[2])
+  );
 
 endmodule

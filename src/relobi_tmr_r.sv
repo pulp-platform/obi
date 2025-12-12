@@ -28,7 +28,7 @@ module relobi_tmr_r #(
     .fault_detected_o (faults[0])
   );
   bitwise_TMR_voter_fail #(
-    .DataWidth(ObiCfg.IdWidth)
+    .DataWidth(3*ObiCfg.IdWidth)
   ) i_r_id (
     .a_i        (three_r_i[0].rid),
     .b_i        (three_r_i[1].rid),

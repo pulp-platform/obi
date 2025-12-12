@@ -30,7 +30,7 @@ module relobi_err_sbr #(
 
   logic [3:0][1:0] hsiao_errs;
   logic [1:0][3:0] hsiao_errs_transpose;
-  logic [1:0] voter_errs;
+  logic [0:0] voter_errs;
   for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs_transpose
     for (genvar j = 0; j < 4; j++) begin : gen_hsiao_errs_transpose_inner
       assign hsiao_errs_transpose[i][j] = hsiao_errs[j][i];
@@ -39,8 +39,8 @@ module relobi_err_sbr #(
   assign fault_o[0] = |voter_errs | |hsiao_errs_transpose[0];
   assign fault_o[1] = |hsiao_errs_transpose[1];
 
-  logic [ObiCfg.IdWidth-1:0] rid_d, rid_q;
-  logic [2:0][ObiCfg.IdWidth-1:0] rid_tmr;
+  logic [2:0][ObiCfg.IdWidth-1:0] rid_d, rid_q;
+  // logic [2:0][ObiCfg.IdWidth-1:0] rid_tmr;
   logic [2:0] fifo_full, fifo_empty, fifo_pop;
 
   logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_d, other_ecc_q;
@@ -60,28 +60,24 @@ module relobi_err_sbr #(
       .a_optional_t(a_optional_t),
       .r_optional_t(r_optional_t)
     ) i_tmr_part (
-      .we_i(obi_req_i.a.we),
-      .be_i(obi_req_i.a.be),
-      .aid_i(obi_req_i.a.aid),
-      .a_optional_i(obi_req_i.a.a_optional),
-      .other_ecc_i(obi_req_i.a.other_ecc),
+      .aid_i(rid_d),
 
-      .rid_o(rid_tmr[i]),
-      .other_ecc_o(other_ecc_tmr[i]),
+      .rid_o(rid_q[i]),
 
-      .fault_o(hsiao_errs[i])
+      .fault_o(hsiao_errs[i][0])
     );
+    assign hsiao_errs[i][1] = '0;
   end
 
-  bitwise_TMR_voter_fail #(
-    .DataWidth( ObiCfg.IdWidth )
-  ) i_rid_vote (
-    .a_i        (rid_tmr[0]),
-    .b_i        (rid_tmr[1]),
-    .c_i        (rid_tmr[2]),
-    .majority_o (rid_d),
-    .fault_detected_o(voter_errs[0])
-  );
+  // bitwise_TMR_voter_fail #(
+  //   .DataWidth( ObiCfg.IdWidth )
+  // ) i_rid_vote (
+  //   .a_i        (rid_tmr[0]),
+  //   .b_i        (rid_tmr[1]),
+  //   .c_i        (rid_tmr[2]),
+  //   .majority_o (rid_d),
+  //   .fault_detected_o(voter_errs[0])
+  // );
   bitwise_TMR_voter_fail #(
     .DataWidth( relobi_pkg::relobi_r_other_ecc_width(ObiCfg) )
   ) i_other_ecc_vote (
@@ -89,7 +85,7 @@ module relobi_err_sbr #(
     .b_i        (other_ecc_tmr[1]),
     .c_i        (other_ecc_tmr[2]),
     .majority_o (other_ecc_d),
-    .fault_detected_o(voter_errs[1])
+    .fault_detected_o(voter_errs[0])
   );
 
   always_comb begin
@@ -108,7 +104,7 @@ module relobi_err_sbr #(
     rel_fifo #(
       .Depth        ( ObiCfg.UseRReady ? NumMaxTrans : 1 ),
       .FallThrough ( 1'b0                               ),
-      .DataWidth   ( ObiCfg.IdWidth + relobi_pkg::relobi_r_other_ecc_width(ObiCfg) ),
+      .DataWidth   ( 3 * ObiCfg.IdWidth ),
       .TmrStatus   ( 1'b1                              ),
       .DataHasEcc  ( 1'b1                              )
     ) i_id_fifo (
@@ -119,9 +115,9 @@ module relobi_err_sbr #(
       .full_o    ( fifo_full                      ),
       .empty_o   ( fifo_empty                     ),
       .usage_o   (),
-      .data_i    ( {other_ecc_d, rid_d}           ),
+      .data_i    ( obi_req_i.a.aid           ),
       .push_i    ( obi_req_i.req & obi_rsp_o.gnt ),
-      .data_o    ( {other_ecc_q, rid_q}           ),
+      .data_o    ( rid_d           ),
       .pop_i     ( fifo_pop                       ),
       .fault_o (hsiao_errs[3])
     );
@@ -131,11 +127,11 @@ module relobi_err_sbr #(
     assign hsiao_errs[3] = '0;
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
-        rid_q <= '0;
+        rid_d <= '0;
         other_ecc_q <= '0;
         fifo_empty <= '1;
       end else begin
-        rid_q <= rid_d;
+        rid_d <= obi_req_i.a.aid;
         other_ecc_q <= other_ecc_d;
         fifo_empty <= ~(obi_req_i.req & obi_rsp_o.gnt);
       end
@@ -150,42 +146,20 @@ module relobi_err_sbr_tmr_part #(
   parameter type               r_optional_t  = logic
 
 ) (
-  input  logic                       we_i,
-  input  logic [ObiCfg.DataWidth/8-1:0] be_i,
-  input  logic [ObiCfg.IdWidth    -1:0] aid_i,
-  input  a_optional_t                a_optional_i,
-  input  logic [relobi_pkg::relobi_a_other_ecc_width(ObiCfg)-1:0] other_ecc_i,
-
+  input  logic [2:0][ObiCfg.IdWidth    -1:0] aid_i,
   output logic [ObiCfg.IdWidth    -1:0] rid_o,
-  output logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_o,
 
-  output logic [1:0] fault_o
+  output logic [0:0] fault_o
 );
 
-  relobi_a_other_decoder #(
-    .Cfg(ObiCfg),
-    .a_optional_t(a_optional_t)
-  ) i_a_other_decoder (
-    .we_i(we_i),
-    .be_i(be_i),
-    .aid_i(aid_i),
-    .a_optional_i(a_optional_i),
-    .other_ecc_i(other_ecc_i),
-    .we_o(),
-    .be_o(),
-    .aid_o(rid_o),
-    .a_optional_o(),
-    .fault_o(fault_o)
-  );
-
-  relobi_r_other_encoder #(
-    .Cfg(ObiCfg),
-    .r_optional_t(r_optional_t)
-  ) i_other_ecc_encoder (
-    .rid_i(rid_o),
-    .err_i(1'b1), // Always error
-    .r_optional_i('0), // No optional fields in error response
-    .other_ecc_o(other_ecc_o)
+  bitwise_TMR_voter_fail #(
+    .DataWidth( ObiCfg.IdWidth )
+  ) i_aid_vote (
+    .a_i        (aid_i[0]),
+    .b_i        (aid_i[1]),
+    .c_i        (aid_i[2]),
+    .majority_o (rid_o),
+    .fault_detected_o(fault_o[0])
   );
 
 endmodule

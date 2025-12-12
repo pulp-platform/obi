@@ -25,13 +25,13 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
   output logic [1:0]  fault_o
 );
 
-  logic [1:0] voter_errs;
-  logic [2:0][1:0] hsiao_errs;
-  logic [2:0][1:0] hsiao_errs_gated;
-  logic [1:0][2:0] hsiao_errs_transpose;
+  logic [3:0] voter_errs;
+  logic [1:0][1:0] hsiao_errs;
+  logic [1:0][1:0] hsiao_errs_gated;
+  logic [1:0][1:0] hsiao_errs_transpose;
 
   for (genvar i = 0; i < 2; i++) begin : gen_hsiao_errs_transpose
-    for (genvar j = 0; j < 3; j++) begin : gen_hsiao_errs_transpose_inner
+    for (genvar j = 0; j < 2; j++) begin : gen_hsiao_errs_transpose_inner
       assign hsiao_errs_transpose[i][j] = hsiao_errs_gated[j][i];
     end
   end
@@ -63,15 +63,22 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
 
   assign rel_rsp_o.rvalid = {3{rsp_i.rvalid}};
 
-  hsiao_ecc_dec #(
-    .DataWidth ( Cfg.AddrWidth )
-  ) i_addr_dec (
-    .in        ( rel_req_i.a.addr ),
-    .out       ( req_o.a.addr     ),
-    .syndrome_o(),
-    .err_o     (hsiao_errs[0])
+  // hsiao_ecc_dec #(
+  //   .DataWidth ( Cfg.AddrWidth )
+  // ) i_addr_dec (
+  //   .in        ( rel_req_i.a.addr ),
+  //   .out       ( req_o.a.addr     ),
+  //   .syndrome_o(),
+  //   .err_o     (hsiao_errs[0])
+  // );
+  // assign hsiao_errs_gated[0] = rel_req_i.req[0] ? hsiao_errs[0] : '0;
+  bitwise_TMR_voter_fail i_addr_vote (
+    .a_i        (rel_req_i.a.addr[0]),
+    .b_i        (rel_req_i.a.addr[1]),
+    .c_i        (rel_req_i.a.addr[2]),
+    .majority_o (req_o.a.addr),
+    .fault_detected_o(voter_errs[2])
   );
-  assign hsiao_errs_gated[0] = rel_req_i.req[0] ? hsiao_errs[0] : '0;
 
   hsiao_ecc_dec #(
     .DataWidth ( Cfg.DataWidth )
@@ -79,9 +86,19 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .in        ( rel_req_i.a.wdata ),
     .out       ( req_o.a.wdata     ),
     .syndrome_o(),
-    .err_o     (hsiao_errs[1])
+    .err_o     (hsiao_errs[0])
   );
-  assign hsiao_errs_gated[1] = rel_req_i.req[0] ? hsiao_errs[1] : '0;
+  assign hsiao_errs_gated[0] = rel_req_i.req[0] ? hsiao_errs[0] : '0;
+
+  bitwise_TMR_voter_fail #(
+    .DataWidth (Cfg.IdWidth)
+  ) i_aid_vote (
+    .a_i        (rel_req_i.a.aid[0]),
+    .b_i        (rel_req_i.a.aid[1]),
+    .c_i        (rel_req_i.a.aid[2]),
+    .majority_o (req_o.a.aid),
+    .fault_detected_o(voter_errs[3])
+  );
 
   relobi_a_other_decoder #(
     .Cfg          (Cfg),
@@ -89,16 +106,16 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
   ) i_a_remaining_dec (
     .we_i        (rel_req_i.a.we),
     .be_i        (rel_req_i.a.be),
-    .aid_i       (rel_req_i.a.aid),
+    // .aid_i       (rel_req_i.a.aid),
     .a_optional_i(rel_req_i.a.a_optional),
     .other_ecc_i (rel_req_i.a.other_ecc),
     .we_o        (req_o.a.we),
     .be_o        (req_o.a.be),
-    .aid_o       (req_o.a.aid),
+    // .aid_o       (req_o.a.aid),
     .a_optional_o(req_o.a.a_optional),
-    .fault_o     (hsiao_errs[2])
+    .fault_o     (hsiao_errs[1])
   );
-  assign hsiao_errs_gated[2] = rel_req_i.req[0] ? hsiao_errs[2] : '0;
+  assign hsiao_errs_gated[1] = rel_req_i.req[0] ? hsiao_errs[1] : '0;
 
   hsiao_ecc_enc #(
     .DataWidth ( Cfg.DataWidth )
@@ -111,12 +128,14 @@ module relobi_decoder import hsiao_ecc_pkg::*; #(
     .Cfg          (Cfg),
     .r_optional_t (r_optional_t)
   ) i_r_remaining_enc (
-    .rid_i       (rsp_i.r.rid),
+    // .rid_i       (rsp_i.r.rid),
     .err_i       (rsp_i.r.err),
     .r_optional_i(rsp_i.r.r_optional),
     .other_ecc_o (rel_rsp_o.r.other_ecc)
   );
-  assign rel_rsp_o.r.rid       = rsp_i.r.rid;
+  assign rel_rsp_o.r.rid[0]       = rsp_i.r.rid;
+  assign rel_rsp_o.r.rid[1]       = rsp_i.r.rid;
+  assign rel_rsp_o.r.rid[2]       = rsp_i.r.rid;
   assign rel_rsp_o.r.err       = rsp_i.r.err;
   assign rel_rsp_o.r.r_optional = rsp_i.r.r_optional;
 

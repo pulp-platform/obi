@@ -11,7 +11,7 @@ module relobi_r_other_encoder #(
   parameter type               r_optional_t  = logic,
   parameter int unsigned       OtherEccWidth = relobi_pkg::relobi_r_other_ecc_width(Cfg)
 ) (
-  input  logic [Cfg.IdWidth    -1:0] rid_i,
+  // input  logic [Cfg.IdWidth    -1:0] rid_i,
   input  logic                       err_i,
   input  r_optional_t                r_optional_i,
 
@@ -23,7 +23,7 @@ module relobi_r_other_encoder #(
   hsiao_ecc_enc #(
     .DataWidth (relobi_pkg::relobi_r_other_width(Cfg))
   ) i_a_remaining_enc (
-    .in        ( {rid_i,
+    .in        ( {//rid_i,
                   err_i,
                   r_optional_i} ),
     .out       ( {other_ecc_o, unused} )

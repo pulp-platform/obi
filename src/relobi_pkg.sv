@@ -15,7 +15,7 @@ package relobi_pkg;
 
     relobi_a_other_width =   1                   /* we */ +
                              Cfg.DataWidth/8     /* be */ +
-                             Cfg.IdWidth         /* aid */ +
+                            //  Cfg.IdWidth         /* aid */ +
 /* a_optional_t */ sigwidth((Cfg.OptionalCfg.UseAtop    ? 6 : 0) +
                             (Cfg.OptionalCfg.UseMemtype ? 2 : 0) +
                             (Cfg.OptionalCfg.UseProt    ? 3 : 0) +
@@ -36,7 +36,7 @@ package relobi_pkg;
   function automatic int unsigned relobi_r_other_width(input obi_pkg::obi_cfg_t Cfg);
 
     relobi_r_other_width =   1                   /* err */ +
-                             Cfg.IdWidth         /* rid */ +
+                            //  Cfg.IdWidth         /* rid */ +
 /* r_optional_t */ sigwidth((Cfg.OptionalCfg.UseAtop    ? 1 : 0) +
                              Cfg.OptionalCfg.RUserWidth +
                              Cfg.OptionalCfg.RChkWidth           );

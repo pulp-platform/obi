@@ -60,7 +60,7 @@ module relobi_sram_shim #(
 
 
   logic [2:0] rvalid_d, rvalid_q;
-  logic [ObiCfg.IdWidth-1:0] id_d, id_q;
+  logic [2:0][ObiCfg.IdWidth-1:0] id_d, id_q, rid_voted;
   logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_d, other_ecc_q;
 
   logic      [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] use_buffered;
@@ -68,7 +68,7 @@ module relobi_sram_shim #(
   logic [2:0] req_o_tmr, req_o_scrubbed_tmr;
   logic [2:0] we, we_scrubbed;
   logic [2:0][ObiCfg.DataWidth/8-1:0] be;
-  logic [2:0][ObiCfg.IdWidth-1:0] aid;
+  // logic [2:0][ObiCfg.IdWidth-1:0] aid;
   logic [2:0][relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc;
   logic [2:0][ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] rmw_wdata_tmr;
   logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_buffer, rmw_wdata, scrub_wdata, scrub_rdata;
@@ -178,7 +178,8 @@ module relobi_sram_shim #(
       .gnt_o(r_gnt[i]),
       .a_we_i(obi_req_i.a.we),
       .a_be_i(obi_req_i.a.be),
-      .a_aid_i(obi_req_i.a.aid),
+      // .a_aid_i(obi_req_i.a.aid),
+      .rid_tmr_i (id_q),
       .a_optional_i(obi_req_i.a.a_optional),
       .a_other_ecc_i(obi_req_i.a.other_ecc),
       .wdata_rmw(wdata_buffer),
@@ -187,12 +188,14 @@ module relobi_sram_shim #(
       .use_buffered(use_buffered_tmr[i]),
       .req_o(req_o_tmr[i]),
       .a_we_o(we[i]),
-      .a_aid_o(aid[i]),
+      .rid_o(rid_voted[i]),
+      // .a_aid_o(aid[i]),
       .other_ecc_d(other_ecc[i]),
       .a_addr_i(obi_req_i.a.addr),
       .addr_buffer(addr_buffer),
       .addr_o(addr_decoded[i]),
-      .hsiao_errs(hsiao_errs[4*i+:4])
+      .hsiao_errs(hsiao_errs[4*i+:4]),
+      .voter_err(voter_errs[3])
     );
     assign addr_decoded_trimmed[i] = addr_decoded[i][AddrWidth-1+$clog2(ObiCfg.AddrWidth/8):$clog2(ObiCfg.AddrWidth/8)];
   end
@@ -213,15 +216,16 @@ module relobi_sram_shim #(
     .majority_o (addr_o),
     .fault_detected_o(voter_errs[3])
   );
-  bitwise_TMR_voter_fail #(
-    .DataWidth( ObiCfg.IdWidth )
-  ) i_aid_vote (
-    .a_i        (aid[0]),
-    .b_i        (aid[1]),
-    .c_i        (aid[2]),
-    .majority_o (id_d),
-    .fault_detected_o(voter_errs[4])
-  );
+  // bitwise_TMR_voter_fail #(
+  //   .DataWidth( ObiCfg.IdWidth )
+  // ) i_aid_vote (
+  //   .a_i        (aid[0]),
+  //   .b_i        (aid[1]),
+  //   .c_i        (aid[2]),
+  //   .majority_o (id_d),
+  //   .fault_detected_o(voter_errs[3])
+  // );
+  assign id_d = obi_req_i.a.aid;
   bitwise_TMR_voter_fail #(
     .DataWidth( relobi_pkg::relobi_r_other_ecc_width(ObiCfg) )
   ) i_other_ecc_vote (
@@ -280,7 +284,8 @@ module relobi_sram_shim_tmr_part #(
   output logic gnt_o,
   input logic a_we_i,
   input logic [ObiCfg.DataWidth/8-1:0] a_be_i,
-  input logic [ObiCfg.IdWidth-1:0] a_aid_i,
+  // input logic [ObiCfg.IdWidth-1:0] a_aid_i,
+  input logic [2:0][ObiCfg.IdWidth-1:0] rid_tmr_i,
   input a_optional_t a_optional_i,
   input logic [relobi_pkg::relobi_a_other_ecc_width(ObiCfg)-1:0] a_other_ecc_i,
   input logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_rmw,
@@ -289,12 +294,14 @@ module relobi_sram_shim_tmr_part #(
   output logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] use_buffered,
   output logic req_o,
   output logic a_we_o,
-  output logic [ObiCfg.IdWidth-1:0] a_aid_o,
+  output logic [ObiCfg.IdWidth-1:0] rid_o,
+  // output logic [ObiCfg.IdWidth-1:0] a_aid_o,
   output logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_d,
-  input logic [ObiCfg.AddrWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.AddrWidth)-1:0] a_addr_i,
-  input logic [ObiCfg.AddrWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.AddrWidth)-1:0] addr_buffer,
+  input logic  [2:0][ObiCfg.AddrWidth-1:0] a_addr_i,
+  input logic  [2:0][ObiCfg.AddrWidth-1:0] addr_buffer,
   output logic [ObiCfg.AddrWidth-1:0] addr_o,
-  output logic [3:0][1:0] hsiao_errs
+  output logic [3:0][1:0] hsiao_errs,
+  output logic voter_err
 );
 
   typedef enum logic { NORMAL, READ_MODIFY_WRITE } store_state_e;
@@ -312,12 +319,12 @@ module relobi_sram_shim_tmr_part #(
   ) i_a_other_decoder (
     .we_i (a_we_i),
     .be_i (a_be_i),
-    .aid_i (a_aid_i),
+    // .aid_i (a_aid_i),
     .a_optional_i (a_optional_i),
     .other_ecc_i (a_other_ecc_i),
     .we_o (a_we_int),
     .be_o (a_be_int),
-    .aid_o (a_aid_o),
+    // .aid_o (a_aid_o),
     .a_optional_o (),
     .fault_o (hsiao_errs[0])
   );
@@ -326,7 +333,7 @@ module relobi_sram_shim_tmr_part #(
     .Cfg(ObiCfg),
     .r_optional_t(r_optional_t)
   ) i_r_other_enc (
-    .rid_i(a_aid_o),
+    // .rid_i(a_aid_o),
     .err_i(1'b0),
     .r_optional_i('0),
     .other_ecc_o (other_ecc_d)
@@ -360,15 +367,25 @@ module relobi_sram_shim_tmr_part #(
     .out       ( wdata_modified )
   );
 
-  hsiao_ecc_dec #(
-    .DataWidth ( ObiCfg.AddrWidth )
-  ) i_addr_dec (
-    .in        ( use_buffered[0] ? addr_buffer : a_addr_i ),
-    .out       ( addr_o     ),
-    .syndrome_o(),
-    .err_o     (hsiao_errs[3])
-  );
+  // hsiao_ecc_dec #(
+  //   .DataWidth ( ObiCfg.AddrWidth )
+  // ) i_addr_dec (
+  //   .in        ( use_buffered[0] ? addr_buffer : a_addr_i ),
+  //   .out       ( addr_o     ),
+  //   .syndrome_o(),
+  //   .err_o     (hsiao_errs[3])
+  // );
 
+
+  bitwise_TMR_voter_fail #(
+    .DataWidth( ObiCfg.IdWidth )
+  ) i_rid_vote (
+    .a_i        (rid_tmr_i[0]),
+    .b_i        (rid_tmr_i[1]),
+    .c_i        (rid_tmr_i[2]),
+    .majority_o (rid_o),
+    .fault_detected_o(voter_err)
+  );
 
   always_comb begin
     req_o = req_i;

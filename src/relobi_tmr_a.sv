@@ -19,7 +19,7 @@ module relobi_tmr_a #(
   assign fault_o = |faults;
 
   bitwise_TMR_voter_fail #(
-    .DataWidth(ObiCfg.AddrWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.AddrWidth))
+    .DataWidth(3*ObiCfg.AddrWidth)
   ) i_r_data (
     .a_i        (three_a_i[0].addr),
     .b_i        (three_a_i[1].addr),
@@ -53,7 +53,7 @@ module relobi_tmr_a #(
     .fault_detected_o (faults[3])
   );
   bitwise_TMR_voter_fail #(
-    .DataWidth(ObiCfg.IdWidth)
+    .DataWidth(3*ObiCfg.IdWidth)
   ) i_r_id (
     .a_i        (three_a_i[0].aid),
     .b_i        (three_a_i[1].aid),
