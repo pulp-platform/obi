@@ -378,34 +378,41 @@ module obi_atop_resolver
             mgr_port_req_o.a.we = 1'b0;
           end
         end
-
       end
-      DoAMO, WriteBackAMO: begin
+      DoAMO: begin
         sbr_port_rsp_o.gnt = 1'b0;
         mgr_port_req_o.req = 1'b0;
         if (amo_last && rsp_happening) begin
-          if (mgr_port_rsp_i.gnt) begin
-            state_d = (RegisterAmo && state_q != WriteBackAMO) ? WriteBackAMO : Idle;
-          end
-          // Commit AMO
-          amo_op_d = ATOPNONE;
-          amo_wb                = 1'b1;
-          mgr_port_req_o.req    = 1'b1;
-          mgr_port_req_o.a.we   = 1'b1;
-          mgr_port_req_o.a.addr = addr_q;
-          mgr_port_req_o.a.aid  = aid_q;
-          mgr_port_req_o.a.be   = '0;
-          // serve from register if we cut the path
           if (RegisterAmo) begin
-            mgr_port_req_o.req = (state_q == WriteBackAMO);
-            mgr_port_req_o.a.wdata = amo_result_q;
-            mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
-            (amo_operand_addr_q * RiscvWordWidth/8);
-          end else begin
+            state_d = WriteBackAMO;
+          end else if (mgr_port_rsp_i.gnt) begin
+            state_d = Idle;
+            amo_op_d = ATOPNONE;
+            amo_wb                = 1'b1;
+            mgr_port_req_o.req    = 1'b1;
+            mgr_port_req_o.a.we   = 1'b1;
+            mgr_port_req_o.a.addr = addr_q;
+            mgr_port_req_o.a.aid  = aid_q;
             mgr_port_req_o.a.wdata = amo_result;
             mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
             (amo_operand_addr * RiscvWordWidth/8);
           end
+        end
+      end
+      WriteBackAMO: begin
+        sbr_port_rsp_o.gnt = 1'b0;
+        mgr_port_req_o.req    = 1'b1;
+        mgr_port_req_o.a.we   = 1'b1;
+        mgr_port_req_o.a.addr = addr_q;
+        mgr_port_req_o.a.aid  = aid_q;
+        mgr_port_req_o.a.wdata = amo_result_q;
+        mgr_port_req_o.a.be = {RiscvWordWidth/8{1'b1}} <<
+        (amo_operand_addr_q * RiscvWordWidth/8);
+        
+        if (mgr_port_rsp_i.gnt) begin
+          state_d = Idle;
+          amo_op_d = ATOPNONE;
+          amo_wb = 1'b1;
         end
       end
       default:;
