@@ -383,10 +383,11 @@ module obi_atop_resolver
         sbr_port_rsp_o.gnt = 1'b0;
         mgr_port_req_o.req = 1'b0;
         if (amo_last && rsp_happening) begin
-          if (RegisterAmo) begin
-            state_d = WriteBackAMO;
-          end else if (mgr_port_rsp_i.gnt) begin
-            state_d = Idle;
+          if (mgr_port_rsp_i.gnt || RegisterAmo) begin
+            state_d = RegisterAmo ? WriteBackAMO : Idle;
+          end
+          // Commit AMO (only if RegisterAmo=0)
+          if (!RegisterAmo) begin
             amo_op_d = ATOPNONE;
             amo_wb                = 1'b1;
             mgr_port_req_o.req    = 1'b1;
