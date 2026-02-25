@@ -185,7 +185,7 @@ module tb_obi_atop_resolver;
     .SbrPortObiCfg ( MgrMuxedConfig ),
     .MgrPortObiCfg ( SbrConfig      ),
     .LrScEnable    ( 1              ),
-    .RegisterAmo   ( 1'b0           )
+    .RegisterAmo   ( 1'b1           )
   ) i_atop_resolver (
     .clk_i      ( clk           ),
     .rst_ni     ( rst_n         ),
