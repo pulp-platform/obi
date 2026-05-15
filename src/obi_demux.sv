@@ -16,7 +16,7 @@ module obi_demux #(
   /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans = 32'd0,
   /// The type of the port select signal.
-  parameter type               select_t    = logic [cf_math_pkg::idx_width(NumMgrPorts)-1:0]
+  parameter type               select_t    = logic [cc_pkg::idx_width(NumMgrPorts)-1:0]
 ) (
   input  logic                       clk_i,
   input  logic                       rst_ni,
@@ -34,7 +34,7 @@ module obi_demux #(
   end
 
   // stall requests to ensure in-order behavior (could be handled differently with rready)
-  localparam int unsigned CounterWidth = cf_math_pkg::idx_width(NumMaxTrans);
+  localparam int unsigned CounterWidth = cc_pkg::idx_width(NumMaxTrans);
 
   logic cnt_up, cnt_down, overflow;
   logic [CounterWidth-1:0] in_flight;
@@ -81,7 +81,7 @@ module obi_demux #(
 
   assign cnt_down = mgr_ports_rsp_i[select_q].rvalid && sbr_port_rready;
 
-  delta_counter #(
+  cc_delta_counter #(
     .WIDTH           ( CounterWidth ),
     .STICKY_OVERFLOW ( 1'b0         )
   ) i_counter (
@@ -119,7 +119,7 @@ module obi_demux_intf #(
   /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans = 32'd0,
   /// The type of the port select signal.
-  parameter type               select_t    = logic [cf_math_pkg::idx_width(NumMgrPorts)-1:0]
+  parameter type               select_t    = logic [cc_pkg::idx_width(NumMgrPorts)-1:0]
 ) (
   input logic         clk_i,
   input logic         rst_ni,

@@ -32,7 +32,7 @@ module obi_cut #(
   input  obi_rsp_t mgr_port_rsp_i
 );
 
-  spill_register #(
+  cc_spill_register #(
     .T      ( obi_a_chan_t ),
     .Bypass ( BypassReq    )
   ) i_reg_a (
@@ -56,7 +56,7 @@ module obi_cut #(
     assign ready_i = 1'b1;
   end
 
-  spill_register #(
+  cc_spill_register #(
     .T      ( obi_r_chan_t ),
     .Bypass ( BypassRsp    )
   ) i_req_r (
