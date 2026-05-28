@@ -15,6 +15,13 @@ package obi_pkg;
   /// The OBI prot type, to be expanded.
   typedef logic [2:0] prot_t;
 
+  /// The OBI burst extension mode.
+  typedef enum logic [1:0] {
+    OBI_BURST_NONE         = 2'd0,
+    // Keep this as an enum to leave room for transaction-based bursts or other implementations
+    OBI_BURST_BEAT_FRAMED = 2'd1
+  } obi_burst_mode_e;
+
   localparam atop_t    DefaultAtop    = 6'b000000;
   localparam memtype_t DefaultMemtype = 2'b00;
   localparam prot_t    DefaultProt    = 3'b111;

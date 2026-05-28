@@ -12,7 +12,9 @@ module obi_sim_mem import obi_pkg::*; #(
   parameter bit WarnUninitialized = 1'b0,
   parameter bit ClearErrOnAccess = 1'b0,
   parameter time ApplDelay = 0ps,
-  parameter time AcqDelay = 0ps
+  parameter time AcqDelay = 0ps,
+  parameter obi_pkg::obi_burst_mode_e BurstMode = obi_pkg::OBI_BURST_NONE,
+  parameter int unsigned BurstLenWidth = 32'd8
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -30,7 +32,6 @@ module obi_sim_mem import obi_pkg::*; #(
   if (ObiCfg.Integrity) $error("Integrity not supported");
   if (ObiCfg.OptionalCfg.UseProt) $warning("Prot not checked!");
   if (ObiCfg.OptionalCfg.UseMemtype) $warning("Memtype not checked!");
-
   typedef logic [ObiCfg.AddrWidth-1:0] addr_t;
 
   obi_r_chan_t rsp_queue[$];
@@ -153,7 +154,9 @@ module obi_sim_mem_intf import obi_pkg::*; #(
   parameter bit WarnUninitialized = 1'b0,
   parameter bit ClearErrOnAccess = 1'b0,
   parameter time ApplDelay = 0ps,
-  parameter time AcqDelay = 0ps
+  parameter time AcqDelay = 0ps,
+  parameter obi_pkg::obi_burst_mode_e BurstMode = obi_pkg::OBI_BURST_NONE,
+  parameter int unsigned BurstLenWidth = 32'd8
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -167,35 +170,72 @@ module obi_sim_mem_intf import obi_pkg::*; #(
   output logic [    ObiCfg.IdWidth-1:0] mon_id_o
 );
 
-  `OBI_TYPEDEF_ALL(obi, ObiCfg)
+  if (BurstMode == obi_pkg::OBI_BURST_BEAT_FRAMED) begin : gen_burst
+    `OBI_TYPEDEF_ALL_BURST(obi, ObiCfg, BurstLenWidth)
 
-  obi_req_t obi_req;
-  obi_rsp_t obi_rsp;
+    obi_req_t obi_req;
+    obi_rsp_t obi_rsp;
 
-  `OBI_ASSIGN_TO_REQ(obi_req, obi_sbr, ObiCfg)
-  `OBI_ASSIGN_FROM_RSP(obi_sbr, obi_rsp, ObiCfg)
+    `OBI_ASSIGN_TO_REQ(obi_req, obi_sbr, ObiCfg)
+    `OBI_ASSIGN_FROM_RSP(obi_sbr, obi_rsp, ObiCfg)
 
-  obi_sim_mem #(
-    .ObiCfg           (ObiCfg),
-    .obi_req_t        (obi_req_t),
-    .obi_rsp_t        (obi_rsp_t),
-    .obi_r_chan_t     (obi_r_chan_t),
-    .WarnUninitialized(WarnUninitialized),
-    .ClearErrOnAccess (ClearErrOnAccess),
-    .ApplDelay        (ApplDelay),
-    .AcqDelay         (AcqDelay)
-  ) i_obi_sim_mem (
-    .clk_i,
-    .rst_ni,
-    .obi_req_i(obi_req),
-    .obi_rsp_o(obi_rsp),
+    obi_sim_mem #(
+      .ObiCfg           (ObiCfg),
+      .obi_req_t        (obi_req_t),
+      .obi_rsp_t        (obi_rsp_t),
+      .obi_r_chan_t     (obi_r_chan_t),
+      .WarnUninitialized(WarnUninitialized),
+      .ClearErrOnAccess (ClearErrOnAccess),
+      .ApplDelay        (ApplDelay),
+      .AcqDelay         (AcqDelay),
+      .BurstMode        (BurstMode),
+      .BurstLenWidth    (BurstLenWidth)
+    ) i_obi_sim_mem (
+      .clk_i,
+      .rst_ni,
+      .obi_req_i(obi_req),
+      .obi_rsp_o(obi_rsp),
 
-    .mon_valid_o,
-    .mon_we_o,
-    .mon_addr_o,
-    .mon_wdata_o,
-    .mon_be_o,
-    .mon_id_o
-  );
+      .mon_valid_o,
+      .mon_we_o,
+      .mon_addr_o,
+      .mon_wdata_o,
+      .mon_be_o,
+      .mon_id_o
+    );
+  end else begin : gen_no_burst
+    `OBI_TYPEDEF_ALL(obi, ObiCfg)
+
+    obi_req_t obi_req;
+    obi_rsp_t obi_rsp;
+
+    `OBI_ASSIGN_TO_REQ(obi_req, obi_sbr, ObiCfg)
+    `OBI_ASSIGN_FROM_RSP(obi_sbr, obi_rsp, ObiCfg)
+
+    obi_sim_mem #(
+      .ObiCfg           (ObiCfg),
+      .obi_req_t        (obi_req_t),
+      .obi_rsp_t        (obi_rsp_t),
+      .obi_r_chan_t     (obi_r_chan_t),
+      .WarnUninitialized(WarnUninitialized),
+      .ClearErrOnAccess (ClearErrOnAccess),
+      .ApplDelay        (ApplDelay),
+      .AcqDelay         (AcqDelay),
+      .BurstMode        (BurstMode),
+      .BurstLenWidth    (BurstLenWidth)
+    ) i_obi_sim_mem (
+      .clk_i,
+      .rst_ni,
+      .obi_req_i(obi_req),
+      .obi_rsp_o(obi_rsp),
+
+      .mon_valid_o,
+      .mon_we_o,
+      .mon_addr_o,
+      .mon_wdata_o,
+      .mon_be_o,
+      .mon_id_o
+    );
+  end
 
 endmodule

@@ -13,6 +13,16 @@ As the OBI protocol is very configurable, the IPs are designed to incorporate sp
 
 Most IPs will also support a SystemVerilog `interface` variant, also based on `ObiCfg`.
 
+### Beat-framed burst extension
+Beat-framed bursts are an optional extension and are disabled by default with
+`BurstMode = obi_pkg::OBI_BURST_NONE`. This keeps the structures emitted by the existing
+`OBI_TYPEDEF_ALL(...)` macro unchanged.
+
+To enable the extension, instantiate burst-capable IPs with
+`BurstMode = obi_pkg::OBI_BURST_BEAT_FRAMED` and use `OBI_TYPEDEF_ALL_BURST(...)` for the port
+types. `BurstLenWidth` defaults to 8 and controls the width of the linear `blen = beats - 1`
+field.
+
 ## Available IPs
 - `obi_mux.sv`: A multiplexer IP for the OBI protocol.
 - `obi_demux.sv`: A demultiplexer IP for the OBI protocol.

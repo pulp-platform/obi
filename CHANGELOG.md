@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### Added
+- Add optional beat-framed burst support with `OBI_BURST_BEAT_FRAMED`, burst typedef macros, and interconnect routing locks.
 
 ## 0.1.7 - 2025-05-21
 ### Fixed

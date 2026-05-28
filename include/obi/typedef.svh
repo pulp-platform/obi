@@ -47,6 +47,21 @@
     logic [  ACHK_WIDTH-1:0] achk;                                                                \
   } a_optional_t;
 
+`define OBI_TYPEDEF_BURST_A_OPTIONAL(a_optional_t, AUSER_WIDTH, WUSER_WIDTH, MID_WIDTH, ACHK_WIDTH, BLEN_WIDTH) \
+  typedef struct packed {                                                                                       \
+    logic [ AUSER_WIDTH-1:0] auser;                                                                             \
+    logic [ WUSER_WIDTH-1:0] wuser;                                                                             \
+    obi_pkg::atop_t          atop;                                                                              \
+    obi_pkg::memtype_t       memtype;                                                                           \
+    logic [   MID_WIDTH-1:0] mid;                                                                               \
+    obi_pkg::prot_t          prot;                                                                              \
+    logic                    dbg;                                                                               \
+    logic [  ACHK_WIDTH-1:0] achk;                                                                              \
+    logic [  BLEN_WIDTH-1:0] blen;                                                                              \
+    logic                    bfirst;                                                                            \
+    logic                    blast;                                                                             \
+  } a_optional_t;
+
 `define OBI_TYPEDEF_R_CHAN_T(r_chan_t, RDATA_WIDTH, ID_WIDTH, r_optional_t) \
   typedef struct packed {                                                   \
     logic [RDATA_WIDTH-1:0] rdata;                                          \
@@ -71,6 +86,13 @@
     logic [RUSER_WIDTH-1:0] ruser;                                        \
     logic                   exokay;                                       \
     logic [ RCHK_WIDTH-1:0] rchk;                                         \
+  } r_optional_t;
+
+`define OBI_TYPEDEF_BURST_R_OPTIONAL(r_optional_t, RUSER_WIDTH, RCHK_WIDTH) \
+  typedef struct packed {                                                   \
+    logic [RUSER_WIDTH-1:0] ruser;                                          \
+    logic                   exokay;                                         \
+    logic [ RCHK_WIDTH-1:0] rchk;                                           \
   } r_optional_t;
 
 `define OBI_TYPEDEF_DEFAULT_REQ_T(req_t, a_chan_t) \
@@ -126,5 +148,13 @@
   `OBI_TYPEDEF_MINIMAL_R_OPTIONAL(obi_t``_r_optional_t)                                                    \
   `OBI_TYPEDEF_R_CHAN_T(obi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, obi_t``_r_optional_t)                \
   `OBI_TYPEDEF_RSP_T(obi_t``_rsp_t, obi_t``_r_chan_t)
+
+`define OBI_TYPEDEF_ALL_BURST(obi_t, cfg, BLEN_WIDTH)                                                                                                                \
+  `OBI_TYPEDEF_BURST_A_OPTIONAL(obi_t``_a_optional_t, cfg.OptionalCfg.AUserWidth, cfg.OptionalCfg.WUserWidth, cfg.OptionalCfg.MidWidth, cfg.OptionalCfg.AChkWidth, BLEN_WIDTH) \
+  `OBI_TYPEDEF_A_CHAN_T(obi_t``_a_chan_t, cfg.AddrWidth, cfg.DataWidth, cfg.IdWidth, obi_t``_a_optional_t)                                                           \
+  `OBI_TYPEDEF_INTEGRITY_REQ_T(obi_t``_req_t, obi_t``_a_chan_t)                                                                                                      \
+  `OBI_TYPEDEF_BURST_R_OPTIONAL(obi_t``_r_optional_t, cfg.OptionalCfg.RUserWidth, cfg.OptionalCfg.RChkWidth)                                                         \
+  `OBI_TYPEDEF_R_CHAN_T(obi_t``_r_chan_t, cfg.DataWidth, cfg.IdWidth, obi_t``_r_optional_t)                                                                          \
+  `OBI_TYPEDEF_INTEGRITY_RSP_T(obi_t``_rsp_t, obi_t``_r_chan_t)
 
 `endif // OBI_TYPEDEF_SVH

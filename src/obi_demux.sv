@@ -16,7 +16,11 @@ module obi_demux #(
   /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans = 32'd0,
   /// The type of the port select signal.
-  parameter type               select_t    = logic [cf_math_pkg::idx_width(NumMgrPorts)-1:0]
+  parameter type               select_t    = logic [cf_math_pkg::idx_width(NumMgrPorts)-1:0],
+  /// The burst extension mode.
+  parameter obi_pkg::obi_burst_mode_e BurstMode = obi_pkg::OBI_BURST_NONE,
+  /// The width of the beat-framed burst length field.
+  parameter int unsigned       BurstLenWidth = 32'd8
 ) (
   input  logic                       clk_i,
   input  logic                       rst_ni,
@@ -33,6 +37,10 @@ module obi_demux #(
     $fatal(1, "unimplemented");
   end
 
+  if (BurstMode == obi_pkg::OBI_BURST_BEAT_FRAMED && BurstLenWidth == 0) begin : gen_burst_width_err
+    $fatal(1, "beat-framed bursts require BurstLenWidth > 0");
+  end
+
   // stall requests to ensure in-order behavior (could be handled differently with rready)
   localparam int unsigned CounterWidth = cf_math_pkg::idx_width(NumMaxTrans);
 
@@ -43,6 +51,44 @@ module obi_demux #(
   logic rsp_phase_stalled;
 
   select_t select_d, select_q;
+  select_t req_select;
+  logic req_accepted;
+
+  assign req_accepted = sbr_port_req_i.req && sbr_port_gnt;
+
+  if (BurstMode == obi_pkg::OBI_BURST_BEAT_FRAMED) begin : gen_burst_lock
+    logic burst_locked_d, burst_locked_q;
+    select_t burst_select_d, burst_select_q;
+
+    assign req_select = burst_locked_q ? burst_select_q : sbr_port_select_i;
+
+    always_comb begin
+      burst_locked_d = burst_locked_q;
+      burst_select_d = burst_select_q;
+
+      if (req_accepted) begin
+        if (!burst_locked_q && sbr_port_req_i.a.a_optional.bfirst &&
+            !sbr_port_req_i.a.a_optional.blast) begin
+          burst_locked_d = 1'b1;
+          burst_select_d = req_select;
+        end else if (burst_locked_q && sbr_port_req_i.a.a_optional.blast) begin
+          burst_locked_d = 1'b0;
+        end
+      end
+    end
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_burst_lock
+      if (!rst_ni) begin
+        burst_locked_q <= 1'b0;
+        burst_select_q <= '0;
+      end else begin
+        burst_locked_q <= burst_locked_d;
+        burst_select_q <= burst_select_d;
+      end
+    end
+  end else begin : gen_no_burst_lock
+    assign req_select = sbr_port_select_i;
+  end
 
   always_comb begin : proc_req
     select_d = select_q;
@@ -55,16 +101,16 @@ module obi_demux #(
 
     if (!overflow) begin
       // R-4.1.1: block source changes while a stalled R phase is active
-      if (sbr_port_select_i == select_q || (!rsp_phase_stalled &&
+      if (req_select == select_q || (!rsp_phase_stalled &&
           (in_flight == '0 || (in_flight == 1 && cnt_down)))) begin
-        mgr_ports_req_o[sbr_port_select_i].req = sbr_port_req_i.req;
-        mgr_ports_req_o[sbr_port_select_i].a   = sbr_port_req_i.a;
-        sbr_port_gnt                           = mgr_ports_rsp_i[sbr_port_select_i].gnt;
+        mgr_ports_req_o[req_select].req = sbr_port_req_i.req;
+        mgr_ports_req_o[req_select].a   = sbr_port_req_i.a;
+        sbr_port_gnt                    = mgr_ports_rsp_i[req_select].gnt;
       end
     end
 
-    if (mgr_ports_req_o[sbr_port_select_i].req && mgr_ports_rsp_i[sbr_port_select_i].gnt) begin
-      select_d = sbr_port_select_i;
+    if (sbr_port_req_i.req && sbr_port_gnt) begin
+      select_d = req_select;
       cnt_up = 1'b1;
     end
   end
@@ -126,7 +172,11 @@ module obi_demux_intf #(
   /// The maximum number of outstanding transactions.
   parameter int unsigned       NumMaxTrans = 32'd0,
   /// The type of the port select signal.
-  parameter type               select_t    = logic [cf_math_pkg::idx_width(NumMgrPorts)-1:0]
+  parameter type               select_t    = logic [cf_math_pkg::idx_width(NumMgrPorts)-1:0],
+  /// The burst extension mode.
+  parameter obi_pkg::obi_burst_mode_e BurstMode = obi_pkg::OBI_BURST_NONE,
+  /// The width of the beat-framed burst length field.
+  parameter int unsigned       BurstLenWidth = 32'd8
 ) (
   input logic         clk_i,
   input logic         rst_ni,
@@ -137,37 +187,76 @@ module obi_demux_intf #(
   OBI_BUS.Manager     mgr_ports [NumMgrPorts]
 );
 
-  `OBI_TYPEDEF_ALL(obi, ObiCfg)
+  if (BurstMode == obi_pkg::OBI_BURST_BEAT_FRAMED) begin : gen_burst
+    `OBI_TYPEDEF_ALL_BURST(obi, ObiCfg, BurstLenWidth)
 
-  obi_req_t sbr_port_req;
-  obi_rsp_t sbr_port_rsp;
+    obi_req_t sbr_port_req;
+    obi_rsp_t sbr_port_rsp;
 
-  obi_req_t [NumMgrPorts-1:0] mgr_ports_req;
-  obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp;
+    obi_req_t [NumMgrPorts-1:0] mgr_ports_req;
+    obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp;
 
-  `OBI_ASSIGN_TO_REQ(sbr_port_req, sbr_port, ObiCfg)
-  `OBI_ASSIGN_FROM_RSP(sbr_port, sbr_port_rsp, ObiCfg)
+    `OBI_ASSIGN_TO_REQ(sbr_port_req, sbr_port, ObiCfg)
+    `OBI_ASSIGN_FROM_RSP(sbr_port, sbr_port_rsp, ObiCfg)
 
-  for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_mgr_ports_assign
-    `OBI_ASSIGN_FROM_REQ(mgr_ports[i], mgr_ports_req[i], ObiCfg)
-    `OBI_ASSIGN_TO_RSP(mgr_ports_rsp[i], mgr_ports[i], ObiCfg)
+    for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_mgr_ports_assign
+      `OBI_ASSIGN_FROM_REQ(mgr_ports[i], mgr_ports_req[i], ObiCfg)
+      `OBI_ASSIGN_TO_RSP(mgr_ports_rsp[i], mgr_ports[i], ObiCfg)
+    end
+
+    obi_demux #(
+      .ObiCfg        ( ObiCfg        ),
+      .obi_req_t     ( obi_req_t     ),
+      .obi_rsp_t     ( obi_rsp_t     ),
+      .NumMgrPorts   ( NumMgrPorts   ),
+      .NumMaxTrans   ( NumMaxTrans   ),
+      .select_t      ( select_t      ),
+      .BurstMode     ( BurstMode     ),
+      .BurstLenWidth ( BurstLenWidth )
+    ) i_obi_demux (
+      .clk_i,
+      .rst_ni,
+      .sbr_port_select_i,
+      .sbr_port_req_i   ( sbr_port_req  ),
+      .sbr_port_rsp_o   ( sbr_port_rsp  ),
+      .mgr_ports_req_o  ( mgr_ports_req ),
+      .mgr_ports_rsp_i  ( mgr_ports_rsp )
+    );
+  end else begin : gen_no_burst
+    `OBI_TYPEDEF_ALL(obi, ObiCfg)
+
+    obi_req_t sbr_port_req;
+    obi_rsp_t sbr_port_rsp;
+
+    obi_req_t [NumMgrPorts-1:0] mgr_ports_req;
+    obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp;
+
+    `OBI_ASSIGN_TO_REQ(sbr_port_req, sbr_port, ObiCfg)
+    `OBI_ASSIGN_FROM_RSP(sbr_port, sbr_port_rsp, ObiCfg)
+
+    for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_mgr_ports_assign
+      `OBI_ASSIGN_FROM_REQ(mgr_ports[i], mgr_ports_req[i], ObiCfg)
+      `OBI_ASSIGN_TO_RSP(mgr_ports_rsp[i], mgr_ports[i], ObiCfg)
+    end
+
+    obi_demux #(
+      .ObiCfg        ( ObiCfg        ),
+      .obi_req_t     ( obi_req_t     ),
+      .obi_rsp_t     ( obi_rsp_t     ),
+      .NumMgrPorts   ( NumMgrPorts   ),
+      .NumMaxTrans   ( NumMaxTrans   ),
+      .select_t      ( select_t      ),
+      .BurstMode     ( BurstMode     ),
+      .BurstLenWidth ( BurstLenWidth )
+    ) i_obi_demux (
+      .clk_i,
+      .rst_ni,
+      .sbr_port_select_i,
+      .sbr_port_req_i   ( sbr_port_req  ),
+      .sbr_port_rsp_o   ( sbr_port_rsp  ),
+      .mgr_ports_req_o  ( mgr_ports_req ),
+      .mgr_ports_rsp_i  ( mgr_ports_rsp )
+    );
   end
-
-  obi_demux #(
-    .ObiCfg      ( ObiCfg      ),
-    .obi_req_t   ( obi_req_t   ),
-    .obi_rsp_t   ( obi_rsp_t   ),
-    .NumMgrPorts ( NumMgrPorts ),
-    .NumMaxTrans ( NumMaxTrans ),
-    .select_t    ( select_t    )
-  ) i_obi_demux (
-    .clk_i,
-    .rst_ni,
-    .sbr_port_select_i,
-    .sbr_port_req_i   ( sbr_port_req  ),
-    .sbr_port_rsp_o   ( sbr_port_rsp  ),
-    .mgr_ports_req_o  ( mgr_ports_req ),
-    .mgr_ports_rsp_i  ( mgr_ports_rsp )
-  );
 
 endmodule

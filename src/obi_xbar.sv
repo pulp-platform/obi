@@ -35,7 +35,11 @@ module obi_xbar #(
   /// Use the extended ID field (aid & rid) to route the response
   parameter bit                UseIdForRouting    = 1'b0,
   /// Connectivity matrix to disable certain paths.
-  parameter bit [NumSbrPorts-1:0][NumMgrPorts-1:0] Connectivity = '1
+  parameter bit [NumSbrPorts-1:0][NumMgrPorts-1:0] Connectivity = '1,
+  /// The burst extension mode.
+  parameter obi_pkg::obi_burst_mode_e BurstMode   = obi_pkg::OBI_BURST_NONE,
+  /// The width of the beat-framed burst length field.
+  parameter int unsigned       BurstLenWidth      = 32'd8
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -83,7 +87,9 @@ module obi_xbar #(
       .obi_req_t   ( sbr_port_obi_req_t ),
       .obi_rsp_t   ( sbr_port_obi_rsp_t ),
       .NumMgrPorts ( NumMgrPorts        ),
-      .NumMaxTrans ( NumMaxTrans        )
+      .NumMaxTrans ( NumMaxTrans        ),
+      .BurstMode   ( BurstMode          ),
+      .BurstLenWidth ( BurstLenWidth    )
     ) i_demux (
       .clk_i,
       .rst_ni,
@@ -141,7 +147,9 @@ module obi_xbar #(
       .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t ),
       .NumSbrPorts        ( NumSbrPorts        ),
       .NumMaxTrans        ( NumMaxTrans        ),
-      .UseIdForRouting    ( UseIdForRouting    )
+      .UseIdForRouting    ( UseIdForRouting    ),
+      .BurstMode          ( BurstMode          ),
+      .BurstLenWidth      ( BurstLenWidth      )
     ) i_mux (
       .clk_i,
       .rst_ni,
@@ -176,7 +184,11 @@ module obi_xbar_intf #(
   /// Use the extended ID field (aid & rid) to route the response
   parameter bit                UseIdForRouting    = 1'b0,
   /// Connectivity matrix to disable certain paths.
-  parameter bit [NumSbrPorts-1:0][NumMgrPorts-1:0] Connectivity = '1
+  parameter bit [NumSbrPorts-1:0][NumMgrPorts-1:0] Connectivity = '1,
+  /// The burst extension mode.
+  parameter obi_pkg::obi_burst_mode_e BurstMode   = obi_pkg::OBI_BURST_NONE,
+  /// The width of the beat-framed burst length field.
+  parameter int unsigned       BurstLenWidth      = 32'd8
 ) (
   input logic         clk_i,
   input logic         rst_ni,
@@ -191,52 +203,106 @@ module obi_xbar_intf #(
   input  logic [NumSbrPorts-1:0][cf_math_pkg::idx_width(NumMgrPorts)-1:0] default_idx_i
 );
 
-  `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
-  `OBI_TYPEDEF_ALL(mgr_port_obi, MgrPortObiCfg)
+  if (BurstMode == obi_pkg::OBI_BURST_BEAT_FRAMED) begin : gen_burst
+    `OBI_TYPEDEF_ALL_BURST(sbr_port_obi, SbrPortObiCfg, BurstLenWidth)
+    `OBI_TYPEDEF_ALL_BURST(mgr_port_obi, MgrPortObiCfg, BurstLenWidth)
 
-  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req;
-  sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp;
+    sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req;
+    sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp;
 
-  mgr_port_obi_req_t [NumMgrPorts-1:0] mgr_ports_req;
-  mgr_port_obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp;
+    mgr_port_obi_req_t [NumMgrPorts-1:0] mgr_ports_req;
+    mgr_port_obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp;
 
-  for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_ports_assign
-    `OBI_ASSIGN_TO_REQ(sbr_ports_req[i], sbr_ports[i], SbrPortObiCfg)
-    `OBI_ASSIGN_FROM_RSP(sbr_ports[i], sbr_ports_rsp[i], SbrPortObiCfg)
+    for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_ports_assign
+      `OBI_ASSIGN_TO_REQ(sbr_ports_req[i], sbr_ports[i], SbrPortObiCfg)
+      `OBI_ASSIGN_FROM_RSP(sbr_ports[i], sbr_ports_rsp[i], SbrPortObiCfg)
+    end
+
+    for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_mgr_ports_assign
+      `OBI_ASSIGN_FROM_REQ(mgr_ports[i], mgr_ports_req[i], MgrPortObiCfg)
+      `OBI_ASSIGN_TO_RSP(mgr_ports_rsp[i], mgr_ports[i], MgrPortObiCfg)
+    end
+
+    obi_xbar #(
+      .SbrPortObiCfg      ( SbrPortObiCfg         ),
+      .MgrPortObiCfg      ( MgrPortObiCfg         ),
+      .sbr_port_obi_req_t ( sbr_port_obi_req_t    ),
+      .sbr_port_a_chan_t  ( sbr_port_obi_a_chan_t ),
+      .sbr_port_obi_rsp_t ( sbr_port_obi_rsp_t    ),
+      .sbr_port_r_chan_t  ( sbr_port_obi_r_chan_t ),
+      .mgr_port_obi_req_t ( mgr_port_obi_req_t    ),
+      .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t    ),
+      .NumSbrPorts        ( NumSbrPorts           ),
+      .NumMgrPorts        ( NumMgrPorts           ),
+      .NumMaxTrans        ( NumMaxTrans           ),
+      .NumAddrRules       ( NumAddrRules          ),
+      .addr_map_rule_t    ( addr_map_rule_t       ),
+      .UseIdForRouting    ( UseIdForRouting       ),
+      .Connectivity       ( Connectivity          ),
+      .BurstMode          ( BurstMode             ),
+      .BurstLenWidth      ( BurstLenWidth         )
+    ) i_obi_xbar (
+      .clk_i,
+      .rst_ni,
+      .testmode_i,
+      .sbr_ports_req_i  ( sbr_ports_req    ),
+      .sbr_ports_rsp_o  ( sbr_ports_rsp    ),
+      .mgr_ports_req_o  ( mgr_ports_req    ),
+      .mgr_ports_rsp_i  ( mgr_ports_rsp    ),
+      .addr_map_i       ( addr_map_i       ),
+      .en_default_idx_i ( en_default_idx_i ),
+      .default_idx_i    ( default_idx_i    )
+    );
+  end else begin : gen_no_burst
+    `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
+    `OBI_TYPEDEF_ALL(mgr_port_obi, MgrPortObiCfg)
+
+    sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req;
+    sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp;
+
+    mgr_port_obi_req_t [NumMgrPorts-1:0] mgr_ports_req;
+    mgr_port_obi_rsp_t [NumMgrPorts-1:0] mgr_ports_rsp;
+
+    for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_sbr_ports_assign
+      `OBI_ASSIGN_TO_REQ(sbr_ports_req[i], sbr_ports[i], SbrPortObiCfg)
+      `OBI_ASSIGN_FROM_RSP(sbr_ports[i], sbr_ports_rsp[i], SbrPortObiCfg)
+    end
+
+    for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_mgr_ports_assign
+      `OBI_ASSIGN_FROM_REQ(mgr_ports[i], mgr_ports_req[i], MgrPortObiCfg)
+      `OBI_ASSIGN_TO_RSP(mgr_ports_rsp[i], mgr_ports[i], MgrPortObiCfg)
+    end
+
+    obi_xbar #(
+      .SbrPortObiCfg      ( SbrPortObiCfg         ),
+      .MgrPortObiCfg      ( MgrPortObiCfg         ),
+      .sbr_port_obi_req_t ( sbr_port_obi_req_t    ),
+      .sbr_port_a_chan_t  ( sbr_port_obi_a_chan_t ),
+      .sbr_port_obi_rsp_t ( sbr_port_obi_rsp_t    ),
+      .sbr_port_r_chan_t  ( sbr_port_obi_r_chan_t ),
+      .mgr_port_obi_req_t ( mgr_port_obi_req_t    ),
+      .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t    ),
+      .NumSbrPorts        ( NumSbrPorts           ),
+      .NumMgrPorts        ( NumMgrPorts           ),
+      .NumMaxTrans        ( NumMaxTrans           ),
+      .NumAddrRules       ( NumAddrRules          ),
+      .addr_map_rule_t    ( addr_map_rule_t       ),
+      .UseIdForRouting    ( UseIdForRouting       ),
+      .Connectivity       ( Connectivity          ),
+      .BurstMode          ( BurstMode             ),
+      .BurstLenWidth      ( BurstLenWidth         )
+    ) i_obi_xbar (
+      .clk_i,
+      .rst_ni,
+      .testmode_i,
+      .sbr_ports_req_i  ( sbr_ports_req    ),
+      .sbr_ports_rsp_o  ( sbr_ports_rsp    ),
+      .mgr_ports_req_o  ( mgr_ports_req    ),
+      .mgr_ports_rsp_i  ( mgr_ports_rsp    ),
+      .addr_map_i       ( addr_map_i       ),
+      .en_default_idx_i ( en_default_idx_i ),
+      .default_idx_i    ( default_idx_i    )
+    );
   end
-
-  for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_mgr_ports_assign
-    `OBI_ASSIGN_FROM_REQ(mgr_ports[i], mgr_ports_req[i], MgrPortObiCfg)
-    `OBI_ASSIGN_TO_RSP(mgr_ports_rsp[i], mgr_ports[i], MgrPortObiCfg)
-  end
-
-  obi_xbar #(
-    .SbrPortObiCfg      ( SbrPortObiCfg         ),
-    .MgrPortObiCfg      ( MgrPortObiCfg         ),
-    .sbr_port_obi_req_t ( sbr_port_obi_req_t    ),
-    .sbr_port_a_chan_t  ( sbr_port_obi_a_chan_t ),
-    .sbr_port_obi_rsp_t ( sbr_port_obi_rsp_t    ),
-    .sbr_port_r_chan_t  ( sbr_port_obi_r_chan_t ),
-    .mgr_port_obi_req_t ( mgr_port_obi_req_t    ),
-    .mgr_port_obi_rsp_t ( mgr_port_obi_rsp_t    ),
-    .NumSbrPorts        ( NumSbrPorts           ),
-    .NumMgrPorts        ( NumMgrPorts           ),
-    .NumMaxTrans        ( NumMaxTrans           ),
-    .NumAddrRules       ( NumAddrRules          ),
-    .addr_map_rule_t    ( addr_map_rule_t       ),
-    .UseIdForRouting    ( UseIdForRouting       ),
-    .Connectivity       ( Connectivity          )
-  ) i_obi_xbar (
-    .clk_i,
-    .rst_ni,
-    .testmode_i,
-    .sbr_ports_req_i  ( sbr_ports_req    ),
-    .sbr_ports_rsp_o  ( sbr_ports_rsp    ),
-    .mgr_ports_req_o  ( mgr_ports_req    ),
-    .mgr_ports_rsp_i  ( mgr_ports_rsp    ),
-    .addr_map_i       ( addr_map_i       ),
-    .en_default_idx_i ( en_default_idx_i ),
-    .default_idx_i    ( default_idx_i    )
-  );
 
 endmodule

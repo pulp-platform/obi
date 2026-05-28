@@ -5,7 +5,7 @@
 BENDER ?= bender
 VSIM ?= vsim
 
-AVAILABLE_TESTBENCHES = tb_obi_xbar tb_obi_atop_resolver
+AVAILABLE_TESTBENCHES = tb_obi_burst tb_obi_xbar tb_obi_atop_resolver
 
 scripts/compile.tcl:
 	mkdir -p scripts

@@ -10,7 +10,11 @@ module obi_sram_shim #(
   /// The request struct for all ports.
   parameter type               obi_req_t = logic,
   /// The response struct for all ports.
-  parameter type               obi_rsp_t = logic
+  parameter type               obi_rsp_t = logic,
+  /// The burst extension mode.
+  parameter obi_pkg::obi_burst_mode_e BurstMode = obi_pkg::OBI_BURST_NONE,
+  /// The width of the beat-framed burst length field.
+  parameter int unsigned       BurstLenWidth = 32'd8
 ) (
   input  logic                          clk_i,
   input  logic                          rst_ni,
@@ -33,35 +37,55 @@ module obi_sram_shim #(
   if (ObiCfg.Integrity) $error("Integrity not yet supported, WIP");
   if (ObiCfg.OptionalCfg.UseProt) $warning("Prot not checked!");
   if (ObiCfg.OptionalCfg.UseMemtype) $warning("Memtype not checked!");
-
-  logic rvalid_d, rvalid_q;
-  logic [ObiCfg.IdWidth-1:0] id_d, id_q;
-
   assign req_o   = obi_req_i.req;
   assign we_o    = obi_req_i.a.we;
   assign addr_o  = obi_req_i.a.addr;
   assign wdata_o = obi_req_i.a.wdata;
   assign be_o    = obi_req_i.a.be;
 
-  always_comb begin
-    obi_rsp_o         = '0;
-    obi_rsp_o.gnt     = gnt_i;
-    obi_rsp_o.rvalid  = rvalid_q;
-    obi_rsp_o.r.rdata = rdata_i;
-    obi_rsp_o.r.rid   = id_q;
-    obi_rsp_o.r.err   = 1'b0;
-  end
+  assign obi_rsp_o.gnt     = gnt_i;
+  assign obi_rsp_o.r.rdata = rdata_i;
+  assign obi_rsp_o.r.err   = 1'b0;
 
-  assign rvalid_d = obi_req_i.req & obi_rsp_o.gnt;
-  assign id_d     = obi_req_i.a.aid;
+  if (BurstMode == obi_pkg::OBI_BURST_BEAT_FRAMED) begin : gen_burst
+    logic rvalid_d, rvalid_q;
+    logic [ObiCfg.IdWidth-1:0] id_d, id_q;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_sram_state
-    if(!rst_ni) begin
-      rvalid_q <= 1'b0;
-      id_q     <= '0;
-    end else begin
-      rvalid_q <= rvalid_d;
-      id_q     <= id_d;
+    assign obi_rsp_o.rvalid = rvalid_q;
+    assign obi_rsp_o.r.rid  = id_q;
+    assign obi_rsp_o.r.r_optional = '0;
+
+    assign rvalid_d = obi_req_i.req & obi_rsp_o.gnt;
+    assign id_d     = obi_req_i.a.aid;
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_sram_state
+      if(!rst_ni) begin
+        rvalid_q <= 1'b0;
+        id_q     <= '0;
+      end else begin
+        rvalid_q <= rvalid_d;
+        id_q     <= id_d;
+      end
+    end
+  end else begin : gen_no_burst
+    logic rvalid_d, rvalid_q;
+    logic [ObiCfg.IdWidth-1:0] id_d, id_q;
+
+    assign obi_rsp_o.rvalid = rvalid_q;
+    assign obi_rsp_o.r.rid  = id_q;
+    assign obi_rsp_o.r.r_optional = '0;
+
+    assign rvalid_d = obi_req_i.req & obi_rsp_o.gnt;
+    assign id_d     = obi_req_i.a.aid;
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_sram_state
+      if(!rst_ni) begin
+        rvalid_q <= 1'b0;
+        id_q     <= '0;
+      end else begin
+        rvalid_q <= rvalid_d;
+        id_q     <= id_d;
+      end
     end
   end
 
