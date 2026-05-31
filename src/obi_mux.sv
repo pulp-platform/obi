@@ -58,6 +58,8 @@ module obi_mux #(
   sbr_port_a_chan_t mgr_port_a_in_sbr;
   logic [RequiredExtraIdWidth-1:0] selected_id, response_id;
   logic mgr_port_req, fifo_full, fifo_pop;
+  logic [NumSbrPorts-1:0] sbr_rsp_rvalid;
+  sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
 
   rr_arb_tree #(
     .NumIn     ( NumSbrPorts       ),
@@ -135,10 +137,17 @@ module obi_mux #(
   end
 
   if (MgrPortObiCfg.UseRReady) begin : gen_rready_connect
-    assign mgr_port_req_o.rready = sbr_ports_req_i[response_id].rready;
+    logic routed_rsp_ready;
+
+    always_comb begin
+      // R-4.1.1: route readiness from the active response owner
+      routed_rsp_ready = sbr_ports_req_i[response_id].rready;
+    end
+
+    assign mgr_port_req_o.rready = routed_rsp_ready;
+  end else begin : gen_no_rready_connect
   end
-  logic [NumSbrPorts-1:0] sbr_rsp_rvalid;
-  sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
+
   always_comb begin : proc_sbr_rsp
     for (int i = 0; i < NumSbrPorts; i++) begin
       sbr_rsp_r[i] = '0;
@@ -154,6 +163,7 @@ module obi_mux #(
   end
 
   if (MgrPortObiCfg.UseRReady) begin : gen_fifo_pop
+    // R-6: pop the response owner only after its R phase transfer completes
     assign fifo_pop = mgr_port_rsp_i.rvalid && mgr_port_req_o.rready;
   end else begin : gen_fifo_pop
     assign fifo_pop = mgr_port_rsp_i.rvalid;
