@@ -89,7 +89,7 @@ module obi_isolate #(
       .obi_req_i(demux_obi_reqs[1]),
       .obi_rsp_o(demux_obi_rsps[1])
     );
-  end else begin  // block: gen_iso_err_slv
+  end else begin : gen_iso_stall
     assign demux_obi_reqs[1] = '0;
     assign demux_obi_rsps[1] = '0;
     assign sbr_rsp_o         = demux_obi_rsps[0];
