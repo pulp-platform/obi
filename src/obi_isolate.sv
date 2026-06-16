@@ -38,7 +38,7 @@ module obi_isolate #(
   output logic     isolated_o
 );
 
-  localparam PendingCntWidth = $clog2(NumMaxTrans + 1);
+  localparam int unsigned PendingCntWidth = $clog2(NumMaxTrans + 1);
 
   typedef enum logic [1:0] {
     Normal,
