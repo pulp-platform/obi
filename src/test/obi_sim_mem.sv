@@ -51,6 +51,8 @@ module obi_sim_mem import obi_pkg::*; #(
   logic [ObiCfg.DataWidth/8-1:0] mon_be;
   logic [ObiCfg.IdWidth-1:0] mon_id;
 
+  logic warning_issued;
+
   assign mon_we    = obi_req_i.a.we;
   assign mon_addr  = obi_req_i.a.addr;
   assign mon_wdata = obi_req_i.a.wdata;
@@ -89,13 +91,15 @@ module obi_sim_mem import obi_pkg::*; #(
           end else begin
             // read response
             automatic obi_r_chan_t read_rsp = 'x;
-            if (!mem.exists(obi_req_i.a.addr)) begin
-              if (WarnUninitialized) begin
-                $warning("%t - Access to non-initialized address at 0x%016x by ID 0x%x.",
-                         $realtime, obi_req_i.a.addr, obi_req_i.a.aid);
-              end
-            end else begin
-              for (int i = 0; i < ObiCfg.DataWidth/8; i++) begin
+            warning_issued = 1'b0;
+            for (int i = 0; i < ObiCfg.DataWidth/8; i++) begin
+              if (!mem.exists(obi_req_i.a.addr+i)) begin
+                if (WarnUninitialized && !warning_issued) begin
+                  $warning("%t - Access to not fully initialized word at 0x%016x by ID 0x%x.",
+                           $realtime, obi_req_i.a.addr, obi_req_i.a.aid);
+                  warning_issued = 1'b1;
+                end
+              end else begin
                 read_rsp.rdata[8*i+:8] = mem[obi_req_i.a.addr+i];
               end
             end
