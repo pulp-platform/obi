@@ -220,8 +220,8 @@ module obi_isolate_intf #(
   `OBI_ASSIGN_TO_REQ(sbr_port_req, sbr_port, ObiCfg)
   `OBI_ASSIGN_FROM_RSP(sbr_port, sbr_port_rsp, ObiCfg)
 
-  `OBI_ASSIGN_FROM_REQ(mgr_port_req, mgr_port, ObiCfg)
-  `OBI_ASSIGN_TO_RSP(mgr_port, mgr_port_rsp, ObiCfg)
+  `OBI_ASSIGN_FROM_REQ(mgr_port, mgr_port_req, ObiCfg)
+  `OBI_ASSIGN_TO_RSP(mgr_port_rsp, mgr_port, ObiCfg)
 
   obi_isolate #(
     .ObiCfg              (ObiCfg),
