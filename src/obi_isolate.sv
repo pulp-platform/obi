@@ -1,12 +1,10 @@
-// Copyright 2026 Mosaic SoC Ltd.
+// Copyright 2026 ETH Zurich and University of Bologna.
 // Solderpad Hardware License, Version 0.51, see LICENSE for details.
 // SPDX-License-Identifier: SHL-0.51
 
 // Authors: Georg Rutishauser, georg@mosaic-soc.com
 
 `include "common_cells/registers.svh"
-`include "obi/typedef.svh"
-`include "obi/assign.svh"
 
 /// This module isolates an OBI port. When `isolate_i` is low, transactions are routed through from
 /// the manager to the subordinate port. When `isolate_i` is high, the module waits for any
@@ -190,6 +188,9 @@ module obi_isolate #(
 `endif
 
 endmodule : obi_isolate
+
+`include "obi/typedef.svh"
+`include "obi/assign.svh"
 
 /// Interface version of obi_isolate.
 module obi_isolate_intf #(
