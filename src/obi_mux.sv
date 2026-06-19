@@ -33,7 +33,6 @@ module obi_mux #(
 ) (
   input  logic clk_i,
   input  logic rst_ni,
-  input  logic testmode_i,
 
   input  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req_i,
   output sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp_o,
@@ -45,7 +44,7 @@ module obi_mux #(
     $fatal(1, "unimplemented");
   end
 
-  localparam int unsigned RequiredExtraIdWidth = cf_math_pkg::idx_width(NumSbrPorts);
+  localparam int unsigned RequiredExtraIdWidth = cc_pkg::idx_width(NumSbrPorts);
 
   logic [NumSbrPorts-1:0] sbr_ports_req, sbr_ports_gnt;
   sbr_port_a_chan_t [NumSbrPorts-1:0] sbr_ports_a;
@@ -61,7 +60,7 @@ module obi_mux #(
   logic [NumSbrPorts-1:0] sbr_rsp_rvalid;
   sbr_port_r_chan_t [NumSbrPorts-1:0] sbr_rsp_r;
 
-  rr_arb_tree #(
+  cc_rr_arb_tree #(
     .NumIn     ( NumSbrPorts       ),
     .DataType  ( sbr_port_a_chan_t ),
     .AxiVldRdy ( 1'b1              ),
@@ -114,7 +113,7 @@ module obi_mux #(
 
   end else begin : gen_no_id_assign
 
-    fifo_v3 #(
+    cc_fifo #(
       .FALL_THROUGH( 1'b0                 ),
       .DATA_WIDTH  ( RequiredExtraIdWidth ),
       .DEPTH       ( NumMaxTrans          )
@@ -122,7 +121,6 @@ module obi_mux #(
       .clk_i,
       .rst_ni,
       .flush_i   ('0),
-      .testmode_i,
 
       .full_o    ( fifo_full                                ),
       .empty_o   (),
@@ -180,7 +178,6 @@ module obi_mux_intf #(
 ) (
   input logic         clk_i,
   input logic         rst_ni,
-  input logic         testmode_i,
 
   OBI_BUS.Subordinate sbr_ports [NumSbrPorts],
 
@@ -219,7 +216,6 @@ module obi_mux_intf #(
   ) i_obi_mux (
     .clk_i,
     .rst_ni,
-    .testmode_i,
 
     .sbr_ports_req_i ( sbr_ports_req ),
     .sbr_ports_rsp_o ( sbr_ports_rsp ),

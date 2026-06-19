@@ -18,7 +18,6 @@ module obi_err_sbr #(
 ) (
   input  logic clk_i,
   input  logic rst_ni,
-  input  logic testmode_i,
 
   input  obi_req_t obi_req_i,
   output obi_rsp_t obi_rsp_o
@@ -43,14 +42,13 @@ module obi_err_sbr #(
     assign fifo_pop = obi_rsp_o.rvalid;
   end
 
-  fifo_v3 #(
+  cc_fifo #(
     .DEPTH        ( ObiCfg.UseRReady ? NumMaxTrans : 1 ),
     .FALL_THROUGH ( 1'b0                               ),
     .DATA_WIDTH   ( ObiCfg.IdWidth                     )
   ) i_id_fifo (
     .clk_i,
     .rst_ni,
-    .testmode_i,
     .flush_i   ( '0                             ),
     .full_o    ( fifo_full                      ),
     .empty_o   ( fifo_empty                     ),
@@ -76,7 +74,6 @@ module obi_err_sbr_intf #(
 ) (
   input  logic clk_i,
   input  logic rst_ni,
-  input  logic testmode_i,
 
   OBI_BUS.Subordinate sbr_port
 );
@@ -98,7 +95,6 @@ module obi_err_sbr_intf #(
   ) i_err_sbr (
     .clk_i,
     .rst_ni,
-    .testmode_i,
 
     .obi_req_i  ( obi_req ),
     .obi_rsp_o  ( obi_rsp )

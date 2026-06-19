@@ -40,7 +40,6 @@ module obi_atop_resolver
 ) (
     input logic clk_i,
     input logic rst_ni,
-    input logic testmode_i,
 
     input  sbr_port_obi_req_t sbr_port_req_i,
     output sbr_port_obi_rsp_t sbr_port_rsp_o,
@@ -93,7 +92,7 @@ module obi_atop_resolver
   logic [$clog2(SbrPortObiCfg.DataWidth/8)-1:0] lz_cnt;
   assign amo_operand_addr = lz_cnt >> $clog2(RiscvWordWidth / 8);
 
-  lzc #(
+  cc_lzc #(
       .WIDTH(SbrPortObiCfg.DataWidth / 8),
       .MODE (1'b0)
   ) i_count_addr (
@@ -103,7 +102,7 @@ module obi_atop_resolver
   );
 
   // Store the metadata at handshake
-  stream_fifo #(
+  cc_stream_fifo #(
       .T            (logic [SbrPortObiCfg.IdWidth-1:0]),
       .DEPTH        (NumTxns),
       .FALL_THROUGH (1'b0)
@@ -111,7 +110,6 @@ module obi_atop_resolver
       .clk_i,
       .rst_ni,
       .flush_i    ('0),
-      .testmode_i ('0),
       .usage_o    (),
       .valid_i (sbr_port_req_i.req && sbr_port_rsp_o.gnt),
       .ready_o(meta_ready),
@@ -160,14 +158,13 @@ module obi_atop_resolver
     end
   end
 
-  fifo_v3 #(
+  cc_fifo #(
       .FALL_THROUGH(1'b1),
       .dtype       (out_buffer_t),
       .DEPTH       (2)
   ) i_rdata_fifo (
       .clk_i,
       .rst_ni,
-      .testmode_i,
       .flush_i(1'b0),
       .full_o (rdata_full),
       .empty_o(rdata_empty),
@@ -547,7 +544,6 @@ module obi_atop_resolver_intf
 ) (
     input logic clk_i,
     input logic rst_ni,
-    input logic testmode_i,
 
     OBI_BUS.Subordinate sbr_port,
 
@@ -583,7 +579,6 @@ module obi_atop_resolver_intf
   ) i_obi_atop_resolver (
       .clk_i,
       .rst_ni,
-      .testmode_i,
       .sbr_port_req_i(sbr_port_req),
       .sbr_port_rsp_o(sbr_port_rsp),
       .mgr_port_req_o(mgr_port_req),

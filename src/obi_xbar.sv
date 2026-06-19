@@ -39,7 +39,6 @@ module obi_xbar #(
 ) (
   input  logic clk_i,
   input  logic rst_ni,
-  input  logic testmode_i,
 
   input  sbr_port_obi_req_t [NumSbrPorts-1:0] sbr_ports_req_i,
   output sbr_port_obi_rsp_t [NumSbrPorts-1:0] sbr_ports_rsp_o,
@@ -49,10 +48,10 @@ module obi_xbar #(
 
   input  addr_map_rule_t [NumAddrRules-1:0]   addr_map_i,
   input  logic [NumSbrPorts-1:0]              en_default_idx_i,
-  input  logic [NumSbrPorts-1:0][cf_math_pkg::idx_width(NumMgrPorts)-1:0] default_idx_i
+  input  logic [NumSbrPorts-1:0][cc_pkg::idx_width(NumMgrPorts)-1:0] default_idx_i
 );
 
-  logic [NumSbrPorts-1:0][cf_math_pkg::idx_width(NumMgrPorts)-1:0] sbr_port_select;
+  logic [NumSbrPorts-1:0][cc_pkg::idx_width(NumMgrPorts)-1:0] sbr_port_select;
 
   // Signals from the demuxes
   sbr_port_obi_req_t [NumSbrPorts-1:0][NumMgrPorts-1:0] sbr_reqs;
@@ -63,7 +62,7 @@ module obi_xbar #(
   sbr_port_obi_rsp_t [NumMgrPorts-1:0][NumSbrPorts-1:0] mgr_rsps;
 
   for (genvar i = 0; i < NumSbrPorts; i++) begin : gen_demux
-    addr_decode #(
+    cc_addr_decode #(
       .NoIndices ( NumMgrPorts                         ),
       .NoRules   ( NumAddrRules                        ),
       .addr_t    ( logic [MgrPortObiCfg.AddrWidth-1:0] ),
@@ -121,7 +120,6 @@ module obi_xbar #(
         ) i_err_sbr (
           .clk_i,
           .rst_ni,
-          .testmode_i,
           .obi_req_i (sbr_reqs[i][j]),
           .obi_rsp_o (sbr_rsps[i][j])
         );
@@ -145,7 +143,6 @@ module obi_xbar #(
     ) i_mux (
       .clk_i,
       .rst_ni,
-      .testmode_i,
       .sbr_ports_req_i ( mgr_reqs[i]        ),
       .sbr_ports_rsp_o ( mgr_rsps[i]        ),
       .mgr_port_req_o  ( mgr_ports_req_o[i] ),
@@ -180,7 +177,6 @@ module obi_xbar_intf #(
 ) (
   input logic         clk_i,
   input logic         rst_ni,
-  input logic         testmode_i,
 
   OBI_BUS.Subordinate sbr_ports [NumSbrPorts],
 
@@ -188,7 +184,7 @@ module obi_xbar_intf #(
 
   input  addr_map_rule_t [NumAddrRules-1:0]   addr_map_i,
   input  logic [NumSbrPorts-1:0]              en_default_idx_i,
-  input  logic [NumSbrPorts-1:0][cf_math_pkg::idx_width(NumMgrPorts)-1:0] default_idx_i
+  input  logic [NumSbrPorts-1:0][cc_pkg::idx_width(NumMgrPorts)-1:0] default_idx_i
 );
 
   `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)
@@ -229,7 +225,6 @@ module obi_xbar_intf #(
   ) i_obi_xbar (
     .clk_i,
     .rst_ni,
-    .testmode_i,
     .sbr_ports_req_i  ( sbr_ports_req    ),
     .sbr_ports_rsp_o  ( sbr_ports_rsp    ),
     .mgr_ports_req_o  ( mgr_ports_req    ),
