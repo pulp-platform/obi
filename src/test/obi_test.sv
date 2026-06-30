@@ -192,7 +192,6 @@ package obi_test;
     string       name;
     obi_driver_t drv;
     addr_t       a_queue[$];
-    logic        r_queue[$];
 
     function new(
       virtual OBI_BUS_DV #(
@@ -331,7 +330,7 @@ package obi_test;
     obi_driver_t drv;
     addr_t       a_queue[$];
     id_t         id_queue[$];
-    logic        r_queue[$];
+    logic        is_excl_queue[$];
 
     function new(
       virtual OBI_BUS_DV #(
@@ -369,11 +368,18 @@ package obi_test;
         automatic logic [  ObiCfg.DataWidth-1:0] a_wdata;
         automatic logic [    ObiCfg.IdWidth-1:0] a_aid;
         automatic obi_a_optional_t               a_optional;
+        automatic logic                          is_excl;
 
         rand_wait(AMinWaitCycles, AMaxWaitCycles);
         this.drv.recv_a(a_addr, a_we, a_be, a_wdata, a_aid, a_optional);
         this.a_queue.push_back(a_addr);
         this.id_queue.push_back(a_aid);
+        if (ObiCfg.OptionalCfg.UseAtop) begin
+          is_excl = a_optional.atop inside {obi_pkg::ATOPLR, obi_pkg::ATOPSC};
+        end else begin
+          is_excl = 1'b0;
+        end
+        this.is_excl_queue.push_back(is_excl);
       end
     endtask
 
@@ -381,20 +387,38 @@ package obi_test;
       forever begin
         automatic logic                        rand_success;
         automatic addr_t                       a_addr;
+        automatic logic                        is_excl;
         automatic logic [ObiCfg.DataWidth-1:0] r_rdata;
         automatic logic [  ObiCfg.IdWidth-1:0] r_rid;
         automatic logic                        r_err;
         automatic obi_r_optional_t             r_optional;
 
-        wait (a_queue.size() > 0);
-        wait (id_queue.size() > 0);
+        wait (this.a_queue.size() > 0);
+        wait (this.id_queue.size() > 0);
+        wait (this.is_excl_queue.size() > 0);
 
         a_addr = this.a_queue.pop_front();
         r_rid  = this.id_queue.pop_front();
+        is_excl = this.is_excl_queue.pop_front();
 
         r_err        = RandResp ? ($urandom() % 2) : 1'b0;
         rand_success = std::randomize(r_rdata); assert(rand_success);
         rand_success = std::randomize(r_optional); assert(rand_success);
+
+        if (ObiCfg.OptionalCfg.UseAtop) begin
+          // Requirement R13.1 and R13.2: For a LR.W/D related transaction success shall be signaled
+          //   via exokay [...].
+          if (!is_excl) begin
+            // Requirement R13.3: Other [non-exclusive] transactions shall signal exokay = 0.
+            r_optional.exokay = 1'b0;
+          end else if (r_err) begin
+            // Requirement R13.4: The exokay and err signals shall [not issue {err, exokay} = 2'b11].
+            r_optional.exokay = 1'b0;
+          end else begin
+            r_optional.exokay = RandResp ? ($urandom() % 2) : 1'b1;
+          end
+        end
+
         rand_wait(RMinWaitCycles, RMaxWaitCycles);
         this.drv.send_r(r_rdata, r_rid, r_err, r_optional);
       end
