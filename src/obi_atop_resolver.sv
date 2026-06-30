@@ -372,7 +372,7 @@ module obi_atop_resolver
   always_comb begin
     // feed-through
     sbr_port_rsp_o.gnt = rdata_ready & mgr_port_rsp_i.gnt & amo_available & meta_ready;
-    mgr_port_req_o.req = sbr_port_req_i.req & rdata_ready & amo_available;
+    mgr_port_req_o.req = sbr_port_req_i.req & rdata_ready & amo_available & meta_ready;
     mgr_port_req_o.a.addr = sbr_port_req_i.a.addr;
     mgr_port_req_o.a.we = sbr_port_req_i.a.we;
     mgr_port_req_o.a.wdata = sbr_port_req_i.a.wdata;
@@ -427,7 +427,7 @@ module obi_atop_resolver
             mgr_port_req_o.a.wdata = amo_result;
             mgr_port_req_o.a.be    = {RiscvWordWidth/8{1'b1}} <<
             (amo_operand_addr * RiscvWordWidth/8);
-            if (mgr_port_rsp_i.gnt && mgr_port_rsp_i.gnt) begin
+            if (mgr_port_req_o.req && mgr_port_rsp_i.gnt) begin
               // Do not forward the write response to the subordinate port
               amo_ignore_rsp_d = 1'b1;
               state_d = Idle;
