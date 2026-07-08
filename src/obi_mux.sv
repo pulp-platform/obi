@@ -68,7 +68,6 @@ module obi_mux #(
     .rst_ni,
     .clr_i   ( '0 ),
 
-    .flush_i ( 1'b0 ),
     .rr_i    ( '0 ),
 
     .req_i   ( sbr_ports_req                    ),
