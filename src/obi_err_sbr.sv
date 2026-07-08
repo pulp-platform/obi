@@ -43,12 +43,13 @@ module obi_err_sbr #(
   end
 
   cc_fifo #(
-    .DEPTH        ( ObiCfg.UseRReady ? NumMaxTrans : 1 ),
-    .FALL_THROUGH ( 1'b0                               ),
-    .DATA_WIDTH   ( ObiCfg.IdWidth                     )
+    .Depth       ( ObiCfg.UseRReady ? NumMaxTrans : 1 ),
+    .FallThrough ( 1'b0                               ),
+    .DataWidth   ( ObiCfg.IdWidth                     )
   ) i_id_fifo (
     .clk_i,
     .rst_ni,
+    .clr_i     ( '0                             ),
     .flush_i   ( '0                             ),
     .full_o    ( fifo_full                      ),
     .empty_o   ( fifo_empty                     ),

@@ -60,12 +60,13 @@ module obi_mux #(
 
   cc_rr_arb_tree #(
     .NumIn     ( NumSbrPorts       ),
-    .DataType  ( sbr_port_a_chan_t ),
+    .data_t    ( sbr_port_a_chan_t ),
     .AxiVldRdy ( 1'b1              ),
     .LockIn    ( 1'b1              )
   ) i_rr_arb (
     .clk_i,
     .rst_ni,
+    .clr_i   ( '0 ),
 
     .flush_i ( 1'b0 ),
     .rr_i    ( '0 ),
@@ -112,12 +113,13 @@ module obi_mux #(
   end else begin : gen_no_id_assign
 
     cc_fifo #(
-      .FALL_THROUGH( 1'b0                 ),
-      .DATA_WIDTH  ( RequiredExtraIdWidth ),
-      .DEPTH       ( NumMaxTrans          )
+      .FallThrough ( 1'b0                 ),
+      .DataWidth   ( RequiredExtraIdWidth ),
+      .Depth       ( NumMaxTrans          )
     ) i_fifo (
       .clk_i,
       .rst_ni,
+      .clr_i     ('0),
       .flush_i   ('0),
 
       .full_o    ( fifo_full                                ),

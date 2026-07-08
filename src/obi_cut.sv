@@ -33,11 +33,12 @@ module obi_cut #(
 );
 
   cc_spill_register #(
-    .T      ( obi_a_chan_t ),
+    .data_t ( obi_a_chan_t ),
     .Bypass ( BypassReq    )
   ) i_reg_a (
     .clk_i,
     .rst_ni,
+    .clr_i   ( '0 ),
     .valid_i ( sbr_port_req_i.req ),
     .ready_o ( sbr_port_rsp_o.gnt ),
     .data_i  ( sbr_port_req_i.a   ),
@@ -57,11 +58,12 @@ module obi_cut #(
   end
 
   cc_spill_register #(
-    .T      ( obi_r_chan_t ),
+    .data_t ( obi_r_chan_t ),
     .Bypass ( BypassRsp    )
   ) i_req_r (
     .clk_i,
     .rst_ni,
+    .clr_i   ( '0 ),
     .valid_i ( mgr_port_rsp_i.rvalid ),
     .ready_o ( ready_o               ),
     .data_i  ( mgr_port_rsp_i.r      ),

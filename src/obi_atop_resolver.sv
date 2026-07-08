@@ -93,8 +93,8 @@ module obi_atop_resolver
   assign amo_operand_addr = lz_cnt >> $clog2(RiscvWordWidth / 8);
 
   cc_lzc #(
-      .WIDTH(SbrPortObiCfg.DataWidth / 8),
-      .MODE (1'b0)
+      .Width (SbrPortObiCfg.DataWidth / 8),
+      .Mode  (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_count_addr (
       .in_i   (be_q),
       .cnt_o  (lz_cnt),
@@ -103,12 +103,13 @@ module obi_atop_resolver
 
   // Store the metadata at handshake
   cc_stream_fifo #(
-      .T            (logic [SbrPortObiCfg.IdWidth-1:0]),
-      .DEPTH        (NumTxns),
-      .FALL_THROUGH (1'b0)
+      .data_t      (logic [SbrPortObiCfg.IdWidth-1:0]),
+      .Depth       (NumTxns),
+      .FallThrough (1'b0)
   ) i_metadata_register (
       .clk_i,
       .rst_ni,
+      .clr_i      ('0),
       .flush_i    ('0),
       .usage_o    (),
       .valid_i (sbr_port_req_i.req && sbr_port_rsp_o.gnt),
@@ -159,12 +160,13 @@ module obi_atop_resolver
   end
 
   cc_fifo #(
-      .FALL_THROUGH(1'b1),
-      .dtype       (out_buffer_t),
-      .DEPTH       (2)
+      .FallThrough (1'b1),
+      .data_t      (out_buffer_t),
+      .Depth       (2)
   ) i_rdata_fifo (
       .clk_i,
       .rst_ni,
+      .clr_i  ('0),
       .flush_i(1'b0),
       .full_o (rdata_full),
       .empty_o(rdata_empty),

@@ -29,12 +29,13 @@ module obi_rready_converter #(
 
   logic fifo_ready, credit_left;
   cc_stream_fifo #(
-    .FALL_THROUGH ( 1'b1         ),
-    .DEPTH        ( Depth        ),
-    .T            ( obi_r_chan_t )
+    .FallThrough ( 1'b1         ),
+    .Depth       ( Depth        ),
+    .data_t      ( obi_r_chan_t )
   ) response_fifo_i (
     .clk_i,
     .rst_ni,
+    .clr_i      ( '0           ),
     .flush_i    ( 1'b0         ),
     .usage_o    (),
     .data_i     ( mgr_r_chan_i ),

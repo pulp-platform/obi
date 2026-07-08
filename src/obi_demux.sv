@@ -82,13 +82,13 @@ module obi_demux #(
   assign cnt_down = mgr_ports_rsp_i[select_q].rvalid && sbr_port_rready;
 
   cc_delta_counter #(
-    .WIDTH           ( CounterWidth ),
-    .STICKY_OVERFLOW ( 1'b0         )
+    .Width          ( CounterWidth ),
+    .StickyOverflow ( 1'b0         )
   ) i_counter (
     .clk_i,
     .rst_ni,
 
-    .clear_i   ( 1'b0                           ),
+    .clr_i     ( 1'b0                           ),
     .en_i      ( cnt_up ^ cnt_down              ),
     .load_i    ( 1'b0                           ),
     .down_i    ( cnt_down                       ),
