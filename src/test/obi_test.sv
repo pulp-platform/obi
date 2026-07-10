@@ -50,6 +50,7 @@ package obi_test;
       obi.rvalidpar  <= '1;
       obi.rdata      <= '0;
       obi.rid        <= '0;
+      obi.err        <= '0;
       obi.r_optional <= '0;
     endfunction
 
@@ -93,12 +94,14 @@ package obi_test;
     task send_r (
       input logic [ObiCfg.DataWidth-1:0] rdata,
       input logic [  ObiCfg.IdWidth-1:0] rid,
+      input logic                        err,
       input obi_r_optional_t             r_optional
     );
       obi.rvalid     <= #TA 1'b1;
       obi.rvalidpar  <= #TA 1'b0;
       obi.rdata      <= #TA rdata;
       obi.rid        <= #TA rid;
+      obi.err        <= #TA err;
       obi.r_optional <= #TA r_optional;
       cycle_start();
       if (ObiCfg.UseRReady) begin
@@ -109,6 +112,7 @@ package obi_test;
       obi.rvalidpar  <= #TA 1'b1;
       obi.rdata      <= #TA '0;
       obi.rid        <= #TA '0;
+      obi.err        <= #TA '0;
       obi.r_optional <= #TA '0;
     endtask
 
@@ -298,6 +302,8 @@ package obi_test;
     parameter obi_cfg_t    ObiCfg           = ObiDefaultConfig,
     parameter type         obi_a_optional_t = logic,
     parameter type         obi_r_optional_t = logic,
+    // Response Settings
+    parameter bit          RandResp         = 0,
     // Stimuli Parameters
     parameter time         TA               = 2ns,
     parameter time         TT               = 8ns,
@@ -373,6 +379,7 @@ package obi_test;
         automatic addr_t                       a_addr;
         automatic logic [ObiCfg.DataWidth-1:0] r_rdata;
         automatic logic [  ObiCfg.IdWidth-1:0] r_rid;
+        automatic logic                        r_err;
         automatic obi_r_optional_t             r_optional;
 
         wait (a_queue.size() > 0);
@@ -380,9 +387,11 @@ package obi_test;
 
         a_addr = this.a_queue.pop_front();
         r_rid  = this.id_queue.pop_front();
+
+        r_err        = RandResp ? ($urandom() % 2) : 1'b0;
         rand_success = std::randomize(r_rdata); assert(rand_success);
         rand_success = std::randomize(r_optional); assert(rand_success);
-        this.drv.send_r(r_rdata, r_rid, r_optional);
+        this.drv.send_r(r_rdata, r_rid, r_err, r_optional);
       end
     endtask
 
