@@ -41,6 +41,8 @@ module obi_demux #(
   logic sbr_port_gnt;
   logic sbr_port_rready;
   logic rsp_phase_stalled;
+  logic [NumMgrPorts-1:0] mgr_reqs;
+  logic [NumMgrPorts-1:0] mgr_connect;
 
   select_t select_d, select_q;
 
@@ -48,8 +50,8 @@ module obi_demux #(
     select_d = select_q;
     cnt_up = 1'b0;
     for (int i = 0; i < NumMgrPorts; i++) begin
-      mgr_ports_req_o[i].req = 1'b0;
-      mgr_ports_req_o[i].a   = '0;
+      mgr_reqs[i] = 1'b0;
+      mgr_connect[i] = 1'b0;
     end
     sbr_port_gnt = 1'b0;
 
@@ -57,9 +59,9 @@ module obi_demux #(
       // R-4.1.1: block source changes while a stalled R phase is active
       if (sbr_port_select_i == select_q || (!rsp_phase_stalled &&
           (in_flight == '0 || (in_flight == 1 && cnt_down)))) begin
-        mgr_ports_req_o[sbr_port_select_i].req = sbr_port_req_i.req;
-        mgr_ports_req_o[sbr_port_select_i].a   = sbr_port_req_i.a;
-        sbr_port_gnt                           = mgr_ports_rsp_i[sbr_port_select_i].gnt;
+        mgr_reqs[sbr_port_select_i]    = sbr_port_req_i.req;
+        mgr_connect[sbr_port_select_i] = 1'b1;
+        sbr_port_gnt                   = mgr_ports_rsp_i[sbr_port_select_i].gnt;
       end
     end
 
@@ -67,6 +69,11 @@ module obi_demux #(
       select_d = sbr_port_select_i;
       cnt_up = 1'b1;
     end
+  end
+
+  for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_req_assign
+    assign mgr_ports_req_o[i].req = mgr_reqs[i];
+    assign mgr_ports_req_o[i].a = mgr_connect[i] ? sbr_port_req_i.a : '0;
   end
 
   assign sbr_port_rsp_o.gnt    = sbr_port_gnt;
