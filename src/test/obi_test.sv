@@ -253,7 +253,10 @@ package obi_test;
       repeat (n_rsps) begin
         wait (a_queue.size() > 0);
         a_addr = this.a_queue.pop_front();
-        rand_wait(RMinWaitCycles, RMaxWaitCycles);
+
+        if (ObiCfg.UseRReady) begin
+          rand_wait(RMinWaitCycles, RMaxWaitCycles);
+        end
         drv.recv_r(r_rdata, r_rid, r_err, r_optional);
       end
     endtask
@@ -367,6 +370,7 @@ package obi_test;
         automatic obi_a_optional_t               a_optional;
         automatic logic                          is_excl;
 
+        rand_wait(AMinWaitCycles, AMaxWaitCycles);
         this.drv.recv_a(a_addr, a_we, a_be, a_wdata, a_aid, a_optional);
         this.a_queue.push_back(a_addr);
         this.id_queue.push_back(a_aid);
@@ -415,6 +419,7 @@ package obi_test;
           end
         end
 
+        rand_wait(RMinWaitCycles, RMaxWaitCycles);
         this.drv.send_r(r_rdata, r_rid, r_err, r_optional);
       end
     endtask
