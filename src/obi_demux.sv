@@ -49,10 +49,8 @@ module obi_demux #(
   always_comb begin : proc_req
     select_d = select_q;
     cnt_up = 1'b0;
-    for (int i = 0; i < NumMgrPorts; i++) begin
-      mgr_reqs[i] = 1'b0;
-      mgr_connect[i] = 1'b0;
-    end
+    mgr_reqs = '0;
+    mgr_connect = '0;
     sbr_port_gnt = 1'b0;
 
     if (!overflow) begin
