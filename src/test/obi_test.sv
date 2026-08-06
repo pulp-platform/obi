@@ -317,10 +317,9 @@ package obi_test;
         if (ObiCfg.BeFull) begin
           // Requirement R-8: No restrictions on BE
           assert(std::randomize(a_be));
-          assert(std::randomize(a_addr) with {
-            a_addr >= MinAddr;
-            a_addr <= MaxAddr;
-          });
+          // Back-calculate be_low and be_width
+          be_low = a_be == '0 ? 0 : $clog2(a_be & -a_be);
+          be_width = $clog2(a_be + 1) - be_low;
         end else begin
           // Requirement R-7:
           //  - At least one of the be bits shall be set to 1.
@@ -331,14 +330,14 @@ package obi_test;
             be_width > 0;
           });
           a_be = ((1 << (be_width)) - 1) << be_low;
-          // Requirement R-9: If i is the index of the least signification bit in be that is 1,
-          //  then the least significant addr bits shall be <= i.
-          assert(std::randomize(a_addr) with {
-            a_addr >= MinAddr;
-            a_addr <= MaxAddr;
-            a_addr[$clog2(ObiCfg.DataWidth/8)-1:0] <= be_low;
-          });
         end
+        // Requirement R-9: If i is the index of the least signification bit in be that is 1,
+        //  then the least significant addr bits shall be <= i.
+        assert(std::randomize(a_addr) with {
+          a_addr >= MinAddr;
+          a_addr <= MaxAddr;
+          a_addr[$clog2(ObiCfg.DataWidth/8)-1:0] <= be_low;
+        });
 
         a_optional = 'x;
         if (ObiCfg.OptionalCfg.UseAtop) begin
