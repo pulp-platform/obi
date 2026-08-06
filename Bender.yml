@@ -24,6 +24,7 @@ sources:
   - src/obi_to_apb.sv
   # Level 3
   - src/obi_atop_resolver.sv
+  - src/obi_atop_filter.sv
   - src/obi_cut.sv
   - src/obi_demux.sv
   - src/obi_err_sbr.sv
@@ -40,3 +41,4 @@ sources:
       - src/test/tb_obi_xbar.sv
       - src/test/atop_golden_mem_pkg.sv
       - src/test/tb_obi_atop_resolver.sv
+      - src/test/tb_obi_atop_filter.sv
