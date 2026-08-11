@@ -179,6 +179,9 @@ package obi_test;
     parameter int unsigned RMinWaitCycles   = 0,
     parameter int unsigned RMaxWaitCycles   = 100
   );
+
+    localparam int unsigned IdCount = 1 << ObiCfg.IdWidth;
+
     typedef obi_test::obi_driver #(
       .ObiCfg           ( ObiCfg           ),
       .obi_a_optional_t ( obi_a_optional_t ),
@@ -197,7 +200,7 @@ package obi_test;
     //  0: Id is not used by any outstanding request,
     //  >0: Id is used by that many non-atomic requests,
     //  -1: Id is used by an atomic request.
-    int aid_atop_scoreboard[(1<<ObiCfg.IdWidth)-1:0];
+    int aid_atop_scoreboard[IdCount];
     std::semaphore atop_sb_sem;
 
     function new(
@@ -223,7 +226,7 @@ package obi_test;
     endfunction
 
     function bit atop_id_available();
-      for (int unsigned i = 0; i < 1<<ObiCfg.IdWidth; i++) begin
+      for (int unsigned i = 0; i < IdCount; i++) begin
         if (this.aid_atop_scoreboard[i] == 0) begin
           return 1'b1;
         end
@@ -232,7 +235,7 @@ package obi_test;
     endfunction
 
     function bit non_atop_id_available();
-      for (int unsigned i = 0; i < 1<<ObiCfg.IdWidth; i++) begin
+      for (int unsigned i = 0; i < IdCount; i++) begin
         if (this.aid_atop_scoreboard[i] >= 0) begin
           return 1'b1;
         end
@@ -250,7 +253,8 @@ package obi_test;
       repeat (cycles) @(posedge this.drv.obi.clk_i);
     endtask
 
-    task automatic legalize_id(input obi_a_optional_t a_optional, output logic [ObiCfg.IdWidth-1:0] aid);
+    task automatic legalize_id(input obi_a_optional_t a_optional,
+                               output logic [ObiCfg.IdWidth-1:0] aid);
       automatic bit is_atop;
       if (ObiCfg.OptionalCfg.UseAtop) begin
         is_atop = (a_optional.atop != obi_pkg::ATOPNONE);
