@@ -12,7 +12,6 @@ module obi_rready_converter #(
 ) (
   input  logic        clk_i,
   input  logic        rst_ni,
-  input  logic        test_mode_i,
 
   input  obi_a_chan_t sbr_a_chan_i,
   input  logic        req_i,
@@ -29,15 +28,15 @@ module obi_rready_converter #(
 );
 
   logic fifo_ready, credit_left;
-  stream_fifo #(
-    .FALL_THROUGH ( 1'b1         ),
-    .DEPTH        ( Depth        ),
-    .T            ( obi_r_chan_t )
+  cc_stream_fifo #(
+    .FallThrough ( 1'b1         ),
+    .Depth       ( Depth        ),
+    .data_t      ( obi_r_chan_t )
   ) response_fifo_i (
     .clk_i,
     .rst_ni,
+    .clr_i      ( '0           ),
     .flush_i    ( 1'b0         ),
-    .testmode_i ( test_mode_i  ),
     .usage_o    (),
     .data_i     ( mgr_r_chan_i ),
     .valid_i    ( rvalid_i     ),

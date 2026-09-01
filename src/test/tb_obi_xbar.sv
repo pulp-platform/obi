@@ -17,7 +17,7 @@ module tb_obi_xbar;
   localparam int unsigned AddrWidth = 32;
   localparam int unsigned DataWidth = 32;
   localparam int unsigned MgrIdWidth = 5;
-  localparam int unsigned SbrIdWidth = MgrIdWidth+cf_math_pkg::idx_width(NumManagers);
+  localparam int unsigned SbrIdWidth = MgrIdWidth+cc_pkg::idx_width(NumManagers);
   localparam int unsigned AUserWidth = 4;
   localparam int unsigned WUserWidth = 2;
   localparam int unsigned RUserWidth = 3;
@@ -211,7 +211,6 @@ module tb_obi_xbar;
   ) i_dut (
     .clk_i            ( clk     ),
     .rst_ni           ( rst_n   ),
-    .testmode_i       ( 1'b0    ),
     .sbr_ports        ( mgr_bus ),
     .mgr_ports        ( sbr_bus ),
     .addr_map_i       ( AddrMap ),
