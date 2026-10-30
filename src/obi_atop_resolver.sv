@@ -330,11 +330,11 @@ module obi_atop_resolver
     end
   end
 
-  if (!MgrPortObiCfg.OptionalCfg.AUserWidth &&
-      !MgrPortObiCfg.OptionalCfg.WUserWidth &&
+  if (MgrPortObiCfg.OptionalCfg.AUserWidth == 0 &&
+      MgrPortObiCfg.OptionalCfg.WUserWidth == 0 &&
       !MgrPortObiCfg.OptionalCfg.UseProt &&
       !MgrPortObiCfg.OptionalCfg.UseMemtype &&
-      !MgrPortObiCfg.OptionalCfg.MidWidth &&
+      MgrPortObiCfg.OptionalCfg.MidWidth == 0 &&
       !MgrPortObiCfg.OptionalCfg.UseDbg) begin : gen_no_optional
     assign a_optional = '0;
   end
