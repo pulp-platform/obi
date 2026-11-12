@@ -252,11 +252,12 @@ module obi_atop_resolver
         // the LR and the SC, and if there is no other SC between the
         // LR and itself in program order.
 
-        // check whether another requester has made a write attempt
+        // A write of another requester breaks it; its SC does not, as it fails and stores nothing
         if ((unique_requester_id != reservation_q.requester) &&
             (sbr_port_req_i.a.addr == reservation_q.addr) &&
             (!((obi_atop_e'(sbr_port_req_i.a.a_optional.atop) inside {ATOPLR, ATOPSC}) ||
-               !sbr_port_req_i.a.a_optional.atop[5]) || sbr_port_req_i.a.we)) begin
+               !sbr_port_req_i.a.a_optional.atop[5]) ||
+             (sbr_port_req_i.a.we && obi_atop_e'(sbr_port_req_i.a.a_optional.atop) != ATOPSC))) begin
           reservation_d.valid = 1'b0;
         end
 
