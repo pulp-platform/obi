@@ -60,7 +60,7 @@ module relobi_sram_shim #(
 
 
   logic [2:0] rvalid_d, rvalid_q;
-  logic [ObiCfg.IdWidth-1:0] id_d, id_q;
+  logic [relobi_pkg::sigwidth(ObiCfg.IdWidth)-1:0] id_d, id_q;
   logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_d, other_ecc_q;
 
   logic      [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] use_buffered;
@@ -68,7 +68,7 @@ module relobi_sram_shim #(
   logic [2:0] req_o_tmr, req_o_scrubbed_tmr;
   logic [2:0] we, we_scrubbed;
   logic [2:0][ObiCfg.DataWidth/8-1:0] be;
-  logic [2:0][ObiCfg.IdWidth-1:0] aid;
+  logic [2:0][relobi_pkg::sigwidth(ObiCfg.IdWidth)-1:0] aid;
   logic [2:0][relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc;
   logic [2:0][ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] rmw_wdata_tmr;
   logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_buffer, rmw_wdata, scrub_wdata, scrub_rdata;
@@ -214,7 +214,7 @@ module relobi_sram_shim #(
     .fault_detected_o(voter_errs[3])
   );
   bitwise_TMR_voter_fail #(
-    .DataWidth( ObiCfg.IdWidth )
+    .DataWidth( relobi_pkg::sigwidth(ObiCfg.IdWidth) )
   ) i_aid_vote (
     .a_i        (aid[0]),
     .b_i        (aid[1]),
@@ -280,7 +280,7 @@ module relobi_sram_shim_tmr_part #(
   output logic gnt_o,
   input logic a_we_i,
   input logic [ObiCfg.DataWidth/8-1:0] a_be_i,
-  input logic [ObiCfg.IdWidth-1:0] a_aid_i,
+  input logic [relobi_pkg::sigwidth(ObiCfg.IdWidth)-1:0] a_aid_i,
   input a_optional_t a_optional_i,
   input logic [relobi_pkg::relobi_a_other_ecc_width(ObiCfg)-1:0] a_other_ecc_i,
   input logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_rmw,
@@ -289,7 +289,7 @@ module relobi_sram_shim_tmr_part #(
   output logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] use_buffered,
   output logic req_o,
   output logic a_we_o,
-  output logic [ObiCfg.IdWidth-1:0] a_aid_o,
+  output logic [relobi_pkg::sigwidth(ObiCfg.IdWidth)-1:0] a_aid_o,
   output logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_d,
   input logic [ObiCfg.AddrWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.AddrWidth)-1:0] a_addr_i,
   input logic [ObiCfg.AddrWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.AddrWidth)-1:0] addr_buffer,

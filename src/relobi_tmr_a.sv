@@ -53,7 +53,7 @@ module relobi_tmr_a #(
     .fault_detected_o (faults[3])
   );
   bitwise_TMR_voter_fail #(
-    .DataWidth(ObiCfg.IdWidth)
+    .DataWidth(relobi_pkg::sigwidth(ObiCfg.IdWidth))
   ) i_r_id (
     .a_i        (three_a_i[0].aid),
     .b_i        (three_a_i[1].aid),
@@ -182,7 +182,8 @@ module relobi_tmr_a #(
     assign voted_a_o.a_optional = '0;
   end
   bitwise_TMR_voter_fail #(
-    .DataWidth(hsiao_ecc_pkg::min_ecc(1+ObiCfg.DataWidth/8+ObiCfg.IdWidth+$bits(a_optional_t)))
+    .DataWidth(hsiao_ecc_pkg::min_ecc(1+ObiCfg.DataWidth/8+relobi_pkg::sigwidth(ObiCfg.IdWidth)+
+                                      $bits(a_optional_t)))
   ) i_r_id (
     .a_i        (three_a_i[0].other_ecc),
     .b_i        (three_a_i[1].other_ecc),

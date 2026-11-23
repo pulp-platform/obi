@@ -11,12 +11,12 @@ module relobi_r_other_corrector #(
   parameter type               r_optional_t  = logic,
   parameter int unsigned       OtherEccWidth = relobi_pkg::relobi_r_other_ecc_width(Cfg)
 ) (
-  input  logic [Cfg.IdWidth  -1:0] rid_i,
+  input  logic [relobi_pkg::sigwidth(Cfg.IdWidth)-1:0] rid_i,
   input  logic                     err_i,
   input  r_optional_t              r_optional_i,
   input  logic [OtherEccWidth-1:0] other_ecc_i,
 
-  output logic [Cfg.IdWidth  -1:0] rid_o,
+  output logic [relobi_pkg::sigwidth(Cfg.IdWidth)-1:0] rid_o,
   output logic                     err_o,
   output r_optional_t              r_optional_o,
   output logic [  OtherEccWidth-1:0] other_ecc_o,

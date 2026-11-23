@@ -13,13 +13,13 @@ module relobi_a_other_corrector #(
 ) (
   input  logic                       we_i,
   input  logic [Cfg.DataWidth/8-1:0] be_i,
-  input  logic [Cfg.IdWidth    -1:0] aid_i,
+  input  logic [relobi_pkg::sigwidth(Cfg.IdWidth)-1:0] aid_i,
   input  a_optional_t                a_optional_i,
   input  logic [  OtherEccWidth-1:0] other_ecc_i,
 
   output logic                       we_o,
   output logic [Cfg.DataWidth/8-1:0] be_o,
-  output logic [Cfg.IdWidth    -1:0] aid_o,
+  output logic [relobi_pkg::sigwidth(Cfg.IdWidth)-1:0] aid_o,
   output a_optional_t                a_optional_o,
   output logic [  OtherEccWidth-1:0] other_ecc_o,
 

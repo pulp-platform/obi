@@ -196,7 +196,7 @@ module relobi_mux #(
     );
   end
 
-  logic [2:0][SbrPortObiCfg.IdWidth-1:0] rsp_rid;
+  logic [2:0][relobi_pkg::sigwidth(SbrPortObiCfg.IdWidth)-1:0] rsp_rid;
 
   if (UseIdForRouting) begin : gen_id_assign
     if (!(MgrPortObiCfg.IdWidth > 0 &&
@@ -363,8 +363,8 @@ module relobi_mux_tmr_part #(
   end else begin : gen_aid_extend
     logic we;
     logic [MgrPortObiCfg.DataWidth/8-1:0] be;
-    logic [SbrPortObiCfg.IdWidth-1:0] sbr_aid;
-    logic [MgrPortObiCfg.IdWidth-1:0] mgr_aid;
+    logic [relobi_pkg::sigwidth(SbrPortObiCfg.IdWidth)-1:0] sbr_aid;
+    logic [relobi_pkg::sigwidth(MgrPortObiCfg.IdWidth)-1:0] mgr_aid;
     a_optional_t a_optional;
     logic [relobi_pkg::relobi_a_other_ecc_width(MgrPortObiCfg)-1:0] other_ecc;
     relobi_a_other_decoder #(
@@ -418,8 +418,8 @@ module relobi_mux_tmr_part #(
   end
 
   if (UseIdForRouting) begin : gen_id_assign
-    logic [MgrPortObiCfg.IdWidth-1:0] corr_rsp_rid;
-    logic [SbrPortObiCfg.IdWidth-1:0] rsp_rid;
+    logic [relobi_pkg::sigwidth(MgrPortObiCfg.IdWidth)-1:0] corr_rsp_rid;
+    logic [relobi_pkg::sigwidth(SbrPortObiCfg.IdWidth)-1:0] rsp_rid;
     relobi_r_other_decoder #(
       .Cfg          (MgrPortObiCfg),
       .r_optional_t (r_optional_t)
@@ -473,7 +473,7 @@ module relobi_mux_tmr_part #(
     assign hsiao_faults[2] = '0;
     assign sbr_r_tmr = '0;
   end else begin : gen_rid_decrease
-    logic [MgrPortObiCfg.IdWidth-1:0] mgr_rid_tmr;
+    logic [relobi_pkg::sigwidth(MgrPortObiCfg.IdWidth)-1:0] mgr_rid_tmr;
     relobi_r_other_decoder #(
       .Cfg          (MgrPortObiCfg),
       .r_optional_t (r_optional_t)

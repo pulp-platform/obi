@@ -147,9 +147,9 @@
     logic                                                                           we;         \
     logic [                                                       DATA_WIDTH/8-1:0] be;         \
     logic [                      DATA_WIDTH+hsiao_ecc_pkg::min_ecc(DATA_WIDTH)-1:0] wdata;      \
-    logic [                                                           ID_WIDTH-1:0] aid;        \
+    logic [                                   `OBI_TYPEDEF_MIN_WIDTH(ID_WIDTH)-1:0] aid;        \
     a_optional_t                                                                    a_optional; \
-    logic [hsiao_ecc_pkg::min_ecc(1+DATA_WIDTH/8+ID_WIDTH+$bits(a_optional_t))-1:0] other_ecc;  \
+    logic [hsiao_ecc_pkg::min_ecc(1+DATA_WIDTH/8+`OBI_TYPEDEF_MIN_WIDTH(ID_WIDTH)+$bits(a_optional_t))-1:0] other_ecc; \
   } a_chan_t;
 
 `define RELOBI_TYPEDEF_DEFAULT_REQ_T(req_t, a_chan_t) \
@@ -168,10 +168,10 @@
 `define RELOBI_TYPEDEF_R_CHAN_T(r_chan_t, RDATA_WIDTH, ID_WIDTH, r_optional_t)     \
   typedef struct packed {                                                          \
     logic [       RDATA_WIDTH+hsiao_ecc_pkg::min_ecc(RDATA_WIDTH)-1:0] rdata;      \
-    logic [                                              ID_WIDTH-1:0] rid;        \
+    logic [                      `OBI_TYPEDEF_MIN_WIDTH(ID_WIDTH)-1:0] rid;        \
     logic                                                              err;        \
     r_optional_t                                                       r_optional; \
-    logic [hsiao_ecc_pkg::min_ecc(ID_WIDTH+1+$bits(r_optional_t))-1:0] other_ecc;  \
+    logic [hsiao_ecc_pkg::min_ecc(`OBI_TYPEDEF_MIN_WIDTH(ID_WIDTH)+1+$bits(r_optional_t))-1:0] other_ecc; \
   } r_chan_t;
 
 `define RELOBI_TYPEDEF_RSP_T(rsp_t, r_chan_t) \

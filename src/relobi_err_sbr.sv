@@ -39,8 +39,8 @@ module relobi_err_sbr #(
   assign fault_o[0] = |voter_errs | |hsiao_errs_transpose[0];
   assign fault_o[1] = |hsiao_errs_transpose[1];
 
-  logic [ObiCfg.IdWidth-1:0] rid_d, rid_q;
-  logic [2:0][ObiCfg.IdWidth-1:0] rid_tmr;
+  logic [relobi_pkg::sigwidth(ObiCfg.IdWidth)-1:0] rid_d, rid_q;
+  logic [2:0][relobi_pkg::sigwidth(ObiCfg.IdWidth)-1:0] rid_tmr;
   logic [2:0] fifo_full, fifo_empty, fifo_pop;
 
   logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_d, other_ecc_q;
@@ -74,7 +74,7 @@ module relobi_err_sbr #(
   end
 
   bitwise_TMR_voter_fail #(
-    .DataWidth( ObiCfg.IdWidth )
+    .DataWidth( relobi_pkg::sigwidth(ObiCfg.IdWidth) )
   ) i_rid_vote (
     .a_i        (rid_tmr[0]),
     .b_i        (rid_tmr[1]),
@@ -108,7 +108,8 @@ module relobi_err_sbr #(
     rel_fifo #(
       .Depth        ( ObiCfg.UseRReady ? NumMaxTrans : 1 ),
       .FallThrough ( 1'b0                               ),
-      .DataWidth   ( ObiCfg.IdWidth + relobi_pkg::relobi_r_other_ecc_width(ObiCfg) ),
+      .DataWidth   ( relobi_pkg::sigwidth(ObiCfg.IdWidth) +
+                     relobi_pkg::relobi_r_other_ecc_width(ObiCfg) ),
       .TmrStatus   ( 1'b1                              ),
       .DataHasEcc  ( 1'b1                              )
     ) i_id_fifo (
@@ -152,11 +153,11 @@ module relobi_err_sbr_tmr_part #(
 ) (
   input  logic                       we_i,
   input  logic [ObiCfg.DataWidth/8-1:0] be_i,
-  input  logic [ObiCfg.IdWidth    -1:0] aid_i,
+  input  logic [relobi_pkg::sigwidth(ObiCfg.IdWidth)-1:0] aid_i,
   input  a_optional_t                a_optional_i,
   input  logic [relobi_pkg::relobi_a_other_ecc_width(ObiCfg)-1:0] other_ecc_i,
 
-  output logic [ObiCfg.IdWidth    -1:0] rid_o,
+  output logic [relobi_pkg::sigwidth(ObiCfg.IdWidth)-1:0] rid_o,
   output logic [relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc_o,
 
   output logic [1:0] fault_o
