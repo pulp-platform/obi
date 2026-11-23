@@ -252,7 +252,7 @@ module relobi_isolate_tmr_part #(
   // Update counters
   always_comb begin
     in_flight_d = in_flight_q_voted;
-    if (out_req_req_o && (isolate_state_q_voted == Normal)) begin
+    if (out_req_req_o && out_rsp_gnt_i) begin
       in_flight_d++;
     end
     if (out_rsp_rvalid_i && rready_i) begin
