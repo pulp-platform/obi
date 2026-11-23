@@ -296,7 +296,9 @@ module relobi_isolate_tmr_part #(
       Drain: begin
         out_req_req_o = 1'b0;
         in_rsp_gnt_o  = 1'b0;
-        if (in_flight_q_voted == '0) begin
+        if (!isolate_i) begin
+          isolate_state_d = Normal;
+        end else if (in_flight_q_voted == '0) begin
           isolate_state_d = Isolate;
         end
       end
