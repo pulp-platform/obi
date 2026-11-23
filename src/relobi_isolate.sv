@@ -77,8 +77,8 @@ module relobi_isolate #(
       .sbr_port_req_i        ( sbr_port_req_i ),
       .sbr_port_rsp_o        ( sbr_port_rsp_o ),
 
-      .mgr_ports_req_o       ( { in_req, err_req } ),
-      .mgr_ports_rsp_i       ( { in_rsp, err_rsp } ),
+      .mgr_ports_req_o       ( { err_req, in_req } ),
+      .mgr_ports_rsp_i       ( { err_rsp, in_rsp } ),
 
       .fault_o               ( demux_fault )
     );
