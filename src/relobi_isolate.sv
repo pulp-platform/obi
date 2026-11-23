@@ -148,6 +148,7 @@ module relobi_isolate #(
       assign alt_in_flight_sync[i][j] = in_flight_sync[(i+j+1) % 3];
     end
     relobi_isolate_tmr_part #(
+      .MaxPending   ( MaxPending   ),
       .CounterWidth ( CounterWidth ),
       .cnt_t        ( cnt_t        )
     ) i_tmr_part (
