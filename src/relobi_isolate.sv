@@ -48,10 +48,12 @@ module relobi_isolate #(
   typedef logic [CounterWidth-1:0] cnt_t;
 
   logic [3:0] faults;
-  assign fault_o = |faults;
+  logic [$bits(obi_a_chan_t)-1:0] a_chan_faults;
+  logic [$bits(obi_r_chan_t)-1:0] r_chan_faults;
+  assign fault_o = |{faults, a_chan_faults, r_chan_faults};
 
   obi_req_t in_req, out_req;
-  obi_rsp_t in_rsp, out_rsp;
+  obi_rsp_t in_rsp;
 
   if (TerminateTransaction) begin : gen_err_rsp
     obi_req_t err_req;
@@ -171,21 +173,30 @@ module relobi_isolate #(
   assign in_req_a  = in_req.a;
   assign out_req.a = obi_a_chan_t'(out_req_a);
   assign in_rsp.r  = obi_r_chan_t'(in_rsp_r);
-  assign out_rsp_r = out_rsp.r;
+  assign out_rsp_r = mgr_port_rsp_i.r;
 
-  for (genvar i = 0; i < $bits(obi_a_chan_t); i++) begin : gen_chan_connections
+  for (genvar i = 0; i < $bits(obi_a_chan_t); i++) begin : gen_a_chan_connections
     logic isolated_out_voted;
     TMR_voter_fail i_isolate_vote_tmr_part (
       .a_i        (isolated_out[0]),
       .b_i        (isolated_out[1]),
       .c_i        (isolated_out[2]),
       .majority_o (isolated_out_voted),
-      .fault_detected_o(faults[4+i])
+      .fault_detected_o(a_chan_faults[i])
     );
     assign out_req_a[i] = isolated_out_voted ? '0 : in_req_a[i];
-    if (i < $bits(obi_r_chan_t)) begin
-      assign in_rsp_r[i] = isolated_out_voted ? '0 : in_rsp_r[i];
-    end
+  end
+
+  for (genvar i = 0; i < $bits(obi_r_chan_t); i++) begin : gen_r_chan_connections
+    logic isolated_out_voted;
+    TMR_voter_fail i_isolate_vote_tmr_part (
+      .a_i        (isolated_out[0]),
+      .b_i        (isolated_out[1]),
+      .c_i        (isolated_out[2]),
+      .majority_o (isolated_out_voted),
+      .fault_detected_o(r_chan_faults[i])
+    );
+    assign in_rsp_r[i] = isolated_out_voted ? '0 : out_rsp_r[i];
   end
 
 endmodule
