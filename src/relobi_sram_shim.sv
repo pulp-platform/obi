@@ -17,7 +17,8 @@ module relobi_sram_shim #(
   parameter bit                EnableScrubber = 1'b0,
   parameter int unsigned       ScrubberMemWords = 256,
   parameter bit                ScrubberCorrectRead = 1'b1,
-  parameter int unsigned       AddrWidth = EnableScrubber ? $clog2(ScrubberMemWords) : ObiCfg.AddrWidth
+  parameter int unsigned       AddrWidth = EnableScrubber ? $clog2(ScrubberMemWords) :
+                                                             ObiCfg.AddrWidth
 ) (
   input  logic                          clk_i,
   input  logic                          rst_ni,
@@ -71,7 +72,8 @@ module relobi_sram_shim #(
   logic [2:0][relobi_pkg::sigwidth(ObiCfg.IdWidth)-1:0] aid;
   logic [2:0][relobi_pkg::relobi_r_other_ecc_width(ObiCfg)-1:0] other_ecc;
   logic [2:0][ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] rmw_wdata_tmr;
-  logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_buffer, rmw_wdata, scrub_wdata, scrub_rdata;
+  logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] wdata_buffer, rmw_wdata;
+  logic [ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth)-1:0] scrub_wdata, scrub_rdata;
   logic [ObiCfg.AddrWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.AddrWidth)-1:0] addr_buffer;
   logic [2:0] r_gnt;
   logic [2:0] scrub_gnt;
@@ -97,7 +99,8 @@ module relobi_sram_shim #(
     .fault_detected_o(voter_errs[1])
   );
 
-  for (genvar i = 0; i < ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth); i++) begin : gen_scrub_wdata
+  for (genvar i = 0; i < ObiCfg.DataWidth+hsiao_ecc_pkg::min_ecc(ObiCfg.DataWidth); i++)
+  begin : gen_scrub_wdata
     assign scrub_wdata[i] = use_buffered[i] ? rmw_wdata[i] : obi_req_i.a.wdata[i];
   end
 
@@ -194,7 +197,8 @@ module relobi_sram_shim #(
       .addr_o(addr_decoded[i]),
       .hsiao_errs(hsiao_errs[4*i+:4])
     );
-    assign addr_decoded_trimmed[i] = addr_decoded[i][AddrWidth-1+$clog2(ObiCfg.AddrWidth/8):$clog2(ObiCfg.AddrWidth/8)];
+    assign addr_decoded_trimmed[i] =
+      addr_decoded[i][AddrWidth-1+$clog2(ObiCfg.AddrWidth/8):$clog2(ObiCfg.AddrWidth/8)];
   end
 
   TMR_voter_fail i_we_vote (
