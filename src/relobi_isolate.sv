@@ -50,7 +50,8 @@ module relobi_isolate #(
   logic [3:0] faults;
   logic [$bits(obi_a_chan_t)-1:0] a_chan_faults;
   logic [$bits(obi_r_chan_t)-1:0] r_chan_faults;
-  assign fault_o = |{faults, a_chan_faults, r_chan_faults};
+  logic [1:0] demux_fault, err_sbr_fault;
+  assign fault_o = |{faults, a_chan_faults, r_chan_faults, demux_fault, err_sbr_fault};
 
   obi_req_t in_req, out_req;
   obi_rsp_t in_rsp;
@@ -77,7 +78,9 @@ module relobi_isolate #(
       .sbr_port_rsp_o        ( sbr_port_rsp_o ),
 
       .mgr_ports_req_o       ( { in_req, err_req } ),
-      .mgr_ports_rsp_i       ( { in_rsp, err_rsp } )
+      .mgr_ports_rsp_i       ( { in_rsp, err_rsp } ),
+
+      .fault_o               ( demux_fault )
     );
 
     relobi_err_sbr #(
@@ -93,11 +96,15 @@ module relobi_isolate #(
       .testmode_i  ( 1'b0   ),
 
       .obi_req_i   ( err_req ),
-      .obi_rsp_o   ( err_rsp )
+      .obi_rsp_o   ( err_rsp ),
+
+      .fault_o     ( err_sbr_fault )
     );
   end else begin : gen_no_err_rsp
     assign in_req = sbr_port_req_i;
     assign sbr_port_rsp_o = in_rsp;
+    assign demux_fault    = '0;
+    assign err_sbr_fault  = '0;
   end
 
   logic [2:0] rready, mgr_rready;
