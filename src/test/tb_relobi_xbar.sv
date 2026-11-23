@@ -475,7 +475,7 @@ module tb_relobi_xbar;
     .TA ( ApplTime ),
     .TT ( TestTime ),
     .MinAddr (32'h0000_0000),
-    .MaxAddr (32'h0001_1000)
+    .MaxAddr (32'h0001_0fff)
   ) rand_manager_t;
 
   localparam obi_pkg::obi_cfg_t SbrConfig = '{
