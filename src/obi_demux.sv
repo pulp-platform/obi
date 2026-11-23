@@ -40,23 +40,26 @@ module obi_demux #(
   logic [CounterWidth-1:0] in_flight;
   logic sbr_port_gnt;
   logic sbr_port_rready;
+  logic rsp_phase_stalled;
+  logic [NumMgrPorts-1:0] mgr_reqs;
+  logic [NumMgrPorts-1:0] mgr_connect;
 
   select_t select_d, select_q;
 
   always_comb begin : proc_req
     select_d = select_q;
     cnt_up = 1'b0;
-    for (int i = 0; i < NumMgrPorts; i++) begin
-      mgr_ports_req_o[i].req = 1'b0;
-      mgr_ports_req_o[i].a   = '0;
-    end
+    mgr_reqs = '0;
+    mgr_connect = '0;
     sbr_port_gnt = 1'b0;
 
     if (!overflow) begin
-      if (sbr_port_select_i == select_q || in_flight == '0) begin
-        mgr_ports_req_o[sbr_port_select_i].req = sbr_port_req_i.req;
-        mgr_ports_req_o[sbr_port_select_i].a   = sbr_port_req_i.a;
-        sbr_port_gnt                           = mgr_ports_rsp_i[sbr_port_select_i].gnt;
+      // R-4.1.1: block source changes while a stalled R phase is active
+      if (sbr_port_select_i == select_q || (!rsp_phase_stalled &&
+          (in_flight == '0 || (in_flight == 1 && cnt_down)))) begin
+        mgr_reqs[sbr_port_select_i]    = sbr_port_req_i.req;
+        mgr_connect[sbr_port_select_i] = 1'b1;
+        sbr_port_gnt                   = mgr_ports_rsp_i[sbr_port_select_i].gnt;
       end
     end
 
@@ -66,20 +69,29 @@ module obi_demux #(
     end
   end
 
+  for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_req_assign
+    assign mgr_ports_req_o[i].req = mgr_reqs[i];
+    assign mgr_ports_req_o[i].a = mgr_connect[i] ? sbr_port_req_i.a : '0;
+  end
+
   assign sbr_port_rsp_o.gnt    = sbr_port_gnt;
   assign sbr_port_rsp_o.r      = mgr_ports_rsp_i[select_q].r;
   assign sbr_port_rsp_o.rvalid = mgr_ports_rsp_i[select_q].rvalid;
 
   if (ObiCfg.UseRReady) begin : gen_rready
     assign sbr_port_rready = sbr_port_req_i.rready;
+    assign rsp_phase_stalled = sbr_port_rsp_o.rvalid && !sbr_port_rready;
+
     for (genvar i = 0; i < NumMgrPorts; i++) begin : gen_rready
       assign mgr_ports_req_o[i].rready = sbr_port_req_i.rready;
     end
   end else begin : gen_no_rready
     assign sbr_port_rready = 1'b1;
+    assign rsp_phase_stalled = 1'b0;
   end
 
-  assign cnt_down = mgr_ports_rsp_i[select_q].rvalid && sbr_port_rready;
+  // R-6: retire the active response only after its R phase transfer completes
+  assign cnt_down = sbr_port_rsp_o.rvalid && sbr_port_rready;
 
   delta_counter #(
     .WIDTH           ( CounterWidth ),
@@ -164,4 +176,3 @@ module obi_demux_intf #(
   );
 
 endmodule
-

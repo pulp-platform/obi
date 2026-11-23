@@ -16,7 +16,7 @@ jobs:
     name: Check license
     runs-on: ubuntu-latest
     steps:
-      - uses: pulp-platform/pulp-actions/lint-license@v2
+      - uses: pulp-platform/pulp-actions/lint-license@v2.5.1
         with:
           license: |
             Copyright (\d{4}(-\d{4})?\s)?ETH Zurich and University of Bologna.
@@ -27,7 +27,7 @@ jobs:
   lint-verilog:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: chipsalliance/verible-linter-action@main
         with:
           paths: |
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Mirror and check
-        uses: pulp-platform/pulp-actions/gitlab-ci@v2
+        uses: pulp-platform/pulp-actions/gitlab-ci@v2.5.1
         # Skip on forks or pull requests from forks due to missing secrets.
         if: >
           github.repository == 'pulp-platform/obi' &&
