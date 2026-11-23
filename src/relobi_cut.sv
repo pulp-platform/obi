@@ -39,6 +39,9 @@ module relobi_cut #(
 
   logic [1:0] faults;
   logic [1:0] corrector_faults;
+  // err_o[1] (uncorrectable) stays 0 with the external corrector
+  logic [1:0] spill_err_a, spill_err_r;
+  assign faults[0] = spill_err_a[0];
   assign fault_o[0] = |faults | corrector_faults[0];
   assign fault_o[1] = corrector_faults[1];
 
@@ -69,7 +72,7 @@ module relobi_cut #(
     .T      ( obi_a_chan_t ),
     .Bypass ( BypassReq    ),
     .TmrHandshake ( 1'b1 ),
-    .DataCorrector ( 1'b1 )
+    .ExtDataCorrector ( 1'b1 )
   ) i_reg_a (
     .clk_i,
     .rst_ni,
@@ -79,7 +82,7 @@ module relobi_cut #(
     .valid_o ( mgr_port_req_o.req ),
     .ready_i ( mgr_port_rsp_i.gnt ),
     .data_o  ( mgr_port_req_o.a   ),
-    .err_o   ( faults[0]          ),
+    .err_o   ( spill_err_a        ),
     .data_corrector_o ( corrector_req.a ),
     .data_corrected_i ( corrected_req.a )
   );
@@ -89,7 +92,7 @@ module relobi_cut #(
       .T      ( obi_r_chan_t ),
       .Bypass ( BypassRsp    ),
       .TmrHandshake ( 1'b1 ),
-      .DataCorrector ( 1'b1 )
+      .ExtDataCorrector ( 1'b1 )
     ) i_reg_r (
       .clk_i,
       .rst_ni,
@@ -99,11 +102,13 @@ module relobi_cut #(
       .valid_o ( sbr_port_rsp_o.rvalid ),
       .ready_i ( sbr_port_req_i.rready ),
       .data_o  ( sbr_port_rsp_o.r      ),
-      .err_o   ( faults[1]             ),
+      .err_o   ( spill_err_r           ),
       .data_corrector_o ( corrector_rsp.r ),
       .data_corrected_i ( corrected_rsp.r )
     );
+    assign faults[1] = spill_err_r[0];
   end else begin : gen_no_use_rready
+    assign spill_err_r = '0;
     assign faults[1] = 1'b0;
     assign corrector_rsp.r = '0;
     always_ff @(posedge clk_i or negedge rst_ni) begin
