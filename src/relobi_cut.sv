@@ -79,7 +79,7 @@ module relobi_cut #(
     .valid_o ( mgr_port_req_o.req ),
     .ready_i ( mgr_port_rsp_i.gnt ),
     .data_o  ( mgr_port_req_o.a   ),
-    .fault_o ( faults[0]          ),
+    .err_o   ( faults[0]          ),
     .data_corrector_o ( corrector_req.a ),
     .data_corrected_i ( corrected_req.a )
   );
@@ -99,7 +99,7 @@ module relobi_cut #(
       .valid_o ( sbr_port_rsp_o.rvalid ),
       .ready_i ( sbr_port_req_i.rready ),
       .data_o  ( sbr_port_rsp_o.r      ),
-      .fault_o ( faults[1]             ),
+      .err_o   ( faults[1]             ),
       .data_corrector_o ( corrector_rsp.r ),
       .data_corrected_i ( corrected_rsp.r )
     );
