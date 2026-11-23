@@ -340,7 +340,7 @@ module relobi_isolate_tmr_part #(
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      isolate_state_q <= Isolate;
+      isolate_state_q <= Normal;
       in_flight_q     <= '0;
     end else begin
       isolate_state_q <= isolate_state_d;
