@@ -128,13 +128,13 @@ module relobi_isolate #(
   end
 
   if (ObiCfg.UseRReady) begin : gen_rready
-    assign rready = in_rsp.rready;
+    assign rready = in_req.rready;
     always_comb begin
       mgr_port_req_o = out_req;
       mgr_port_req_o.rready = mgr_rready;
     end
   end else begin : gen_no_rready
-    assign rready = 1'b1;
+    assign rready = '1;
     assign mgr_port_req_o = out_req;
   end
 
