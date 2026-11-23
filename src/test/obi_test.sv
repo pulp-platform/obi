@@ -228,6 +228,7 @@ package obi_test;
       automatic logic [  ObiCfg.DataWidth-1:0] a_wdata;
       automatic logic [    ObiCfg.IdWidth-1:0] a_aid;
       automatic obi_a_optional_t               a_optional;
+      automatic logic                          rand_success;
 
       repeat (n_reqs) begin
         rand_wait(AMinWaitCycles, AMaxWaitCycles);
@@ -235,7 +236,7 @@ package obi_test;
         a_addr     = addr_t'($urandom_range(MinAddr, MaxAddr));
         a_we       = $urandom() % 2;
         a_be       = $urandom() % (1 << (ObiCfg.DataWidth/8));
-        a_wdata    = $urandom() % (1 << ObiCfg.DataWidth-1);
+        rand_success = std::randomize(a_wdata); assert(rand_success);
         a_aid      = $urandom() % (1 << ObiCfg.IdWidth);
         a_optional = obi_a_optional_t'($urandom());
 
