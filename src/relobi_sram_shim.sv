@@ -266,6 +266,7 @@ module relobi_sram_shim #(
 
 endmodule
 
+(* keep_redundancy *)
 module relobi_sram_shim_tmr_part #(
   parameter obi_pkg::obi_cfg_t ObiCfg    = obi_pkg::ObiDefaultConfig,
   parameter type               relobi_req_t = logic,

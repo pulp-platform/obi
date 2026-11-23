@@ -311,6 +311,7 @@ endmodule
 
 (* no_ungroup *)
 (* no_boundary_optimization *)
+(* keep_redundancy *)
 module relobi_mux_tmr_part #(
   parameter obi_pkg::obi_cfg_t SbrPortObiCfg      = obi_pkg::ObiDefaultConfig,
   parameter obi_pkg::obi_cfg_t MgrPortObiCfg      = SbrPortObiCfg,

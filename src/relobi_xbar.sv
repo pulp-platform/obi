@@ -221,6 +221,7 @@ endmodule
 
 (* no_ungroup *)
 (* no_boundary_optimization *)
+(* keep_redundancy *)
 module relobi_xbar_tmr_part #(
   parameter int unsigned NumSbrPorts = 32'd0,
   parameter int unsigned NumMgrPorts = 32'd0,

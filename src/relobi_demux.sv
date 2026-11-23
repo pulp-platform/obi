@@ -133,6 +133,7 @@ endmodule
 
 (* no_ungroup *)
 (* no_boundary_optimization *)
+(* keep_redundancy *)
 module relobi_demux_tmr_part #(
   parameter int unsigned NumMgrPorts = 32'd0,
   parameter int unsigned CounterWidth = 7,

@@ -145,6 +145,7 @@ module relobi_err_sbr #(
 
 endmodule
 
+(* keep_redundancy *)
 module relobi_err_sbr_tmr_part #(
   parameter obi_pkg::obi_cfg_t ObiCfg        = obi_pkg::ObiDefaultConfig,
   parameter type               a_optional_t  = logic,

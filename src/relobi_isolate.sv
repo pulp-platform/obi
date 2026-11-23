@@ -190,6 +190,7 @@ module relobi_isolate #(
 
 endmodule
 
+(* keep_redundancy *)
 module relobi_isolate_tmr_part #(
   parameter int unsigned       MaxPending = 4,
   parameter int unsigned CounterWidth = $clog2(MaxPending + 32'd1),
