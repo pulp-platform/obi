@@ -218,6 +218,8 @@ module relobi_xbar_dut_wrapper #(
   localparam int unsigned NumMRBits = $bits(mgr_bus_r_chan_t);
   localparam int unsigned NumSABits = $bits(sbr_bus_a_chan_t);
   localparam int unsigned NumSRBits = $bits(sbr_bus_r_chan_t);
+  // Scoreboard depth: xbar NumMaxTrans plus 2 A + 2 R beats buffered in the manager-side cut
+  localparam int unsigned ScbDepth = NumMaxTrans + 4;
   // logic [NumMABits-1:0] mgr_bus_a_chan_flat [NumManagers][NumSubordinates][$];
   logic mgr_bus_a_chan_flat_empty [NumManagers][NumSubordinates];
   logic [NumManagers-1:0][NumSubordinates-1:0] mgr_bus_a_chan_flat_pop;
@@ -248,7 +250,7 @@ module relobi_xbar_dut_wrapper #(
       fifo_v3 #(
         .FALL_THROUGH (1'b0),
         .DATA_WIDTH (NumMABits),
-        .DEPTH (NumMaxTrans)
+        .DEPTH (ScbDepth)
       ) i_fifo_mgr_a_chan (
         .clk_i (clk),
         .rst_ni (rst_n),
@@ -268,7 +270,7 @@ module relobi_xbar_dut_wrapper #(
     fifo_v3 #(
       .FALL_THROUGH (1'b0),
       .DATA_WIDTH ($clog2(NumSubordinates)),
-      .DEPTH (NumMaxTrans)
+      .DEPTH (ScbDepth)
     ) i_fifo_mgr_idx (
       .clk_i (clk),
       .rst_ni (rst_n),
@@ -287,7 +289,7 @@ module relobi_xbar_dut_wrapper #(
     fifo_v3 #(
       .FALL_THROUGH (1'b0),
       .DATA_WIDTH (NumSRBits),
-      .DEPTH (NumMaxTrans*NumManagers)
+      .DEPTH (ScbDepth*NumManagers)
     ) i_fifo_sbr_r_chan (
       .clk_i (clk),
       .rst_ni (rst_n),
