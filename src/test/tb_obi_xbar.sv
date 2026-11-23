@@ -566,9 +566,21 @@ module tb_obi_xbar;
     `OBI_ASSIGN_TO_RSP(sbr_bus_rsp[i], sbr_bus[i], SbrConfig)
   end
 
+  int unsigned num_errors = 0;
+  always @(posedge clk) begin
+    if (rst_n && i_dut_wrapper.interface_error) begin
+      num_errors++;
+      $error("Scoreboard mismatch: sbr_error=%b mgr_error=%b",
+             i_dut_wrapper.sbr_error, i_dut_wrapper.mgr_error);
+    end
+  end
+
   initial begin
     wait(&end_of_sim);
     repeat (1000) @(posedge clk);
+    if (num_errors > 0) begin
+      $fatal(1, "Encountered %0d scoreboard mismatches.", num_errors);
+    end
     $display("Simulation stopped as all Masters transferred their data, Success.",);
     $finish();
   end
