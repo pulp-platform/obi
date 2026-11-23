@@ -29,7 +29,8 @@ $(TBS_VSIM): build_vsim
 ifdef gui
 	$(VSIM) $(patsubst %_vsim, %, $@) -voptargs="+acc"
 else
-	$(VSIM) -c $(patsubst %_vsim, %, $@) -voptargs="+acc" -do "run -all; quit -f"
+	$(VSIM) -c $(patsubst %_vsim, %, $@) -voptargs="+acc" -onfinish stop \
+	  -do "run -all; quit -code [expr {[coverage attribute -name TESTSTATUS -concise] >= 2}]"
 endif
 
 .PHONY: all_vsim
@@ -39,7 +40,8 @@ all_vsim: $(TBS_VSIM)
 VCS_SCRIPT_ARGS += -assert svaext +v2k -override_timescale=10ns/10ps -kdb
 VCS_COMPILE_ARGS += -debug_access+all -override_timescale=10ns/10ps
 VCS_COMPILE_ARGS += +lint=TFIPC-L +lint=PCWM +warn=noCWUC +warn=noUII-L
-VCS_RUNTIME_ARGS =
+# Return a non-zero exit code on $error/$fatal
+VCS_RUNTIME_ARGS = -exitstatus
 
 scripts/compile_vcs.sh: Bender.yml Bender.lock
 	mkdir -p scripts
