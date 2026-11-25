@@ -13,13 +13,13 @@ module relobi_a_other_decoder #(
 ) (
   input  logic                       we_i,
   input  logic [Cfg.DataWidth/8-1:0] be_i,
-  input  logic [relobi_pkg::sigwidth(Cfg.IdWidth)-1:0] aid_i,
+  input  logic [(Cfg.IdWidth != 0 ? Cfg.IdWidth : 1)-1:0] aid_i,
   input  a_optional_t                a_optional_i,
   input  logic [  OtherEccWidth-1:0] other_ecc_i,
 
   output logic                       we_o,
   output logic [Cfg.DataWidth/8-1:0] be_o,
-  output logic [relobi_pkg::sigwidth(Cfg.IdWidth)-1:0] aid_o,
+  output logic [(Cfg.IdWidth != 0 ? Cfg.IdWidth : 1)-1:0] aid_o,
   output a_optional_t                a_optional_o,
 
   output logic [1:0]                 fault_o
