@@ -13,7 +13,7 @@ module relobi_a_other_encoder #(
 ) (
   input  logic                       we_i,
   input  logic [Cfg.DataWidth/8-1:0] be_i,
-  input  logic [relobi_pkg::sigwidth(Cfg.IdWidth)-1:0] aid_i,
+  input  logic [(Cfg.IdWidth != 0 ? Cfg.IdWidth : 1)-1:0] aid_i,
   input  a_optional_t                a_optional_i,
 
   output logic [  OtherEccWidth-1:0] other_ecc_o
